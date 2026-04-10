@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env
+*.pyc
+record_manager_cache.db
+record_manager_cache.db-*
+*.sqlite
+requirements-dev.txt
+pyproject.toml

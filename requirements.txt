@@ -1,0 +1,50 @@
+# Direct runtime dependencies only (manually maintained)
+
+# ── Web framework ──────────────────────────────────────────────────────────────
+fastapi[standard]==0.135.3
+pydantic-settings==2.13.1
+python-dotenv==1.2.2
+
+# ── Database ───────────────────────────────────────────────────────────────────
+motor==3.7.1
+pymongo>=4.10,<4.16
+
+# ── Auth ───────────────────────────────────────────────────────────────────────
+python-jose[cryptography]==3.5.0
+cryptography==46.0.7
+
+# ── Resilience + async ──────────────────────────────────────────────────────────
+tenacity==9.1.4
+httpx==0.28.1
+anyio>=4.0
+
+# ── Google APIs ────────────────────────────────────────────────────────────────
+google-auth==2.49.1
+google-api-python-client==2.194.0
+
+# ── LangChain ecosystem ─────────────────────────────────────────────────────────
+langchain==0.3.28
+langchain-core==0.3.84
+langchain-text-splitters==0.3.11
+langchain-community>=0.3.0
+langchain-mongodb==0.7.2
+langchain-nomic==0.1.5
+langsmith>=0.2.0
+
+# ── LangGraph ──────────────────────────────────────────────────────────────────
+langgraph>=0.2.0
+langgraph-checkpoint-mongodb>=0.1.0
+
+# ── Google Classroom loader ─────────────────────────────────────────────────────
+langchain-google-classroom==0.1.2
+langchain-google-genai==2.1.12
+langchain-groq==0.3.8
+
+# ── Reranking (ONNX-based — no PyTorch / no sentence-transformers) ─────────────
+flashrank>=0.2.9
+
+# ── Web search fallback ─────────────────────────────────────────────────────────
+tavily-python>=0.3.0
+duckduckgo-search>=6.0.0
+
+pypdf>=4.0.0
