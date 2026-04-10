@@ -1,3 +1,3 @@
-from app.api.routes import auth, cache, courses, health, ingest, profile, tokens
+from app.api.routes import auth, health, tokens
 
-__all__ = ["auth", "cache", "courses", "health", "ingest", "profile", "tokens"]
+__all__ = ["auth", "health", "tokens"]
