@@ -1,0 +1,120 @@
+// ── Auth ──────────────────────────────────────────────
+export interface AuthStatus {
+  authenticated: boolean;
+  user?: {
+    name: string;
+    email: string;
+    picture: string;
+  };
+}
+
+// ── Courses ───────────────────────────────────────────
+export interface Course {
+  id: string;
+  name: string;
+  section?: string;
+  description?: string;
+  teacher: string;
+  enrollment_count?: number;
+  assignment_count?: number;
+  state: 'ACTIVE' | 'ARCHIVED' | 'PROVISIONED' | 'DECLINED';
+  alternateLink?: string;
+  creationTime?: string;
+}
+
+// ── Profile ───────────────────────────────────────────
+export interface WeakTopic {
+  topic: string;
+  confidence: number;
+  course_id: string;
+  course_name?: string;
+}
+
+export interface Profile {
+  session_count: number;
+  weak_topics: WeakTopic[];
+}
+
+// ── Chat ──────────────────────────────────────────────
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  citations?: Citation[];
+  tutor_drafts?: TutorDraft[];
+  explainability?: Explainability;
+  critic?: CriticResult;
+  trace_url?: string;
+}
+
+export interface Citation {
+  title: string;
+  content_type: 'document' | 'announcement' | 'assignment' | 'material';
+  link?: string;
+  snippet?: string;
+  score?: number;
+}
+
+export interface TutorDraft {
+  agent_id: string;
+  style: 'concise' | 'explanatory';
+  response_text: string;
+}
+
+export interface Explainability {
+  confidence_label: 'High' | 'Medium' | 'Low';
+  top_score: number;
+  retrieval_label: string;
+  sources: SourceScore[];
+}
+
+export interface SourceScore {
+  title: string;
+  score: number;
+  content_type?: string;
+}
+
+export interface CriticResult {
+  score: number;
+  feedback: string;
+  approved: boolean;
+}
+
+// ── SSE Events ────────────────────────────────────────
+export type SSEEvent =
+  | { type: 'status';           data: { message: string } }
+  | { type: 'agent_thought';    data: { node: string; summary: string; data?: unknown } }
+  | { type: 'retrieval_label';  data: { label: string; top_score: number; confidence_label: string } }
+  | { type: 'tutor_draft';      data: TutorDraft }
+  | { type: 'token';            data: { text: string } }
+  | { type: 'done';             data: { response: string; citations: Citation[]; tutor_drafts: TutorDraft[]; explainability: Explainability; critic: CriticResult; trace_url?: string } }
+  | { type: 'error';            data: { message: string; code?: string } };
+
+// ── Agent nodes (Thought Log) ─────────────────────────
+export const AGENT_NODES = [
+  'Supervisor',
+  'Rewriter',
+  'RAG',
+  'Tutor A',
+  'Tutor B',
+  'Synthesizer',
+  'Critic',
+] as const;
+
+export type AgentNode = typeof AGENT_NODES[number];
+
+export interface AgentThought {
+  node: AgentNode;
+  summary: string;
+  timestamp: Date;
+  data?: unknown;
+  status: 'pending' | 'active' | 'done';
+}
+
+// ── Ingest ────────────────────────────────────────────
+export interface IngestResponse {
+  status: string;
+  message: string;
+  course_id: string;
+}
