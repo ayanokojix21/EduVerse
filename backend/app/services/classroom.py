@@ -24,21 +24,36 @@ def list_courses(credentials: Credentials) -> list[dict[str, str]]:
     ]
 
 
-def list_coursework(credentials: Credentials, course_id: str) -> list[dict]:
+def list_coursework(credentials: Credentials, course_id: str) -> dict:
     service = build("classroom", "v1", credentials=credentials, cache_discovery=False)
-    response = service.courses().courseWork().list(courseId=course_id).execute()
     
-    coursework_list = response.get("courseWork", [])
-    return [
-        {
+    def parse_item(item, kind):
+        return {
             "id": item.get("id", ""),
-            "title": item.get("title", ""),
-            "description": item.get("description", ""),
-            "state": item.get("state", ""),
+            "title": item.get("title") or "Announcement",
+            "description": item.get("description") or item.get("text", ""),
+            "state": item.get("state", "PUBLISHED"),
             "dueDate": item.get("dueDate", None),
             "creationTime": item.get("creationTime", ""),
             "alternateLink": item.get("alternateLink", ""),
             "materials": item.get("materials", []),
+            "type": kind
         }
-        for item in coursework_list
-    ]
+
+    # 1. Fetch CourseWork (Assignments)
+    cw_res = service.courses().courseWork().list(courseId=course_id).execute()
+    assignments = [parse_item(i, "assignment") for i in cw_res.get("courseWork", [])]
+    
+    # 2. Fetch CourseWorkMaterials
+    cwm_res = service.courses().courseWorkMaterials().list(courseId=course_id).execute()
+    materials = [parse_item(i, "material") for i in cwm_res.get("courseWorkMaterial", [])]
+    
+    # 3. Fetch Announcements
+    ann_res = service.courses().announcements().list(courseId=course_id).execute()
+    announcements = [parse_item(i, "announcement") for i in ann_res.get("announcements", [])]
+
+    return {
+        "assignments": assignments,
+        "materials": materials,
+        "announcements": announcements
+    }

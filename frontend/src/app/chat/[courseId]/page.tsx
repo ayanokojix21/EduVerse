@@ -13,7 +13,7 @@ import remarkGfm from 'remark-gfm';
 
 import { api } from '@/lib/api';
 import type { 
-  Course, Coursework, Message, SSEEvent, AgentThought, TutorDraft, 
+  Course, CourseContent, CourseItem, Message, SSEEvent, AgentThought, TutorDraft, 
   Explainability, Citation, CriticResult 
 } from '@/types';
 import styles from './chat.module.css';
@@ -28,7 +28,7 @@ export default function ChatPage() {
   const courseId = params.courseId as string;
 
   const [course, setCourse] = useState<Course | null>(null);
-  const [coursework, setCoursework] = useState<Coursework[]>([]);
+  const [coursework, setCoursework] = useState<CourseContent | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -227,7 +227,11 @@ export default function ChatPage() {
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {coursework.flatMap(w => w.materials || [])
+                {coursework && [
+                        ...(coursework.assignments || []),
+                        ...(coursework.materials || []),
+                        ...(coursework.announcements || [])
+                      ].flatMap(w => w.materials || [])
                     .filter(m => m.driveFile)
                     .map((mat, idx) => (
                     <div key={idx} style={{ padding: '0.875rem 1rem', borderRadius: '0.75rem', background: 'var(--bg-subtle)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -259,7 +263,11 @@ export default function ChatPage() {
                     </div>
                 ))}
 
-                {coursework.flatMap(w => w.materials || []).filter(m => m.driveFile).length === 0 && (
+                {coursework && [
+                        ...(coursework.assignments || []),
+                        ...(coursework.materials || []),
+                        ...(coursework.announcements || [])
+                      ].flatMap(w => w.materials || []).filter(m => m.driveFile).length === 0 && (
                     <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', textAlign: 'center', padding: '2rem 1rem', background: 'var(--bg-subtle)', borderRadius: '0.75rem', border: '1px dashed var(--border)' }}>
                         No PDFs attached to this course.
                     </div>

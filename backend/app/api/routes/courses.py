@@ -32,12 +32,30 @@ async def get_courses(
 
     try:
         courses = await anyio.to_thread.run_sync(list_courses, credentials)
-        for course in courses:
+        import asyncio
+        from googleapiclient.discovery import build
+
+        async def enrich_course(course):
+            # 1. MongoDB check
             chunk_count = await db[settings.mongo_parent_chunks_collection].count_documents({
                 "user_id": user_id, 
                 "course_id": course["id"]
             })
             course["is_ingested"] = chunk_count > 0
+
+            # 2. Assignment Count check
+            def get_count():
+                try:
+                    service = build("classroom", "v1", credentials=credentials, cache_discovery=False)
+                    res = service.courses().courseWork().list(courseId=course["id"]).execute()
+                    return len(res.get("courseWork", []))
+                except Exception:
+                    return 0
+
+            count = await anyio.to_thread.run_sync(get_count)
+            course["assignment_count"] = count
+
+        await asyncio.gather(*(enrich_course(c) for c in courses))
         return courses
     except HttpError as exc:
         status_code = getattr(exc, "status_code", None)
@@ -54,7 +72,7 @@ async def get_coursework(
     course_id: str,
     request: Request,
     token_service: OAuthTokenService = Depends(get_oauth_token_service),
-) -> list[dict]:
+) -> dict:
     user_id = request.state.user_id
 
     try:

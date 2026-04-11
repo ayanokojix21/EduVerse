@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, BookOpen, AlertCircle, FileText, Calendar, Paperclip, ExternalLink, Video } from 'lucide-react';
 
 import { api } from '@/lib/api';
-import type { Course, Coursework } from '@/types';
+import type { Course, CourseContent, CourseItem } from '@/types';
 import styles from '../../dashboard/dashboard.module.css';
 
 export default function CoursePage() {
@@ -17,9 +17,10 @@ export default function CoursePage() {
   const courseId = params.courseId as string;
 
   const [course, setCourse] = useState<Course | null>(null);
-  const [coursework, setCoursework] = useState<Coursework[]>([]);
+  const [coursework, setCoursework] = useState<CourseContent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'assignments' | 'materials' | 'announcements'>('assignments');
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/');
@@ -105,24 +106,41 @@ export default function CoursePage() {
                         </span>
                     )}
                     <span className="badge badge-secondary">
-                        {coursework.length} Assignments
+                        {coursework?.assignments?.length || 0} Assignments
                     </span>
                 </div>
             </section>
 
         <section style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <h2 className="font-display" style={{ fontSize: '1.5rem' }}>Coursework & Assignments</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                <button 
+                  onClick={() => setActiveTab('assignments')}
+                  style={{ background: 'none', border: 'none', padding: '0.5rem 0', fontWeight: 600, fontSize: '1rem', color: activeTab === 'assignments' ? 'var(--primary)' : 'var(--text-tertiary)', borderBottom: activeTab === 'assignments' ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer', transition: 'all 0.2s' }}
+                >
+                  Assignments ({coursework?.assignments?.length || 0})
+                </button>
+                <button 
+                  onClick={() => setActiveTab('materials')}
+                  style={{ background: 'none', border: 'none', padding: '0.5rem 0', fontWeight: 600, fontSize: '1rem', color: activeTab === 'materials' ? 'var(--primary)' : 'var(--text-tertiary)', borderBottom: activeTab === 'materials' ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer', transition: 'all 0.2s' }}
+                >
+                  Materials ({coursework?.materials?.length || 0})
+                </button>
+                <button 
+                  onClick={() => setActiveTab('announcements')}
+                  style={{ background: 'none', border: 'none', padding: '0.5rem 0', fontWeight: 600, fontSize: '1rem', color: activeTab === 'announcements' ? 'var(--primary)' : 'var(--text-tertiary)', borderBottom: activeTab === 'announcements' ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer', transition: 'all 0.2s' }}
+                >
+                  Announcements ({coursework?.announcements?.length || 0})
+                </button>
             </div>
             
             <div className={styles.courseGrid}>
-                {coursework.length === 0 ? (
+                {!coursework || !coursework[activeTab] || coursework[activeTab].length === 0 ? (
                     <div style={{ padding: '3rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--tertiary)' }}>
                         <FileText size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-                        <p>No coursework found for this class.</p>
+                        <p>No {activeTab} found for this class.</p>
                     </div>
                 ) : (
-                    coursework.map(work => (
+                    coursework[activeTab].map(work => (
                         <motion.div 
                             key={work.id}
                             initial={{ opacity: 0, scale: 0.95 }}
@@ -232,7 +250,11 @@ export default function CoursePage() {
                 </p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', overflowY: 'auto' }}>
-                    {coursework.flatMap(w => w.materials || [])
+                    {coursework && [
+                        ...(coursework.assignments || []),
+                        ...(coursework.materials || []),
+                        ...(coursework.announcements || [])
+                      ].flatMap(w => w.materials || [])
                         .filter(m => m.driveFile)
                         .map((mat, idx) => (
                         <div key={idx} style={{ padding: '0.875rem 1rem', borderRadius: '0.75rem', background: 'var(--bg-subtle)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -264,7 +286,11 @@ export default function CoursePage() {
                         </div>
                     ))}
 
-                    {coursework.flatMap(w => w.materials || []).filter(m => m.driveFile).length === 0 && (
+                    {coursework && [
+                        ...(coursework.assignments || []),
+                        ...(coursework.materials || []),
+                        ...(coursework.announcements || [])
+                      ].flatMap(w => w.materials || []).filter(m => m.driveFile).length === 0 && (
                         <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', textAlign: 'center', padding: '2rem 1rem', background: 'var(--bg-subtle)', borderRadius: '0.75rem', border: '1px dashed var(--border)' }}>
                             No PDFs attached to this course.
                         </div>

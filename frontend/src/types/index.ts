@@ -52,7 +52,7 @@ export interface CourseworkMaterial {
   };
 }
 
-export interface Coursework {
+export interface CourseItem {
   id: string;
   title: string;
   description: string;
@@ -65,6 +65,13 @@ export interface Coursework {
   creationTime: string;
   alternateLink: string;
   materials?: CourseworkMaterial[];
+  type: string;
+}
+
+export interface CourseContent {
+  assignments: CourseItem[];
+  materials: CourseItem[];
+  announcements: CourseItem[];
 }
 
 // ── Profile ───────────────────────────────────────────

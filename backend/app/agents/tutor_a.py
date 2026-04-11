@@ -72,7 +72,7 @@ def _build_context_text(context_docs: list[dict]) -> str:
     for i, doc in enumerate(context_docs, 1):
         meta = doc.get("metadata", {})
         title = meta.get("title", "Unknown Source")
-        content = doc.get("content", "")[:600]  # cap per-source to keep prompt lean
+        content = doc.get("content", "")  # Use full parent chunk content to ensure missing data is captured
         lines.append(f"[{i}] {title}\n{content}")
     return "\n\n".join(lines)
 

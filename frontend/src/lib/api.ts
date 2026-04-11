@@ -70,7 +70,7 @@ export const api = {
     list: (session?: Session | null) => 
       apiFetch<any[]>('/courses', { session }),
     getCoursework: (courseId: string, session?: Session | null) => 
-      apiFetch<any[]>(`/courses/${courseId}/coursework`, { session }),
+      apiFetch<any>(`/courses/${courseId}/coursework`, { session }),
   },
   profile: {
     get: (session?: Session | null) => 
