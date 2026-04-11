@@ -79,5 +79,5 @@ class AgentState(TypedDict):
     critic_feedback: list[str]   # actionable issues; cleared after synthesis retry
 
     # ── Observability ────────────────────────────────────────────────────────
-    agent_thoughts: list[dict]   # live node log, appended by each node
+    agent_thoughts: Annotated[list[dict], operator.add]
     trace_url: str
