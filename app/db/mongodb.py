@@ -27,6 +27,7 @@ async def mongo_lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("MongoDB connected — db=%s", settings.mongo_db_name)
 
     # ── Regular (non-Atlas) indexes ──────────────────────────────────────────
+    # oauth_tokens: unique per user
     await db[settings.mongo_oauth_tokens_collection].create_index(
         "user_id", unique=True
     )
@@ -67,11 +68,24 @@ async def mongo_lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as exc:          # noqa: BLE001
         logger.warning("Reranker warm-up failed (non-fatal): %s", exc)
 
-    setattr(app.state, MONGO_CLIENT_STATE_KEY, client)
-    setattr(app.state, MONGO_DB_STATE_KEY, db)
-
+    # ── Compile LangGraph agent pipeline ────────────────────────────────────
     try:
-        yield
+        from app.agents.graph import compile_graph
+        from langgraph.checkpoint.mongodb.aio import AsyncMongoDBSaver # type: ignore[import-untyped]
+        
+        async with AsyncMongoDBSaver.from_conn_string(settings.mongo_uri, db_name=settings.mongo_db_name) as checkpointer:
+            await compile_graph(checkpointer)
+            logger.info("LangGraph agent pipeline compiled and ready.")
+            
+            setattr(app.state, MONGO_CLIENT_STATE_KEY, client)
+            setattr(app.state, MONGO_DB_STATE_KEY, db)
+            
+            # App lifecycle block - checkpointer remains active
+            yield
+            
+    except Exception as exc:          # noqa: BLE001
+        logger.error("Lifespan error: %s", exc)
+        raise
     finally:
         client.close()
         logger.info("MongoDB client closed.")
