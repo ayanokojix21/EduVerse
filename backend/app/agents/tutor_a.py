@@ -3,7 +3,20 @@ Node 4 — Tutor Agent A  (Concise / Formula-First style)
 
 Receives state dispatched via ``Send("tutor_agent_a", state)`` from the
 ``dispatch_tutors`` conditional edge.  Produces a ``TutorDraft`` that is
-appended to ``state["tutor_drafts"]`` via the ``operator.add`` reducer.
+appended to ``state["tutor_drafts"]`` via the ``_reset_or_add_drafts`` reducer.
+
+Memory handling
+---------------
+Uses ``trim_messages`` to extract the last 8 messages (4 Q&A turns) and
+injects them via ``MessagesPlaceholder`` into a structured ``ChatPromptTemplate``.
+This lets the LLM see the actual conversation roles (Human/AI) rather than a
+flat text blob, significantly improving instruction-following on contextual
+follow-up questions.
+
+Adaptive learning
+-----------------
+``weak_topics`` (loaded from MongoDB before the graph runs) are injected into
+the system prompt so Tutor A can proactively address known knowledge gaps.
 
 Style contract
 --------------
@@ -21,36 +34,32 @@ The response body is followed by exactly two structured blocks::
 
 LangChain best-practices
 --------------------------
-* Module-level LLM singleton (avoids warm-up on every request).
+* Module-level prompt + chain singletons (avoids warm-up on every request).
 * ``@traceable`` with a descriptive name for LangSmith span clarity.
-* Weak topics read directly from the state — no extra DB call needed
-  because ``context_docs`` and ``task`` are already in state.
 """
 from __future__ import annotations
 
 import logging
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import trim_messages
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableConfig
 from langchain_groq import ChatGroq
 from langsmith import traceable
 
 from app.agents.state import AgentState, TutorDraft
 from app.config import get_settings
+from app.utils.llm_pool import RoundRobinLLM
 from app.utils.parse_output import parse_tutor_output
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-# ── LLM singleton ────────────────────────────────────────────────────────────
+# ── LLM pool (round-robin chat pool with auto-fallback) ─────────────────────
+# Pool: gpt-oss-120b → llama-3.3-70b → kimi-k2 → llama-4-scout → gpt-oss-20b → llama-3.1-8b
 
-_tutor_a_llm = ChatGroq(
-    model=settings.groq_tutor_a_model,
-    temperature=0.2,
-    api_key=settings.groq_api_key,
-    streaming=True,
-)
+_tutor_a_llm = RoundRobinLLM.for_role("chat", temperature=0.2, streaming=True)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -68,6 +77,36 @@ def _build_context_text(context_docs: list[dict]) -> str:
     return "\n\n".join(lines)
 
 
+# ── Prompt template (module-level singleton) ──────────────────────────────────
+
+_TUTOR_A_SYSTEM = (
+    "You are Tutor A — a precise, formula-first AI tutor.\n\n"
+    "Style rules:\n"
+    "• Lead with the exact definition or formula.\n"
+    "• Use bullet points for structured answers.\n"
+    "• Reference sources inline with [1], [2], etc.\n"
+    "• Be concise — eliminate all fluff.\n"
+    "• For \"{difficulty}\" difficulty, calibrate depth accordingly.\n"
+    "• If task is \"quiz\": provide a focused practice question with a worked answer.\n\n"
+    "Task type: {task}\n\n"
+    "{weak_topics_section}\n\n"
+    "Course Content (use these as your primary sources):\n"
+    "{context_text}\n\n"
+    "---\n"
+    "End your response with EXACTLY these two lines (no extra text after):\n"
+    "CITATIONS_JSON: [{{\"source_index\":1,\"title\":\"...\",\"alternate_link\":\"...\","
+    "\"content_type\":\"...\",\"item_id\":\"...\",\"snippet\":\"...\"}}]\n"
+    "REASONING: one sentence describing your approach"
+)
+
+_tutor_a_prompt = ChatPromptTemplate.from_messages([
+    ("system", _TUTOR_A_SYSTEM),
+    MessagesPlaceholder("history", optional=True),
+    ("human", "{question}"),
+])
+# Chain is built per request via ainvoke on the pool (streaming=True is passed at pool level).
+
+
 # ── Node ─────────────────────────────────────────────────────────────────────
 
 @traceable(name="tutor_agent_a")
@@ -76,36 +115,44 @@ async def tutor_agent_a_node(state: AgentState, config: RunnableConfig) -> dict:
     Concise / formula-first tutor.
 
     Returns a dict slice with ``tutor_drafts`` (a length-1 list) and
-    ``agent_thoughts``.  The ``operator.add`` reducer in AgentState merges
-    both parallel tutors' lists into one before the Synthesizer runs.
+    ``agent_thoughts``.  The ``_reset_or_add_drafts`` reducer in AgentState
+    accumulates both parallel tutors' lists before the Synthesizer runs.
     """
     context_text = _build_context_text(state.get("context_docs", []))
     task = state.get("task", "qa")
     difficulty = state.get("difficulty", "medium")
+    weak_topics: list[str] = state.get("weak_topics") or []
 
-    prompt = f"""You are Tutor A — a precise, formula-first tutor.
+    weak_topics_section = (
+        f"Student weak areas to address: {', '.join(weak_topics)}"
+        if weak_topics
+        else "No prior weak areas identified."
+    )
 
-Style rules:
-• Lead with the exact definition or formula.
-• Use bullet points for structured answers.
-• Reference sources inline with [1], [2], etc.
-• Be concise — eliminate all fluff.
-• For "{difficulty}" difficulty, calibrate depth accordingly.
-• If task is "quiz": provide a focused practice question with a worked answer.
+    # Trim to last 8 messages (4 Q&A turns) by message count.
+    history = trim_messages(
+        state["messages"],
+        strategy="last",
+        token_counter=len,
+        max_tokens=8,
+        start_on="human",
+        include_system=False,
+    )
 
-Task type: {task}
-Student question: {state['original_query']}
-
-Course Content:
-{context_text}
-
----
-End your response with EXACTLY these two lines (no extra text after):
-CITATIONS_JSON: [{{"source_index":1,"title":"...","alternate_link":"...","content_type":"...","item_id":"...","snippet":"..."}}]
-REASONING: one sentence describing your approach"""
-
+    # Format the prompt into messages, then invoke the round-robin pool
+    prompt_value = await _tutor_a_prompt.ainvoke(
+        {
+            "task": task,
+            "difficulty": difficulty,
+            "weak_topics_section": weak_topics_section,
+            "context_text": context_text,
+            "history": history,
+            "question": state["original_query"],
+        }
+    )
     response = await _tutor_a_llm.ainvoke(
-        [HumanMessage(content=prompt)], config=config
+        prompt_value.to_messages(),
+        config=config,
     )
     response_text, citations, reasoning = parse_tutor_output(
         response.content, state.get("context_docs", [])

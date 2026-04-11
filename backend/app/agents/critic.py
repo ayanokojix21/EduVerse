@@ -30,12 +30,12 @@ import logging
 
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
-from langchain_groq import ChatGroq
 from langsmith import traceable
 from pydantic import BaseModel, Field
 
 from app.agents.state import AgentState
 from app.config import get_settings
+from app.utils.llm_pool import RoundRobinLLM
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -61,13 +61,12 @@ class CriticOutput(BaseModel):
     )
 
 
-# ── LLM singleton ────────────────────────────────────────────────────────────
+# ── LLM pool (round-robin structured pool) ────────────────────────────
+# temperature=0 for deterministic quality gate; JSON output required.
 
-_critic_llm = ChatGroq(
-    model=settings.groq_critic_model,
-    temperature=0,
-    api_key=settings.groq_api_key,
-).with_structured_output(CriticOutput)
+_critic_llm = RoundRobinLLM.for_role("structured", temperature=0).with_structured_output(
+    CriticOutput
+)
 
 
 # ── Node ─────────────────────────────────────────────────────────────────────

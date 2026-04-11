@@ -1,14 +1,12 @@
 """
-Hybrid retriever — MongoDB Atlas vector search + BM25 text search,
-merged with Reciprocal Rank Fusion (RRF).
+Vector search — MongoDB Atlas vector search.
 
 Architecture
 ------------
 Instead of raw PyMongo aggregation pipelines, we utilize LangChain MongoDB's
-native `MongoDBAtlasHybridSearchRetriever`. It provides out-of-the-box support for:
-1. Vector Search + Text Search execution.
-2. Reciprocal Rank Fusion blending logic.
-3. Pre-filtering by arbitrary fields (user_id and course_id).
+native `MongoDBAtlasVectorSearch`. It provides out-of-the-box support for:
+1. Vector Search execution.
+2. Pre-filtering by arbitrary fields (user_id and course_id).
 """
 from __future__ import annotations
 
@@ -16,7 +14,6 @@ import logging
 
 import anyio
 from langchain_core.documents import Document
-from langchain_mongodb.retrievers.hybrid_search import MongoDBAtlasHybridSearchRetriever
 from langchain_mongodb.vectorstores import MongoDBAtlasVectorSearch
 from langchain_nomic import NomicEmbeddings
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -58,8 +55,8 @@ async def hybrid_search(
     k: int | None = None,
 ) -> list[Document]:
     """
-    Perform native LangChain MongoDB hybrid search (vector + BM25) and return 
-    the top-k deduplicated `Document` objects ranked by RRF score.
+    Perform native LangChain MongoDB vector search and return 
+    the top-k deduplicated `Document` objects.
     """
     resolved = settings or get_settings()
     k = k or resolved.retrieval_k
@@ -80,16 +77,12 @@ async def hybrid_search(
                 text_key="content",
             )
 
-            retriever = MongoDBAtlasHybridSearchRetriever(
-                vectorstore=vector_store,
-                search_index_name=resolved.mongo_child_bm25_index_name,
-                top_k=k,
+            # Use standard similarity search with pre_filter
+            docs = vector_store.similarity_search(
+                query,
+                k=k,
                 pre_filter={"user_id": {"$eq": user_id}, "course_id": {"$eq": course_id}},
             )
-
-            # LangChain's hybrid retriever merges metadata natively, but 
-            # nested attributes might need manual promotion depending on version
-            docs = retriever.invoke(query)
             
             # Ensure custom metadata requirements from rest of pipe are met
             for doc in docs:

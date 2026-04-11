@@ -132,6 +132,14 @@ async def _run_pipeline(
     db,
     session_id: str | None = None,
 ) -> AsyncGenerator[str, None]:
+    # Load user's weak topics from MongoDB BEFORE the graph runs
+    # so all agents receive them in state from the very first node.
+    try:
+        _profile_store = ProfileStore(db=db, settings=settings)
+        weak_topics: list[str] = await _profile_store.get_weak_topics(user_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed to load weak topics (non-fatal): %s", exc)
+        weak_topics = []
     """
     Core SSE generator.  Drives the LangGraph pipeline and yields SSE frames.
     """
@@ -148,6 +156,7 @@ async def _run_pipeline(
     run_config: dict = {
         "configurable": {
             "thread_id": session_id,
+            "user_id": user_id,          # available to nodes via config["configurable"]
             "db": db,
         },
         "tags": ["eduverse"],
@@ -165,9 +174,12 @@ async def _run_pipeline(
         "course_id":          course_id,
         "session_id":         session_id,
         "original_query":     message,
+        "weak_topics":        weak_topics,         # loaded above from MongoDB
         "task":               "timetable" if session_id.startswith("timetable:") else "",
         "rewritten_queries":  [],
-        "tutor_drafts":       [],
+        # tutor_drafts intentionally OMITTED from initial_state.
+        # The supervisor node resets it to [] via the _reset_or_add_drafts
+        # reducer (returning None), so old drafts never bleed across turns.
         "context_docs":       [],
         "retrieval_label":    "",
         "top_reranker_score": 0.0,

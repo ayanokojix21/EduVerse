@@ -1,0 +1,411 @@
+.root {
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+  background: var(--bg-base);
+}
+
+/* ── Mesh Background ── */
+.chatMesh {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+/* ── Layout Panels ── */
+.sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  z-index: 10;
+  position: relative;
+}
+
+.mainChat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  position: relative;
+  z-index: 5;
+  min-width: 0;
+}
+
+.inspectorPanel {
+  width: 380px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border);
+  z-index: 10;
+  position: relative;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Responsive specific behavior ── */
+.inspectorCollapsed {
+  transform: translateX(100%);
+  position: absolute;
+  right: 0;
+  height: 100%;
+}
+
+.inspectorHandle {
+  position: absolute;
+  left: -16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 48px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 20;
+  color: var(--text-tertiary);
+}
+.inspectorHandle:hover {
+  color: var(--primary);
+  background: var(--bg-elevated);
+}
+
+/* ── Sidebar Inner ── */
+.sidebarHeader {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.courseBrand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.backBtn {
+  color: var(--text-secondary);
+  transition: color 0.2s;
+}
+.backBtn:hover { color: var(--primary); }
+
+.courseTitle {
+  font-size: 1.125rem;
+}
+.courseSection {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-top: 0.25rem;
+}
+
+/* ── Main Chat Area ── */
+.chatHeader {
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-backdrop);
+  border-bottom: 1px solid var(--border);
+}
+
+.messageArea {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  scroll-behavior: smooth;
+}
+
+.messageBox {
+  display: flex;
+  gap: 1rem;
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.messageUser {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.messageAssistant {
+  align-self: flex-start;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.avatarUser {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.avatarBot {
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.messageBubble {
+  background: var(--glass-bg);
+  border: 1px solid var(--border);
+  padding: 1rem 1.25rem;
+  border-radius: 1.25rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  max-width: 100%;
+}
+
+.messageUser .messageBubble {
+  background: var(--bg-surface-solid);
+  border-bottom-right-radius: 0.25rem;
+}
+
+.messageAssistant .messageBubble {
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  border-bottom-left-radius: 0.25rem;
+}
+
+.inputArea {
+  padding: 1.5rem 2rem;
+  background: linear-gradient(to top, var(--bg-base) 60%, transparent);
+}
+
+.inputCard {
+  max-width: 800px;
+  margin: 0 auto;
+  background: var(--bg-surface-solid);
+  border: 1px solid var(--border-strong);
+  border-radius: 1.25rem;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  box-shadow: var(--shadow-md);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.inputCard:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.chatInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  resize: none;
+  min-height: 24px;
+  max-height: 200px;
+  padding: 0.25rem 0;
+  outline: none;
+  line-height: 1.5;
+}
+
+.chatInput::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* ── Status Indicators ── */
+.streamingStatus {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: -0.5rem;
+  padding-left: 3.5rem;
+}
+
+/* ── Inspector Panel ── */
+.inspectorHeader {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  background: var(--glass-bg);
+}
+
+.inspectorTab {
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  white-space: nowrap;
+}
+.inspectorTab.active {
+  background: var(--bg-subtle);
+  color: var(--primary);
+}
+
+.inspectorBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+/* Timeline specific */
+.thoughtsList {
+  display: flex;
+  flex-direction: column;
+}
+
+.thoughtEntry {
+  display: flex;
+  gap: 1rem;
+  position: relative;
+  padding-bottom: 1.5rem;
+}
+
+.thoughtEntry:last-child {
+  padding-bottom: 0;
+}
+
+.thoughtEntry:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: 24px;
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+
+.nodeIconWrapper {
+  position: relative;
+  z-index: 2;
+  background: var(--bg-surface);
+  padding-top: 4px;
+}
+
+.nodeIcon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.nodeIcon.pending {
+  background: transparent;
+  border: 2px solid var(--border);
+  color: var(--text-tertiary);
+}
+
+.nodeIcon.active {
+  background: var(--primary-glow);
+  border: 2px solid var(--primary);
+  color: var(--primary);
+  animation: pulseRing 1.5s infinite;
+}
+
+.nodeIcon.done {
+  background: var(--success);
+  color: white;
+}
+
+.thoughtContent {
+  flex: 1;
+  padding-top: 6px;
+}
+
+.thoughtNodeName {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.thoughtSummary {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* Hivemind specific */
+.hivemindContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.draftCard {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.draftHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.draftContent {
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+/* Citations specific */
+.citationCard {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.citationTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.citationScore {
+  font-size: 0.7rem;
+  color: var(--secondary);
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  background: var(--secondary-glow);
+  border-radius: 4px;
+}
