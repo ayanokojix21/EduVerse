@@ -10,6 +10,7 @@ from starlette.types import ASGIApp
 from app.config import get_settings
 
 # Paths that bypass JWT verification entirely.
+# /api/store-tokens is protected by INTERNAL_API_SECRET header instead.
 PUBLIC_PATH_PREFIXES = (
     "/health",
     "/docs",
@@ -28,6 +29,7 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
 
+        # Bypass JWT for all public paths (exact match or prefix match).
         for pub in self.public_paths:
             if path == pub or path.startswith(pub):
                 return await call_next(request)

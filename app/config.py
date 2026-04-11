@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     groq_supervisor_model: str = "llama-3.1-8b-instant"
     groq_rewriter_model: str = "llama-3.3-70b-versatile"
     groq_tutor_a_model: str = "meta-llama/llama-4-scout-17b-16e-instruct"
-    groq_tutor_b_model: str = "meta-llama/llama-4-maverick-17b-128e-instruct"
+    groq_tutor_b_model: str = "openai/gpt-oss-120b"
     groq_synthesizer_model: str = "llama-3.3-70b-versatile"
     groq_critic_model: str = "llama-3.3-70b-versatile"
 

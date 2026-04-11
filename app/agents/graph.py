@@ -121,6 +121,7 @@ def build_graph() -> StateGraph:
     g.add_edge("query_rewriter", "rag_agent")
 
     # Parallel fan-out: rag_agent → [tutor_a ‖ tutor_b]
+    # LangGraph's Send API launches both tutors in the same superstep.
     g.add_conditional_edges(
         "rag_agent",
         dispatch_tutors,
