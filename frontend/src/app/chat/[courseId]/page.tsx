@@ -6,14 +6,14 @@ import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, Send, Sparkles, AlertCircle, ChevronRight, ChevronLeft, 
-  Brain, FileText, ListTree, RefreshCw
+  Brain, FileText, ListTree, RefreshCw, BookOpen
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { api } from '@/lib/api';
 import type { 
-  Course, Message, SSEEvent, AgentThought, TutorDraft, 
+  Course, Coursework, Message, SSEEvent, AgentThought, TutorDraft, 
   Explainability, Citation, CriticResult 
 } from '@/types';
 import styles from './chat.module.css';
@@ -28,6 +28,7 @@ export default function ChatPage() {
   const courseId = params.courseId as string;
 
   const [course, setCourse] = useState<Course | null>(null);
+  const [coursework, setCoursework] = useState<Coursework[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -53,9 +54,13 @@ export default function ChatPage() {
 
   const loadCourse = async () => {
     try {
-      const courses = await api.courses.list();
+      const [courses, assignments] = await Promise.all([
+        api.courses.list(),
+        api.courses.getCoursework(courseId)
+      ]);
       const found = courses.find((c: Course) => c.id === courseId);
       if (found) setCourse(found);
+      setCoursework(assignments);
     } catch (err) {
       console.error(err);
     }
@@ -202,15 +207,64 @@ export default function ChatPage() {
             <ArrowLeft size={16} /> Back
           </button>
         </div>
-        <div className="p-6">
-          <div className="glass-card-flat p-4 mb-4">
-            <h2 className={styles.courseTitle}>{course?.name || 'Loading Course...'}</h2>
-            <p className={styles.courseSection}>{course?.teacher || 'N/A'}</p>
+        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', height: 'calc(100vh - 60px)', overflowY: 'auto' }}>
+          <div className="glass-card-flat" style={{ padding: '1.25rem', borderRadius: '0.75rem', border: '1px solid var(--border)' }}>
+            <h2 className={styles.courseTitle} style={{ fontSize: '1.125rem', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>{course?.name || 'Loading Course...'}</h2>
+            <p className={styles.courseSection} style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)' }}>{course?.teacher || 'N/A'}</p>
           </div>
           
-          <div className="text-sm text-tertiary px-1">
-            <p className="mb-2 uppercase font-bold text-xs tracking-wider">Session Info</p>
-            <p>Your AI Tutor has verified access to your Class Drive and assignment rubrics.</p>
+          <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', padding: '0 0.25rem' }}>
+            <p style={{ marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: 'bold', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Session Info</p>
+            <p style={{ lineHeight: 1.5 }}>Your AI Tutor has verified access to your Class Drive and assignment rubrics.</p>
+          </div>
+
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+              <div style={{ background: 'var(--accent-glow)', padding: '0.4rem', borderRadius: '0.5rem', color: 'var(--accent)' }}>
+                <BookOpen size={16} />
+              </div>
+              <h3 className="font-display" style={{ fontSize: '1.125rem', color: 'var(--text-primary)' }}>Attached PDFs</h3>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {coursework.flatMap(w => w.materials || [])
+                    .filter(m => m.driveFile)
+                    .map((mat, idx) => (
+                    <div key={idx} style={{ padding: '0.875rem 1rem', borderRadius: '0.75rem', background: 'var(--bg-subtle)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                            <FileText size={14} style={{ flexShrink: 0 }} />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }} title={mat.driveFile!.driveFile.title}>
+                                {mat.driveFile!.driveFile.title}
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+                            <a 
+                                href={mat.driveFile!.driveFile.alternateLink} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                style={{ fontSize: '0.75rem', color: 'var(--secondary)', textDecoration: 'underline' }}
+                            >
+                                Open
+                            </a>
+                            {course?.is_ingested ? (
+                                <span style={{ fontSize: '0.75rem', color: '#4ade80', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                    ✅ Ingested
+                                </span>
+                            ) : (
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: 600 }}>
+                                    Pending
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                ))}
+
+                {coursework.flatMap(w => w.materials || []).filter(m => m.driveFile).length === 0 && (
+                    <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', textAlign: 'center', padding: '2rem 1rem', background: 'var(--bg-subtle)', borderRadius: '0.75rem', border: '1px dashed var(--border)' }}>
+                        No PDFs attached to this course.
+                    </div>
+                )}
+            </div>
           </div>
         </div>
       </aside>

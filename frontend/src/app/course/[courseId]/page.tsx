@@ -88,25 +88,27 @@ export default function CoursePage() {
         <div style={{ width: 100 }} /> {/* Spacer */}
       </header>
 
-      <main style={{ maxWidth: '1200px', width: '100%', margin: '2rem auto', padding: '1.5rem', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '2rem', height: 'calc(100vh - 6rem)', overflowY: 'auto' }}>
-        <section className="glass-card-flat" style={{ padding: '2rem', position: 'relative', overflow: 'hidden' }}>
-            <h1 className="font-display" style={{ fontSize: '2.5rem', fontWeight: 500, lineHeight: 1.2, marginBottom: '0.5rem' }}>
-                {course?.name}
-            </h1>
-            <p className="text-secondary" style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>
-                {course?.section || 'Section n/a'} — Taught by {course?.teacher || 'N/A'}
-            </p>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-                {course?.is_ingested && (
-                    <span className="badge" style={{ backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#4ade80' }}>
-                        ✅ Ingested for Chat
+      <main style={{ maxWidth: '1400px', width: '100%', margin: '2rem auto', padding: '1.5rem', zIndex: 10, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: '2rem', height: 'calc(100vh - 6rem)', overflowY: 'auto' }}>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            <section className="glass-card-flat" style={{ padding: '2rem', position: 'relative', overflow: 'hidden' }}>
+                <h1 className="font-display" style={{ fontSize: '2.5rem', fontWeight: 500, lineHeight: 1.2, marginBottom: '0.5rem' }}>
+                    {course?.name}
+                </h1>
+                <p className="text-secondary" style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>
+                    {course?.section || 'Section n/a'} — Taught by {course?.teacher || 'N/A'}
+                </p>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                    {course?.is_ingested && (
+                        <span className="badge" style={{ backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#4ade80' }}>
+                            ✅ Ingested for Chat
+                        </span>
+                    )}
+                    <span className="badge badge-secondary">
+                        {coursework.length} Assignments
                     </span>
-                )}
-                <span className="badge badge-secondary">
-                    {coursework.length} Assignments
-                </span>
-            </div>
-        </section>
+                </div>
+            </section>
 
         <section style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
@@ -168,7 +170,7 @@ export default function CoursePage() {
                                         } else if (mat.form) {
                                             icon = <FileText size={12} />;
                                             title = mat.form.title;
-                                            link = mat.form.alternateLink || mat.form.formUrl;
+                                            link = mat.form.formUrl;
                                         }
                                         
                                         return (
@@ -213,6 +215,64 @@ export default function CoursePage() {
                 )}
             </div>
         </section>
+        </div>
+
+        {/* Sidebar: All PDFs */}
+        <aside style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div className="glass-card-flat" style={{ position: 'sticky', top: '0', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', maxHeight: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ background: 'var(--accent-glow)', padding: '0.4rem', borderRadius: '0.5rem', color: 'var(--accent)' }}>
+                        <BookOpen size={20} />
+                    </div>
+                    <h3 className="font-display" style={{ fontSize: '1.25rem', color: 'var(--text-primary)' }}>Attached PDFs</h3>
+                </div>
+                
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    All Drive documents from this course. Currently, we ingest the entire course at once.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', overflowY: 'auto' }}>
+                    {coursework.flatMap(w => w.materials || [])
+                        .filter(m => m.driveFile)
+                        .map((mat, idx) => (
+                        <div key={idx} style={{ padding: '0.875rem 1rem', borderRadius: '0.75rem', background: 'var(--bg-subtle)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                                <FileText size={14} style={{ flexShrink: 0 }} />
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }} title={mat.driveFile!.driveFile.title}>
+                                    {mat.driveFile!.driveFile.title}
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+                                <a 
+                                    href={mat.driveFile!.driveFile.alternateLink} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    style={{ fontSize: '0.75rem', color: 'var(--secondary)', textDecoration: 'underline' }}
+                                >
+                                    Open
+                                </a>
+                                {course?.is_ingested ? (
+                                    <span style={{ fontSize: '0.75rem', color: '#4ade80', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                        ✅ Ingested
+                                    </span>
+                                ) : (
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: 600 }}>
+                                        Pending
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+
+                    {coursework.flatMap(w => w.materials || []).filter(m => m.driveFile).length === 0 && (
+                        <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', textAlign: 'center', padding: '2rem 1rem', background: 'var(--bg-subtle)', borderRadius: '0.75rem', border: '1px dashed var(--border)' }}>
+                            No PDFs attached to this course.
+                        </div>
+                    )}
+                </div>
+            </div>
+        </aside>
+
       </main>
     </div>
   );
