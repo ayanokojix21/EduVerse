@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, Send, Sparkles, AlertCircle, ChevronRight, ChevronLeft, 
-  Brain, FileText, ListTree, RefreshCw, BookOpen
+  Brain, FileText, ListTree, RefreshCw, BookOpen, Plus, MessageSquare, Trash2
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -32,6 +32,8 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessions_list, setSessionsList] = useState<any[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState<string | null>(null);
   
   // Streaming state
   const [isStreaming, setIsStreaming] = useState(false);
@@ -54,15 +56,60 @@ export default function ChatPage() {
 
   const loadCourse = async () => {
     try {
-      const [courses, assignments] = await Promise.all([
+      const [courses, assignments, sessionsData] = await Promise.all([
         api.courses.list(),
-        api.courses.getCoursework(courseId)
+        api.courses.getCoursework(courseId),
+        api.sessions.list(courseId)
       ]);
       const found = courses.find((c: Course) => c.id === courseId);
       if (found) setCourse(found);
       setCoursework(assignments);
+      setSessionsList(sessionsData);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const loadSession = async (sid: string) => {
+    if (isStreaming) return;
+    try {
+      setIsLoadingSessions(sid); // track which one is loading
+      const fullSession = await api.sessions.get(sid);
+      setSessionId(sid);
+      // Ensure every message has an id for React keys
+      setMessages(fullSession.messages.map((m: any, idx: number) => ({
+        ...m,
+        id: m.id || `legacy-${idx}-${sid}`,
+        timestamp: new Date(m.timestamp)
+      })));
+      setStreamBuffer('');
+      setCurrentThoughts([]);
+    } catch (err) {
+      console.error("Failed to load session:", err);
+    } finally {
+      setIsLoadingSessions(null);
+    }
+  };
+
+  const startNewChat = () => {
+    if (isStreaming) return;
+    setSessionId(null);
+    setMessages([]);
+    setStreamBuffer('');
+    setCurrentThoughts([]);
+  };
+
+  const handleDeleteSession = async (e: React.MouseEvent, sid: string) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this conversation?')) return;
+    try {
+      await api.sessions.delete(sid);
+      setSessionsList(prev => prev.filter(s => s.session_id !== sid));
+      if (sessionId === sid) {
+        startNewChat();
+      }
+    } catch (err) {
+      console.error("Failed to delete session:", err);
     }
   };
 
@@ -179,13 +226,17 @@ export default function ChatPage() {
 
       setMessages(prev => [...prev, finalBotMessage as Message]);
       
+      // Refresh session list to show new/updated session
+      const updatedSessions = await api.sessions.list(courseId);
+      setSessionsList(updatedSessions);
+      
     } catch (err: any) {
       console.error(err);
       setMessages(prev => [...prev, {
         id: uuid(),
         role: 'assistant',
         content: `**Error:** ${err.message}`,
-        timestamp: new Date()
+        timestamp: new Date()        
       }]);
     } finally {
       setIsStreaming(false);
@@ -216,6 +267,78 @@ export default function ChatPage() {
           <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', padding: '0 0.25rem' }}>
             <p style={{ marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: 'bold', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Session Info</p>
             <p style={{ lineHeight: 1.5 }}>Your AI Tutor has verified access to your Class Drive and assignment rubrics.</p>
+          </div>
+
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ background: 'var(--accent-glow)', padding: '0.4rem', borderRadius: '0.5rem', color: 'var(--accent)' }}>
+                  <MessageSquare size={16} />
+                </div>
+                <h3 className="font-display" style={{ fontSize: '1.125rem', color: 'var(--text-primary)' }}>Chat History</h3>
+              </div>
+              <button 
+                onClick={startNewChat}
+                className="btn btn-ghost btn-xs"
+                style={{ color: 'var(--accent)' }}
+                title="Start New Chat"
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '300px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+              {sessions_list.length === 0 ? (
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', textAlign: 'center', padding: '1rem', background: 'var(--bg-subtle)', borderRadius: '0.5rem', border: '1px dashed var(--border)' }}>
+                  No past conversations.
+                </div>
+              ) : (
+                sessions_list.map((s) => (
+                  <div 
+                    key={s.session_id} 
+                    onClick={() => loadSession(s.session_id)}
+                    className={`${styles.sessionItem} ${sessionId === s.session_id ? styles.activeSession : ''}`}
+                    style={{ 
+                      padding: '0.75rem', 
+                      borderRadius: '0.5rem', 
+                      background: sessionId === s.session_id ? 'var(--accent-glow)' : 'var(--bg-subtle)',
+                      border: '1px solid',
+                      borderColor: sessionId === s.session_id ? 'var(--accent)' : 'var(--border)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.25rem',
+                      position: 'relative',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: '1.5rem' }}>
+                      {s.title}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>{s.message_count} messages</span>
+                      <span>{new Date(s.updated_at).toLocaleDateString()}</span>
+                    </div>
+                    <button 
+                      onClick={(e) => handleDeleteSession(e, s.session_id)}
+                      className={styles.deleteSessionBtn}
+                      style={{ 
+                        position: 'absolute', 
+                        right: '0.5rem', 
+                        top: '0.75rem', 
+                        color: 'var(--text-tertiary)',
+                        opacity: 0.6,
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1.5rem' }}>

@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     mongo_checkpoint_writes_collection: str = "checkpoint_writes"
     mongo_timetables_collection: str = "timetables"
     mongo_events_collection: str = "student_events"
+    mongo_chat_sessions_collection: str = "chat_sessions"
 
     # Atlas search index names
     mongo_child_vector_index_name: str = "child_vector_index"

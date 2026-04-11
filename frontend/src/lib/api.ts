@@ -84,4 +84,18 @@ export const api = {
         session,
       }),
   },
+  sessions: {
+    list: (courseId: string, session?: Session | null) =>
+      apiFetch<any[]>(`/sessions?course_id=${courseId}`, { session }),
+    get: (sessionId: string, session?: Session | null) =>
+      apiFetch<any>(`/sessions/${sessionId}`, { session }),
+    delete: (sessionId: string, session?: Session | null) =>
+      apiFetch<any>(`/sessions/${sessionId}`, { method: 'DELETE', session }),
+    rename: (sessionId: string, title: string, session?: Session | null) =>
+      apiFetch<any>(`/sessions/${sessionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ title }),
+        session,
+      }),
+  },
 };

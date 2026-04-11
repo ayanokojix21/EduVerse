@@ -89,7 +89,7 @@ export interface Profile {
 
 // ── Chat ──────────────────────────────────────────────
 export interface Message {
-  id: string;
+  id: string; // Internal frontend ID
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
@@ -99,6 +99,18 @@ export interface Message {
   critic?: CriticResult;
   trace_url?: string;
 }
+
+export interface ChatSession {
+  session_id: string;
+  user_id: string;
+  course_id: string;
+  title: string;
+  messages: Message[];
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
 
 export interface Citation {
   title: string;

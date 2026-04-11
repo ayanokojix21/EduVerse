@@ -52,6 +52,7 @@ from pydantic import BaseModel, Field
 
 from app.agents.graph import get_compiled_graph
 from app.config import get_settings
+from app.db.chat_history import ChatHistoryService
 from app.db.mongodb import get_db
 from app.db.profile_store import ProfileStore
 from app.utils.streaming import sse_event
@@ -106,6 +107,41 @@ async def _post_run_update(
     except Exception as exc:  # noqa: BLE001
         logger.warning("Post-run update failed (non-fatal): %s", exc)
 
+
+async def _persist_chat_messages(
+    session_id: str,
+    user_id: str,
+    course_id: str,
+    user_message: str,
+    ai_response: str,
+    citations: list[dict],
+    db,
+) -> None:
+    """
+    Fire-and-forget: persist the user message and AI response
+    to the chat_sessions collection for history/resume.
+    """
+    try:
+        history = ChatHistoryService(db=db)
+        # Save user message
+        await history.save_message(
+            session_id=session_id,
+            user_id=user_id,
+            course_id=course_id,
+            role="user",
+            content=user_message,
+        )
+        # Save AI response
+        await history.save_message(
+            session_id=session_id,
+            user_id=user_id,
+            course_id=course_id,
+            role="assistant",
+            content=ai_response,
+            citations=citations,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Chat history save failed (non-fatal): %s", exc)
 
 def _get_langsmith_url(config: dict) -> str:
     """
@@ -271,6 +307,19 @@ async def _run_pipeline(
         # Background task: update weak topics + session count (non-blocking)
         asyncio.create_task(
             _post_run_update(user_id, final_state, db)
+        )
+
+        # Background task: persist chat messages to chat_sessions collection
+        asyncio.create_task(
+            _persist_chat_messages(
+                session_id=session_id,
+                user_id=user_id,
+                course_id=course_id,
+                user_message=message,
+                ai_response=final_state.get("response_text", ""),
+                citations=final_state.get("citations", []),
+                db=db,
+            )
         )
 
     except Exception as exc:  # noqa: BLE001
