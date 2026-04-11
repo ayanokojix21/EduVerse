@@ -51,7 +51,8 @@ export interface Message {
 export interface Citation {
   title: string;
   content_type: 'document' | 'announcement' | 'assignment' | 'material';
-  link?: string;
+  link?: string;           // web fallback sources
+  alternate_link?: string; // Google Classroom source URL
   snippet?: string;
   score?: number;
 }

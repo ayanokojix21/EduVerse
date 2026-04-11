@@ -70,9 +70,9 @@ class Settings(BaseSettings):
     nomic_embedding_model: str = "nomic-embed-text-v1.5"
 
     # ── Chunking ──────────────────────────────────────────────────────────────
-    parent_chunk_size: int = 800
-    child_chunk_size: int = 200
-    chunk_overlap: int = 30
+    parent_chunk_size: int = 1500
+    child_chunk_size: int = 500
+    chunk_overlap: int = 75
 
     # ── Retrieval ─────────────────────────────────────────────────────────────
     retrieval_k: int = 20           # candidates from hybrid search

@@ -5,9 +5,13 @@ Classifies the incoming student query into:
   * task       : "qa" | "explain" | "quiz" | "feedback"
   * difficulty : "easy" | "medium" | "hard"
 
-Uses a fast 8B Groq model with temperature=0 to guarantee deterministic
-JSON output on every call.  The node is decorated with @traceable so every
-invocation creates a named span in LangSmith.
+Memory reset
+------------
+The supervisor also resets ``tutor_drafts`` to [] by returning ``None`` for
+that field.  This is the mechanism used by the custom ``_reset_or_add_drafts``
+reducer in state.py — returning ``None`` signals "start of new turn, discard
+previous drafts."  Without this reset, the parallel tutor nodes would
+accumulate across turns and the synthesizer would see stale drafts.
 
 LangChain best-practices applied
 ----------------------------------
@@ -27,6 +31,7 @@ from pydantic import BaseModel, Field
 
 from app.agents.state import AgentState
 from app.config import get_settings
+from app.utils.llm_pool import RoundRobinLLM
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -46,13 +51,12 @@ class SupervisorOutput(BaseModel):
     )
 
 
-# ── LLM (module-level singleton, avoids re-creation per request) ─────────────
+# ── LLM pool (round-robin across models with auto-fallback) ──────────────────
+# Uses the structured pool: llama-3.3-70b → llama-4-scout → kimi-k2 → llama-3.1-8b
 
-_supervisor_llm = ChatGroq(
-    model=settings.groq_supervisor_model,
-    temperature=0,
-    api_key=settings.groq_api_key,
-).with_structured_output(SupervisorOutput)
+_supervisor_llm = RoundRobinLLM.for_role("structured", temperature=0).with_structured_output(
+    SupervisorOutput
+)
 
 
 # ── Node ─────────────────────────────────────────────────────────────────────
@@ -60,12 +64,19 @@ _supervisor_llm = ChatGroq(
 @traceable(name="supervisor")
 async def supervisor_node(state: AgentState, config: RunnableConfig) -> dict:
     """
-    Classify the student's query.
+    Classify the student's query and reset tutor_drafts for the new turn.
 
-    Returns dict slice updating ``task``, ``difficulty``, and
-    ``agent_thoughts``.
+    Returns dict slice updating ``task``, ``difficulty``, ``agent_thoughts``,
+    and ``tutor_drafts=None`` (reset signal for the custom reducer).
     """
     query = state["original_query"]
+    weak_topics: list[str] = state.get("weak_topics") or []
+
+    weak_context = (
+        f"Known weak areas for this student: {', '.join(weak_topics)}"
+        if weak_topics
+        else "No prior weak areas identified."
+    )
 
     prompt = (
         "You are a routing agent for an AI tutoring system.\n"
@@ -73,6 +84,7 @@ async def supervisor_node(state: AgentState, config: RunnableConfig) -> dict:
         "task options  : qa (factual question), explain (concept explanation), "
         "quiz (practice question), feedback (student writing/work review)\n"
         "difficulty options: easy, medium, hard\n\n"
+        f"{weak_context}\n\n"
         f"Student question: {query}\n\n"
         "Return ONLY the structured JSON matching the required schema."
     )
@@ -87,16 +99,27 @@ async def supervisor_node(state: AgentState, config: RunnableConfig) -> dict:
         logger.warning("Supervisor LLM failed, using defaults: %s", exc)
         task, difficulty = "qa", "medium"
 
-    logger.info("Supervisor → task=%s difficulty=%s", task, difficulty)
+    logger.info(
+        "Supervisor → task=%s difficulty=%s weak_topics=%d",
+        task, difficulty, len(weak_topics),
+    )
 
     return {
         "task": task,
         "difficulty": difficulty,
+        # CRITICAL: returning None through the _reset_or_add_drafts reducer
+        # resets tutor_drafts to [] — prevents previous-turn stale drafts
+        # from leaking into the current turn's synthesizer.
+        "tutor_drafts": None,
         "agent_thoughts": [
             {
                 "node": "supervisor",
                 "summary": f"Task: {task} · Difficulty: {difficulty}",
-                "data": {"task": task, "difficulty": difficulty},
+                "data": {
+                    "task": task,
+                    "difficulty": difficulty,
+                    "weak_topics": weak_topics,
+                },
             }
         ],
     }
