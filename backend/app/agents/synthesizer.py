@@ -101,6 +101,12 @@ CITATIONS_JSON: [{{"source_index":1,"title":"...","alternate_link":"...","conten
         prompt = f"""Two specialist tutors answered the same student question in different styles.
 Your task: synthesise their answers into a single, superior response.
 
+RULES:
+- Combine the best of both drafts into one clear, helpful answer.
+- You MAY add brief clarifications or connecting explanations to make the answer flow better.
+- DO NOT fabricate facts or invent information. Keep it accurate.
+- If both tutors indicate the question is off-topic for the course, maintain that message.
+
 Tutor A (concise/formula-first) — reasoning: {a_reasoning}
 {a_text}
 

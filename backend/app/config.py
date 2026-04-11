@@ -73,13 +73,13 @@ class Settings(BaseSettings):
     nomic_embedding_model: str = "nomic-embed-text-v1.5"
 
     # ── Chunking ──────────────────────────────────────────────────────────────
-    parent_chunk_size: int = 1500
-    child_chunk_size: int = 500
-    chunk_overlap: int = 75
+    parent_chunk_size: int = 2000
+    child_chunk_size: int = 300
+    chunk_overlap: int = 100
 
     # ── Retrieval ─────────────────────────────────────────────────────────────
-    retrieval_k: int = 20           # candidates from hybrid search
-    reranker_top_n: int = 5         # top-N after cross-encoder reranking
+    retrieval_k: int = 40           # candidates from hybrid search
+    reranker_top_n: int = 12         # top-N after cross-encoder reranking
     # FlashRank model name — must be one of the keys in flashrank.Ranker.model_file_map
     # Options: ms-marco-TinyBERT-L-2-v2 (fastest), ms-marco-MiniLM-L-12-v2 (best quality)
     reranker_model: str = "ms-marco-MiniLM-L-12-v2"

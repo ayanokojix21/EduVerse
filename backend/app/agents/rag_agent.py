@@ -38,7 +38,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.agents.state import AgentState
 from app.config import get_settings
 from app.retrieval.explainability import build_explainability
-from app.retrieval.fallback import apply_web_fallback
+
 from app.retrieval.parent_fetch import fetch_parents
 from app.retrieval.reranker import rerank
 from app.retrieval.retriever import deduplicate_docs, hybrid_search
@@ -111,14 +111,16 @@ async def rag_agent_node(state: AgentState, config: RunnableConfig) -> dict:
     parent_docs = await fetch_parents(reranked_children, db, settings)
     logger.info("Parent fetch → %d parent chunks", len(parent_docs))
 
-    # ── 4. Web fallback (fires only if top_score < tavily_threshold) ──────────
-    web_docs, retrieval_label = await apply_web_fallback(
-        original_query, top_score, db, settings
-    )
-    if web_docs:
-        logger.info(
-            "Web fallback → %d docs added (%s)", len(web_docs), retrieval_label
-        )
+    # ── 4. Retrieval label (NO web fallback — strict classroom grounding) ───
+    # We intentionally do NOT fetch web results. The tutors are strictly
+    # grounded to course materials only. The label indicates confidence level.
+    if top_score >= settings.tavily_threshold:
+        retrieval_label = "CLASSROOM_GROUNDED"
+    elif top_score >= 0.10:
+        retrieval_label = "CLASSROOM_LOW_CONFIDENCE"
+    else:
+        retrieval_label = "CLASSROOM_INSUFFICIENT"
+    web_docs: list = []
 
     # ── 5. Build context_docs for tutors ─────────────────────────────────────
     # Parent docs (dicts from MongoDB) + web docs (already dicts)
