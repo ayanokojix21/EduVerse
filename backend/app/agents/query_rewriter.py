@@ -46,9 +46,9 @@ settings = get_settings()
 
 class RewriterOutput(BaseModel):
     rewrites: list[str] = Field(
-        description="Exactly 2 retrieval-optimised academic queries.",
+        description="2 or 3 retrieval-optimised academic queries.",
         min_length=2,
-        max_length=2,
+        max_length=3,
     )
 
 
@@ -64,9 +64,20 @@ _rewriter_prompt = ChatPromptTemplate.from_messages([
         "  1. Remove conversational filler (can you, please explain, what is, etc.).\n"
         "  2. Preserve ALL domain-specific terms, formula names, and proper nouns exactly.\n"
         "  3. Expand acronyms if unambiguous.\n"
-        "  4. Make each query standalone — resolve any pronouns using the conversation history.\n"
-        "  5. Produce exactly 2 diverse queries: one focused on definition/concept, "
-        "one focused on application/example.\n\n"
+        "  4. Make each query standalone — resolve ALL pronouns and references "
+        "(like 'that', 'it', 'this topic', 'the second one', 'explain more') "
+        "by replacing them with the actual terms from the conversation history.\n"
+        "  5. Produce exactly 3 diverse queries:\n"
+        "     - Query 1: focused on definition/concept\n"
+        "     - Query 2: focused on application/example\n"
+        "     - Query 3: a CONTINUITY query — if the conversation history contains "
+        "previous AI answers, extract the key terms/topics discussed and create a query "
+        "that retrieves related content. If there is no history, make this a synonym/alternative "
+        "phrasing of Query 1.\n\n"
+        "IMPORTANT: Look carefully at the previous AI assistant messages in the history. "
+        "If the student says something vague like 'tell me more' or 'explain that', "
+        "you MUST identify exactly what 'that' refers to from the last AI answer "
+        "and write concrete, specific queries about it.\n\n"
         "Task: {task} | Difficulty: {difficulty}\n\n"
         "Return ONLY structured JSON matching the required schema.",
     ),
