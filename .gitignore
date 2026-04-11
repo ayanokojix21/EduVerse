@@ -8,5 +8,5 @@ __pycache__/
 record_manager_cache.db
 record_manager_cache.db-*
 *.sqlite
-requirements-dev.txt
-pyproject.toml
+scripts/
+tests/
