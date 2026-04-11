@@ -9,6 +9,7 @@ import {
   Brain, FileText, ListTree, RefreshCw
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import { api } from '@/lib/api';
 import type { 
@@ -247,7 +248,9 @@ export default function ChatPage() {
                 {msg.role === 'user' ? session?.user?.name?.[0] : <Sparkles size={18} />}
               </div>
               <div className={styles.messageBubble}>
-                <ReactMarkdown>{msg.content}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {msg.content.replace(/CITATIONS_JSON:[\s\S]*?(?:```[\s\S]*?```|\[[\s\S]*?\])[\s\S]*?(?:$)/, '')}
+                </ReactMarkdown>
                 
                 {/* Embedded citations block */}
                 {msg.citations && msg.citations.length > 0 && (
@@ -277,7 +280,9 @@ export default function ChatPage() {
                 <Sparkles size={18} />
               </div>
               <div className={styles.messageBubble}>
-                <ReactMarkdown>{streamBuffer}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {streamBuffer.replace(/CITATIONS_JSON:[\s\S]*?(?:```[\s\S]*?```|\[[\s\S]*?\])[\s\S]*?(?:$)/, '')}
+                </ReactMarkdown>
                 <span className={styles.cursorBlink}>|</span>
               </div>
             </div>

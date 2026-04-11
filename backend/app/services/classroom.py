@@ -22,3 +22,23 @@ def list_courses(credentials: Credentials) -> list[dict[str, str]]:
         }
         for course in courses
     ]
+
+
+def list_coursework(credentials: Credentials, course_id: str) -> list[dict]:
+    service = build("classroom", "v1", credentials=credentials, cache_discovery=False)
+    response = service.courses().courseWork().list(courseId=course_id).execute()
+    
+    coursework_list = response.get("courseWork", [])
+    return [
+        {
+            "id": item.get("id", ""),
+            "title": item.get("title", ""),
+            "description": item.get("description", ""),
+            "state": item.get("state", ""),
+            "dueDate": item.get("dueDate", None),
+            "creationTime": item.get("creationTime", ""),
+            "alternateLink": item.get("alternateLink", ""),
+            "materials": item.get("materials", []),
+        }
+        for item in coursework_list
+    ]

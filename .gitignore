@@ -10,3 +10,4 @@ record_manager_cache.db-*
 *.sqlite
 scripts/
 tests/
+package-lock.json

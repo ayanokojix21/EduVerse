@@ -18,8 +18,53 @@ export interface Course {
   enrollment_count?: number;
   assignment_count?: number;
   state: 'ACTIVE' | 'ARCHIVED' | 'PROVISIONED' | 'DECLINED';
+  is_ingested?: boolean;
   alternateLink?: string;
   creationTime?: string;
+}
+
+export interface CourseworkMaterial {
+  driveFile?: {
+    driveFile: {
+      id: string;
+      title: string;
+      alternateLink: string;
+      thumbnailUrl?: string;
+    };
+    shareMode: string;
+  };
+  youtubeVideo?: {
+    id: string;
+    title: string;
+    alternateLink: string;
+    thumbnailUrl?: string;
+  };
+  link?: {
+    url: string;
+    title: string;
+    thumbnailUrl?: string;
+  };
+  form?: {
+    formUrl: string;
+    responseUrl: string;
+    title: string;
+    thumbnailUrl?: string;
+  };
+}
+
+export interface Coursework {
+  id: string;
+  title: string;
+  description: string;
+  state: string;
+  dueDate?: {
+    year: number;
+    month: number;
+    day: number;
+  };
+  creationTime: string;
+  alternateLink: string;
+  materials?: CourseworkMaterial[];
 }
 
 // ── Profile ───────────────────────────────────────────

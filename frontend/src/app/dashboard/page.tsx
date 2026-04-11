@@ -50,7 +50,7 @@ export default function DashboardPage() {
     try {
       setIngesting(prev => ({ ...prev, [courseId]: true }));
       await api.ingestion.trigger(courseId, true);
-      // Optional: show a toast success message
+      await fetchDashboardData(); // Refresh to update is_ingested state
     } catch (err: any) {
       alert(err.message || 'Failed to ingest course materials');
     } finally {
@@ -160,20 +160,40 @@ export default function DashboardPage() {
                   </div>
 
                   <div className={styles.courseActions}>
+                    {course.is_ingested ? (
+                      <button 
+                        className="btn btn-secondary btn-sm"
+                        style={{ borderColor: 'var(--success)', color: 'var(--success)' }}
+                        onClick={() => handleIngest(course.id)}
+                        disabled={ingesting[course.id]}
+                        title="Re-ingest materials"
+                      >
+                        <RefreshCw size={14} className={ingesting[course.id] ? "animate-spin" : ""} />
+                        {ingesting[course.id] ? 'Ingesting...' : 'Ingested ✅'}
+                      </button>
+                    ) : (
+                      <button 
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => handleIngest(course.id)}
+                        disabled={ingesting[course.id]}
+                      >
+                        <RefreshCw size={14} className={ingesting[course.id] ? "animate-spin" : ""} />
+                        {ingesting[course.id] ? 'Ingesting...' : 'Ingest'}
+                      </button>
+                    )}
                     <button 
                       className="btn btn-secondary btn-sm"
-                      onClick={() => handleIngest(course.id)}
-                      disabled={ingesting[course.id]}
+                      onClick={() => router.push(`/course/${course.id}`)}
                     >
-                      <RefreshCw size={14} className={ingesting[course.id] ? "animate-spin" : ""} />
-                      {ingesting[course.id] ? 'Ingesting...' : 'Ingest'}
+                      <BookOpen size={14} />
+                      Coursework
                     </button>
                     <button 
                       className="btn btn-primary btn-sm"
                       onClick={() => router.push(`/chat/${course.id}`)}
                     >
                       <MessageSquare size={14} />
-                      Start Chat
+                      Chat
                     </button>
                   </div>
                 </motion.div>
