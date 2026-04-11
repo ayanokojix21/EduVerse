@@ -3,7 +3,14 @@
 /* ── Reset ────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
-body { font-family: 'Inter', sans-serif; min-height: 100vh; overflow-x: hidden; }
+body { 
+  font-family: 'Inter', sans-serif; 
+  min-height: 100vh; 
+  overflow-x: hidden; 
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
 img, svg { display: block; }
 button { cursor: pointer; border: none; background: none; font: inherit; }
 a { text-decoration: none; color: inherit; }
@@ -66,35 +73,35 @@ input, textarea { font: inherit; }
 }
 
 [data-theme="dark"] {
-  --bg-base: #0f172a;
-  --bg-surface: rgba(30, 41, 59, 0.8);
-  --bg-surface-solid: #1e293b;
-  --bg-elevated: rgba(30, 41, 59, 0.95);
-  --bg-subtle: rgba(99, 102, 241, 0.08);
-  --bg-overlay: rgba(0, 0, 0, 0.6);
+  --bg-base: #020617;
+  --bg-surface: rgba(15, 23, 42, 0.6);
+  --bg-surface-solid: #0f172a;
+  --bg-elevated: rgba(15, 23, 42, 0.9);
+  --bg-subtle: rgba(99, 102, 241, 0.05);
+  --bg-overlay: rgba(0, 0, 0, 0.8);
 
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #475569;
-  --text-inverse: #0f172a;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #64748b;
+  --text-inverse: #020617;
 
-  --border: rgba(148, 163, 184, 0.12);
-  --border-strong: rgba(148, 163, 184, 0.25);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.15);
 
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
-  --shadow-md: 0 4px 16px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.3);
-  --shadow-lg: 0 10px 40px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.35);
-  --shadow-xl: 0 20px 60px rgba(0,0,0,0.6), 0 8px 20px rgba(0,0,0,0.4);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.4);
+  --shadow-lg: 0 10px 40px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.45);
+  --shadow-xl: 0 20px 60px rgba(0,0,0,0.7), 0 8px 20px rgba(0,0,0,0.5);
   --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.35);
 
-  --glass-bg: rgba(30, 41, 59, 0.7);
-  --glass-border: rgba(99, 102, 241, 0.2);
-  --glass-backdrop: blur(20px) saturate(180%);
+  --glass-bg: rgba(9, 10, 15, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-backdrop: blur(24px) saturate(200%);
 
-  --mesh-1: rgba(99, 102, 241, 0.2);
-  --mesh-2: rgba(20, 184, 166, 0.15);
-  --mesh-3: rgba(249, 115, 22, 0.1);
-  --mesh-4: rgba(139, 92, 246, 0.15);
+  --mesh-1: rgba(99, 102, 241, 0.15);
+  --mesh-2: rgba(20, 184, 166, 0.12);
+  --mesh-3: rgba(249, 115, 22, 0.08);
+  --mesh-4: rgba(139, 92, 246, 0.12);
 }
 
 /* ── Animated Mesh Gradient Background ───────────────── */
@@ -102,7 +109,6 @@ input, textarea { font: inherit; }
   position: fixed;
   inset: 0;
   z-index: -1;
-  background: var(--bg-base);
   overflow: hidden;
 }
 

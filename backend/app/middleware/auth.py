@@ -27,6 +27,9 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         self.public_paths = tuple(public_paths or PUBLIC_PATH_PREFIXES)
 
     async def dispatch(self, request: Request, call_next):
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         path = request.url.path
 
         # Bypass JWT for all public paths (exact match or prefix match).
