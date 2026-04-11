@@ -37,8 +37,8 @@ settings = get_settings()
 class SupervisorOutput(BaseModel):
     """Schema the supervisor LLM must conform to."""
     task: str = Field(
-        description="One of: qa, explain, quiz, feedback",
-        pattern="^(qa|explain|quiz|feedback)$",
+        description="One of: qa, explain, quiz, feedback, timetable",
+        pattern="^(qa|explain|quiz|feedback|timetable)$",
     )
     difficulty: str = Field(
         description="One of: easy, medium, hard",
@@ -71,7 +71,8 @@ async def supervisor_node(state: AgentState, config: RunnableConfig) -> dict:
         "You are a routing agent for an AI tutoring system.\n"
         "Classify the student question below into exactly one task type and one difficulty.\n\n"
         "task options  : qa (factual question), explain (concept explanation), "
-        "quiz (practice question), feedback (student writing/work review)\n"
+        "quiz (practice question), feedback (student writing/work review), "
+        "timetable (schedule/email events)\n"
         "difficulty options: easy, medium, hard\n\n"
         f"Student question: {query}\n\n"
         "Return ONLY the structured JSON matching the required schema."

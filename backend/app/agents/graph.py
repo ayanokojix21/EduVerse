@@ -45,6 +45,8 @@ from app.agents.supervisor import supervisor_node
 from app.agents.synthesizer import synthesizer_node
 from app.agents.tutor_a import tutor_agent_a_node
 from app.agents.tutor_b import tutor_agent_b_node
+from app.agents.email_agent import email_agent_node
+from app.agents.timetable_agent import timetable_agent_node
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -71,6 +73,18 @@ def dispatch_tutors(state: AgentState) -> list[Send]:
         Send("tutor_agent_a", dict(state)),
         Send("tutor_agent_b", dict(state)),
     ]
+
+
+def route_supervisor(state: AgentState) -> Literal["email_agent", "query_rewriter"]:
+    """
+    Routing edge after supervisor.
+
+    Branches to the timetable pipeline if the task is 'timetable',
+    otherwise proceeds to the standard RAG tutoring pipeline.
+    """
+    if state.get("task") == "timetable":
+        return "email_agent"
+    return "query_rewriter"
 
 
 def should_retry_synthesizer(
@@ -114,10 +128,20 @@ def build_graph() -> StateGraph:
     g.add_node("tutor_agent_b",  tutor_agent_b_node)
     g.add_node("synthesizer",    synthesizer_node)
     g.add_node("critic_agent",   critic_agent_node)
+    g.add_node("email_agent",     email_agent_node)
+    g.add_node("timetable_agent", timetable_agent_node)
 
-    # Sequential edges: START → supervisor → rewriter → rag
-    g.add_edge(START,            "supervisor")
-    g.add_edge("supervisor",     "query_rewriter")
+    # ── Orchestration ────────────────────────────────────────────────────────
+
+    # Dynamic routing after supervisor
+    g.add_edge(START, "supervisor")
+    g.add_conditional_edges(
+        "supervisor",
+        route_supervisor,
+        {"email_agent": "email_agent", "query_rewriter": "query_rewriter"},
+    )
+
+    # Standard RAG branch: START → supervisor → rewriter → rag
     g.add_edge("query_rewriter", "rag_agent")
 
     # Parallel fan-out: rag_agent → [tutor_a ‖ tutor_b]
@@ -141,6 +165,10 @@ def build_graph() -> StateGraph:
         should_retry_synthesizer,
         {"synthesizer": "synthesizer", END: END},
     )
+
+    # Timetable branch: email_agent → timetable_agent → END
+    g.add_edge("email_agent",     "timetable_agent")
+    g.add_edge("timetable_agent", END)
 
     return g
 

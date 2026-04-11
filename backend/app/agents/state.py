@@ -69,6 +69,11 @@ class AgentState(TypedDict):
     # operator.add causes LangGraph to merge both parallel outputs into one list.
     tutor_drafts: Annotated[list[TutorDraft], operator.add]
 
+    # ── Email ────────────────────────────────────────────────
+    email_events: list[dict]
+    timetable: dict
+    
+
     # ── Final answer (Synthesizer) ───────────────────────────────────────────
     response_text: str
     citations: list[dict]

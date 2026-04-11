@@ -165,6 +165,7 @@ async def _run_pipeline(
         "course_id":          course_id,
         "session_id":         session_id,
         "original_query":     message,
+        "task":               "timetable" if session_id.startswith("timetable:") else "",
         "rewritten_queries":  [],
         "tutor_drafts":       [],
         "context_docs":       [],

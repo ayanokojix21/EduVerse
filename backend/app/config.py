@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     mongo_tavily_usage_collection: str = "tavily_usage"
     mongo_checkpoints_collection: str = "checkpoints"
     mongo_checkpoint_writes_collection: str = "checkpoint_writes"
+    mongo_timetables_collection: str = "timetables"
+    mongo_events_collection: str = "student_events"
 
     # Atlas search index names
     mongo_child_vector_index_name: str = "child_vector_index"
@@ -64,6 +66,7 @@ class Settings(BaseSettings):
     groq_tutor_b_model: str = "openai/gpt-oss-120b"
     groq_synthesizer_model: str = "llama-3.3-70b-versatile"
     groq_critic_model: str = "llama-3.3-70b-versatile"
+    groq_timetable_model: str = "llama-3.3-70b-versatile"
 
     # ── Nomic Embeddings ──────────────────────────────────────────────────────
     nomic_api_key: str = ""
