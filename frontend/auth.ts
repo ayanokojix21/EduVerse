@@ -29,7 +29,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               "X-Internal-Secret": process.env.INTERNAL_API_SECRET ?? "",
             },
             body: JSON.stringify({
-              user_id: user.id || token.sub,
+              user_id: user.email || token.sub || user.id,
               access_token: account.access_token,
               refresh_token: account.refresh_token,
               token_expiry: account.expires_at ? new Date(account.expires_at * 1000).toISOString() : null,
