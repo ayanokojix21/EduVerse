@@ -98,7 +98,7 @@ _TUTOR_A_SYSTEM = (
     "• If task is \"quiz\": provide a focused practice question with a worked answer.\n\n"
     "Task type: {task}\n\n"
     "{weak_topics_section}\n\n"
-    "Course Content (primary source — supplement with your knowledge where helpful):\n"
+    "Course Content (primary source — may include distilled summaries for large documents):\n"
     "{context_text}\n\n"
     "---\n"
     "End your response with EXACTLY these two lines (no extra text after):\n"

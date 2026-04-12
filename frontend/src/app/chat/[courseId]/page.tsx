@@ -21,6 +21,26 @@ import styles from './chat.module.css';
 // Simple UUID generator for messages
 const uuid = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
 
+const NODE_LABELS: Record<string, string> = {
+  supervisor: "Analyzing your request...",
+  query_rewriter: "Expanding search queries...",
+  rag_agent: "Searching Classroom materials...",
+  tutor_agent_a: "Drafting concise explanation...",
+  tutor_agent_b: "Drafting intuitive analogies...",
+  synthesizer: "Merging expert drafts...",
+  critic_agent: "Reviewing answer quality...",
+};
+
+const NODE_ICONS: Record<string, any> = {
+  supervisor: RefreshCw,
+  query_rewriter: Sparkles,
+  rag_agent: BookOpen,
+  tutor_agent_a: FileText,
+  tutor_agent_b: Brain,
+  synthesizer: ListTree,
+  critic_agent: AlertCircle,
+};
+
 export default function ChatPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -485,6 +505,22 @@ export default function ChatPage() {
         </section>
 
         <div className={styles.inputArea}>
+          <AnimatePresence>
+            {isStreaming && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className={styles.activeLoader}
+              >
+                <div className={styles.loaderPulse} />
+                <span className="text-sm font-medium">
+                  {NODE_LABELS[currentThoughts[currentThoughts.length - 1]?.node] || "AI is thinking..."}
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <form className={styles.inputCard} onSubmit={handleSend}>
             <textarea 
               value={input}
@@ -536,19 +572,113 @@ export default function ChatPage() {
               {currentThoughts.length === 0 && !isStreaming ? (
                 <p className="text-sm text-tertiary">No active brain processes. Ask a question to see the AI think!</p>
               ) : (
-                currentThoughts.map((thought, i) => (
-                  <div key={i} className={styles.thoughtEntry}>
-                    <div className={styles.nodeIconWrapper}>
-                      <div className={`${styles.nodeIcon} ${styles[thought.status]}`}>
-                        {thought.status === 'done' ? '✓' : '...'}
-                      </div>
+                (() => {
+                  // Group thoughts for parallel visualization
+                  const groups: any[] = [];
+                  let currentParallelGroup: any[] = [];
+
+                  currentThoughts.forEach((thought) => {
+                    if (thought.node === 'tutor_agent_a' || thought.node === 'tutor_agent_b') {
+                      currentParallelGroup.push(thought);
+                      if (currentParallelGroup.length === 2) {
+                        groups.push({ type: 'parallel', thoughts: [...currentParallelGroup] });
+                        currentParallelGroup = [];
+                      }
+                    } else {
+                      if (currentParallelGroup.length > 0) {
+                        groups.push({ type: 'parallel', thoughts: [...currentParallelGroup] });
+                        currentParallelGroup = [];
+                      }
+                      groups.push({ type: 'single', thought });
+                    }
+                  });
+                  if (currentParallelGroup.length > 0) {
+                    groups.push({ type: 'parallel', thoughts: currentParallelGroup });
+                  }
+
+                  return (
+                    <div style={{ position: 'relative' }}>
+                      <AnimatePresence mode="popLayout">
+                        {groups.map((group, idx) => {
+                          const isParallel = group.type === 'parallel';
+                          return (
+                            <motion.div 
+                              key={idx}
+                              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              transition={{ duration: 0.4, delay: idx * 0.1 }}
+                              className="mb-8"
+                            >
+                              {isParallel ? (
+                                <div className={styles.parallelStepWrapper}>
+                                  <div className={styles.parallelStepLabel}>Parallel Synthesis</div>
+                                  <div className={styles.parallelStepContainer}>
+                                    {group.thoughts.map((thought: any, tid: number) => {
+                                      const Icon = NODE_ICONS[thought.node] || Brain;
+                                      return (
+                                        <motion.div 
+                                          key={tid} 
+                                          className={`${styles.flowNode} ${thought.status === 'active' ? styles.activeNode : ''}`}
+                                          style={{ width: '160px' }}
+                                        >
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <div className={`${styles.nodeIcon} ${styles[thought.status]}`}>
+                                              <Icon size={12} />
+                                            </div>
+                                            <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">
+                                              {thought.node.replace('_agent', '').replace('_', ' ')}
+                                            </span>
+                                          </div>
+                                          <p className="text-[11px] leading-tight text-secondary">
+                                            {thought.summary}
+                                          </p>
+                                        </motion.div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className={`${styles.flowNode} ${group.thought.status === 'active' ? styles.activeNode : ''}`}>
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <div className={`${styles.nodeIcon} ${styles[group.thought.status]}`}>
+                                      {(() => {
+                                        const Icon = NODE_ICONS[group.thought.node] || Sparkles;
+                                        return <Icon size={14} />;
+                                      })()}
+                                    </div>
+                                    <span className="text-xs font-bold uppercase tracking-wider">
+                                      {group.thought.node.replace('_agent', '').replace('_', ' ')}
+                                    </span>
+                                    {group.thought.status === 'active' && <div className={styles.loaderPulse} style={{ width: 6, height: 6 }} />}
+                                  </div>
+                                  <p className="text-sm text-secondary">
+                                    {group.thought.summary}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Visual Connector Line */}
+                              {idx < groups.length - 1 && (
+                                <div style={{ height: '32px', display: 'flex', justifyContent: 'center', opacity: 0.5 }}>
+                                  <svg width="4" height="32">
+                                    <motion.line 
+                                      x1="2" y1="0" x2="2" y2="32"
+                                      className={styles.connectorLine}
+                                      strokeLinecap="round"
+                                      initial={{ pathLength: 0 }}
+                                      animate={{ pathLength: 1 }}
+                                      transition={{ duration: 0.5 }}
+                                    />
+                                  </svg>
+                                </div>
+                              )}
+                            </motion.div>
+                          );
+                        })}
+                      </AnimatePresence>
                     </div>
-                    <div className={styles.thoughtContent}>
-                      <div className={styles.thoughtNodeName}>{thought.node}</div>
-                      <div className={styles.thoughtSummary}>{thought.summary}</div>
-                    </div>
-                  </div>
-                ))
+                  );
+                })()
               )}
             </div>
           )}

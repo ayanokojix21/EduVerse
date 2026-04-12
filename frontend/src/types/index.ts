@@ -158,13 +158,13 @@ export type SSEEvent =
 
 // ── Agent nodes (Thought Log) ─────────────────────────
 export const AGENT_NODES = [
-  'Supervisor',
-  'Rewriter',
-  'RAG',
-  'Tutor A',
-  'Tutor B',
-  'Synthesizer',
-  'Critic',
+  'supervisor',
+  'query_rewriter',
+  'rag_agent',
+  'tutor_agent_a',
+  'tutor_agent_b',
+  'synthesizer',
+  'critic_agent',
 ] as const;
 
 export type AgentNode = typeof AGENT_NODES[number];

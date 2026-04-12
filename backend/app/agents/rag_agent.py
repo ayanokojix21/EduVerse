@@ -42,9 +42,30 @@ from app.retrieval.explainability import build_explainability
 from app.retrieval.parent_fetch import fetch_parents
 from app.retrieval.reranker import rerank
 from app.retrieval.retriever import deduplicate_docs, hybrid_search
+from app.utils.llm_pool import RoundRobinLLM
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+# Threshold for triggering Map-Reduce distillation
+MAX_RAW_CHUNKS = 10
+_distiller_llm = RoundRobinLLM.for_role("fast", temperature=0.0)
+
+async def _distill_batch(query: str, batch: list[dict], config: RunnableConfig) -> str:
+    """Distill a batch of chunks into relevant facts for the query."""
+    context_blob = "\n\n".join([f"--- Chunk ---\n{d['content']}" for d in batch])
+    prompt = (
+        f"You are a Context Distiller. Below are several chunks from a course document.\n\n"
+        f"STUDENT QUERY: {query}\n\n"
+        f"COURSE CHUNKS:\n{context_blob}\n\n"
+        f"INSTRUCTION:\n"
+        f"1. Identify all specific facts, formulas, definitions, and details relevant to the query.\n"
+        f"2. Summarize them into a concise, high-density note.\n"
+        f"3. If nothing is relevant, return 'NO_RELEVANT_INFO'.\n"
+        f"4. Be objective. Do not answer the question, just extract the evidence."
+    )
+    res = await _distiller_llm.ainvoke([("user", prompt)], config=config)
+    return res.content.strip()
 
 
 def _docs_to_dicts(docs) -> list[dict]:
@@ -111,6 +132,41 @@ async def rag_agent_node(state: AgentState, config: RunnableConfig) -> dict:
     parent_docs = await fetch_parents(reranked_children, db, settings)
     logger.info("Parent fetch → %d parent chunks", len(parent_docs))
 
+    # ── 3.5 Context Distillation (Map-Reduce) ─────────────────────────────────
+    # If the retrieved context is too large, we distill it in batches.
+    is_distilled = False
+    if len(parent_docs) > MAX_RAW_CHUNKS:
+        logger.info("Large context detected (%d chunks) -> Triggering Map-Reduce distillation", len(parent_docs))
+        batch_size = 8
+        batches = [parent_docs[i:i + batch_size] for i in range(0, len(parent_docs), batch_size)]
+        
+        distill_tasks = [_distill_batch(original_query, b, config) for b in batches]
+        results = await asyncio.gather(*distill_tasks)
+        
+        distilled_docs = []
+        for i, res in enumerate(results):
+            if res and res != "NO_RELEVANT_INFO":
+                # Create a synthetic doc for the distilled content
+                # We inherit metadata from the first doc in the batch for citation context
+                base_meta = batches[i][0].get("metadata", {}).copy()
+                base_meta["is_distilled"] = True
+                base_meta["title"] = f"Distilled Notes: {base_meta.get('title', 'Course Material')}"
+                
+                distilled_docs.append({
+                    "content": res,
+                    "metadata": base_meta,
+                    "parent_id": f"distilled-{i}-{int(time.time())}",
+                    "reranker_score": 1.0 # Distilled content is highly curated
+                })
+        
+        if distilled_docs:
+            parent_docs = distilled_docs
+            is_distilled = True
+            logger.info("Distillation complete -> %d consolidated context notes", len(parent_docs))
+        else:
+            logger.warning("Distillation produced no results, falling back to top matched chunks only")
+            parent_docs = parent_docs[:MAX_RAW_CHUNKS]
+
     # ── 4. Retrieval label (NO web fallback — strict classroom grounding) ───
     # We intentionally do NOT fetch web results. The tutors are strictly
     # grounded to course materials only. The label indicates confidence level.
@@ -156,11 +212,12 @@ async def rag_agent_node(state: AgentState, config: RunnableConfig) -> dict:
             {
                 "node": "rag_agent",
                 "summary": (
-                    f"{len(parent_docs)} parent chunks · {retrieval_label} · "
+                    f"{len(parent_docs)} {'distilled' if is_distilled else 'parent'} chunks · {retrieval_label} · "
                     f"{confidence_label} confidence · {retrieval_ms}ms"
                 ),
                 "data": {
                     "parent_count": len(parent_docs),
+                    "is_distilled": is_distilled,
                     "web_count": len(web_docs),
                     "retrieval_label": retrieval_label,
                     "confidence_label": confidence_label,
