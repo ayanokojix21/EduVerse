@@ -47,7 +47,16 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/');
-    if (status === 'authenticated') loadCourse();
+    if (status === 'authenticated') {
+      loadCourse();
+      
+      // Handle pre-filled query from URL
+      const searchParams = new URLSearchParams(window.location.search);
+      const query = searchParams.get('query');
+      if (query) {
+        setInput(query);
+      }
+    }
   }, [status]);
 
   useEffect(() => {

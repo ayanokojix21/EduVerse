@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, BookOpen, AlertCircle, FileText, Calendar, Paperclip, ExternalLink, Video } from 'lucide-react';
+import { ArrowLeft, BookOpen, AlertCircle, FileText, Calendar, Paperclip, ExternalLink, Video, MessageSquare, Sparkles } from 'lucide-react';
 
 import { api } from '@/lib/api';
 import type { Course, CourseContent, CourseItem } from '@/types';
@@ -99,7 +99,7 @@ export default function CoursePage() {
                 <p className="text-secondary" style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>
                     {course?.section || 'Section n/a'} — Taught by {course?.teacher || 'N/A'}
                 </p>
-                <div style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     {course?.is_ingested && (
                         <span className="badge" style={{ backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#4ade80' }}>
                             ✅ Ingested for Chat
@@ -108,6 +108,14 @@ export default function CoursePage() {
                     <span className="badge badge-secondary">
                         {coursework?.assignments?.length || 0} Assignments
                     </span>
+                    <button 
+                      onClick={() => router.push(`/chat/${courseId}`)}
+                      className="btn btn-primary btn-sm"
+                      style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                    >
+                      <MessageSquare size={16} />
+                      Start AI Chat
+                    </button>
                 </div>
             </section>
 
@@ -218,15 +226,25 @@ export default function CoursePage() {
                                         {work.state}
                                     </span>
                                 </div>
-                                <a 
-                                    href={work.alternateLink} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="btn btn-secondary w-full"
-                                    style={{ fontSize: '0.75rem', padding: '0.5rem 0', textAlign: 'center' }}
-                                >
-                                    View on Classroom
-                                </a>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <a 
+                                        href={work.alternateLink} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="btn btn-secondary"
+                                        style={{ flex: 1, fontSize: '0.75rem', padding: '0.5rem 0', textAlign: 'center' }}
+                                    >
+                                        View
+                                    </a>
+                                    <button 
+                                        onClick={() => router.push(`/chat/${courseId}?query=Help me understand this ${activeTab.slice(0, -1)}: ${work.title}`)}
+                                        className="btn btn-primary"
+                                        style={{ flex: 1, fontSize: '0.75rem', padding: '0.5rem 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
+                                    >
+                                        <Sparkles size={14} />
+                                        Ask AI
+                                    </button>
+                                </div>
                             </div>
                         </motion.div>
                     ))
