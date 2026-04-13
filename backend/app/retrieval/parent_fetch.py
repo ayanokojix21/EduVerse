@@ -1,23 +1,6 @@
 """
 Parent chunk fetch — retrieves full parent chunks from MongoDB given a
 list of top-reranked child chunk Documents.
-
-Why parent-child?
------------------
-* Child chunks (300 chars) are small → precise vector matches.
-* Parent chunks (2000 chars) contain full context → LLMs answer well.
-* This step bridges the retrieval precision of small chunks with the
-  context richness of large ones.
-
-Sibling expansion
------------------
-After fetching the directly-matched parents, we also pull all OTHER
-parent chunks that share the same ``source_doc_id`` (i.e. from the same
-PDF / attachment).  This ensures the LLM sees the full document, not
-just the single paragraph that happened to match the vector search.
-
-Matched parents appear first (in reranker-rank order), followed by
-sibling parents (in their original document order).
 """
 from __future__ import annotations
 
@@ -98,39 +81,46 @@ async def fetch_parents(
         else:
             logger.warning("parent_id=%s not found in collection.", pid)
 
-    # ── Step 2: Sibling expansion — fetch other parents from the same docs ─
-    # Collect unique source_doc_ids from matched parents
-    source_doc_ids = list(
-        dict.fromkeys(
-            p.get("metadata", {}).get("source_doc_id", "")
-            for p in matched_parents
-            if p.get("metadata", {}).get("source_doc_id")
-        )
-    )
+    # ── Step 2: Sibling expansion — fetch immediate neighbors (Sliding Window) ─
+    sibling_queries = []
+    for p in matched_parents:
+        source_doc_id = p.get("metadata", {}).get("source_doc_id")
+        idx = p.get("metadata", {}).get("chunk_index")
+        
+        if source_doc_id and idx is not None:
+            sibling_queries.append({
+                "metadata.source_doc_id": source_doc_id,
+                "metadata.chunk_index": {
+                    "$in": [idx - 1, idx + 1]
+                },
+                "parent_id": {"$nin": list(matched_parent_ids)}
+            })
 
     sibling_parents: list[dict] = []
-    if source_doc_ids:
-        sibling_cursor = collection.find({
-            "metadata.source_doc_id": {"$in": source_doc_ids},
-            "parent_id": {"$nin": list(matched_parent_ids)},  # exclude already-matched
-        })
+    if sibling_queries:
+        # Batch fetch all potential siblings for all matched parents
+        sibling_cursor = collection.find({"$or": sibling_queries})
         raw_siblings = await sibling_cursor.to_list(length=None)
 
+        # Deduplicate siblings
+        seen_sib_ids = set()
         for sib in raw_siblings:
-            sib.pop("_id", None)
-            sibling_parents.append(sib)
+            pid = sib.get("parent_id")
+            if pid and pid not in matched_parent_ids and pid not in seen_sib_ids:
+                sib.pop("_id", None)
+                sibling_parents.append(sib)
+                seen_sib_ids.add(pid)
 
         logger.info(
-            "Sibling expansion → %d extra parents from %d source docs",
+            "Sliding window expansion (±1) → %d extra neighbor chunks",
             len(sibling_parents),
-            len(source_doc_ids),
         )
 
-    # Matched parents first (ranked), then siblings (document order)
+    # Matched parents first (ranked), then neighbors (document order)
     all_parents = matched_parents + sibling_parents
 
     logger.info(
-        "fetch_parents → %d matched + %d siblings = %d total parents",
+        "fetch_parents → %d matched + %d siblings = %d total context chunks",
         len(matched_parents),
         len(sibling_parents),
         len(all_parents),

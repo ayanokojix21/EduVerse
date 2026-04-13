@@ -1,20 +1,6 @@
 """
-Retrieval explainability — pure Python, zero LLM calls.
-
-Derives a human-readable confidence narrative and per-source breakdown
-directly from cross-encoder reranker scores.
-
-Score interpretation
---------------------
-The cross-encoder (``ms-marco-MiniLM-L-6-v2``) outputs raw logits.
-Empirically:
-
-* logit ≥ 0.65 → Strong semantic match
-* 0.35 ≤ logit < 0.65 → Moderate match
-* logit < 0.35 → Weak match (web fallback fires)
-
-These thresholds are consistent with the web-fallback trigger in
-``fallback.py`` (``TAVILY_THRESHOLD = 0.35``).
+Helper functions for explaining the RAG retrieval process.
+Directly from Cohere Rerank probabilities (0-1).
 """
 from __future__ import annotations
 
@@ -23,34 +9,34 @@ from langchain_core.documents import Document
 
 # ── Confidence thresholds ────────────────────────────────────────────────────
 
-_HIGH_THRESHOLD   = 0.65
-_MEDIUM_THRESHOLD = 0.35  # == TAVILY_THRESHOLD
+_HIGH_THRESHOLD   = 0.70
+_MEDIUM_THRESHOLD = 0.40
 
 
 def _confidence_label_and_narrative(
     top_score: float,
     retrieval_label: str,
 ) -> tuple[str, str]:
-    if retrieval_label == "WEB_ONLY":
-        return (
-            "Low",
-            "Weak classroom match. Answer draws primarily on web sources or general knowledge.",
-        )
+    """
+    Derive the confidence level and narrative text based on the reranker logit/probability.
+    Since we shifted to CohereRerank (0-1), these thresholds are now direct probabilities.
+    """
     if top_score >= _HIGH_THRESHOLD:
         return (
             "High",
             f"Strong classroom match ({top_score:.0%} relevance). "
-            "Answer is fully grounded in your course materials.",
+            "The answer is precisely grounded in your course materials.",
         )
     if top_score >= _MEDIUM_THRESHOLD:
         return (
             "Medium",
-            f"Moderate match ({top_score:.0%} relevance). "
-            "Answer draws on classroom content with some interpretation.",
+            f"Good match ({top_score:.0%} relevance). "
+            "The answer draws on course concepts with high alignment.",
         )
     return (
         "Low",
-        "Weak classroom match. Answer supplements course materials with web sources.",
+        f"Partial match ({top_score:.0%} relevance). "
+        "The answer is synthesized from limited classroom context.",
     )
 
 
@@ -87,8 +73,8 @@ def build_explainability(
     top_score:
         Highest reranker logit from the reranking step.
     retrieval_label:
-        One of ``CLASSROOM_GROUNDED``, ``CLASSROOM_PARTIAL_WEB``,
-        ``WEB_ONLY``.
+        One of ``CLASSROOM_GROUNDED``, ``CLASSROOM_LOW_CONFIDENCE``,
+        ``CLASSROOM_INSUFFICIENT``.
 
     Returns
     -------
@@ -96,7 +82,7 @@ def build_explainability(
 
         {
             "confidence_label":  "High" | "Medium" | "Low",
-            "confidence_score":  float,            # top reranker logit
+            "confidence_score":  float,            # top reranker score (0-1)
             "retrieval_label":   str,
             "narrative":         str,              # human-readable explanation
             "per_source": [
