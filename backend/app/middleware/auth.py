@@ -17,6 +17,7 @@ PUBLIC_PATH_PREFIXES = (
     "/openapi.json",
     "/redoc",
     "/api/store-tokens",
+    "/favicon.ico",
 )
 
 
@@ -38,15 +39,20 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
                 return await call_next(request)
 
         authorization = request.headers.get("Authorization", "")
+        token = None
         token_prefix = "Bearer "
 
-        if not authorization.startswith(token_prefix):
+        if authorization.startswith(token_prefix):
+            token = authorization[len(token_prefix):]
+        else:
+            # Fallback for browser-native requests (like PDF proxy links)
+            token = request.query_params.get("token")
+
+        if not token:
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={"detail": "Missing bearer token"},
             )
-
-        token = authorization[len(token_prefix):]
 
         try:
             payload = jwt.decode(
