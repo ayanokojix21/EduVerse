@@ -46,6 +46,18 @@ const NODE_ICONS: Record<string, any> = {
   timetable_agent: Calendar,
 };
 
+const NODE_DESCRIPTIONS: Record<string, string> = {
+  supervisor: "Determining the best way to answer your query based on current context.",
+  query_rewriter: "Generating optimized search terms to find the most relevant course materials.",
+  rag_agent: "Searching through your Google Classroom documents, materials, and assignments.",
+  tutor_a: "Crafting a clear, step-by-step explanation grounded in course content.",
+  tutor_b: "Developing helpful analogies and examples to simplify complex concepts.",
+  synthesizer: "Combining responses and ensuring everything is accurate and consistent.",
+  critic_agent: "Performing a final quality check to ensure the answer meets educational standards.",
+  email_agent: "Scanning your classroom announcements for recent updates or deadlines.",
+  timetable_agent: "Organizing schedule information into a clear, readable format.",
+};
+
 export default function ChatPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -216,6 +228,7 @@ export default function ChatPage() {
                 citations: dataObj.citations,
                 explainability: dataObj.explainability,
                 critic: dataObj.critic,
+                thoughts: currentThoughts,
                 trace_url: dataObj.trace_url
               };
             }
@@ -323,6 +336,32 @@ export default function ChatPage() {
                 {msg.role === 'user' ? session?.user?.name?.[0] : 'AI'}
               </div>
               <div className={styles.messageBubble}>
+                {/* Past Thinking Mode Block (Show Detail) */}
+                {msg.thoughts && msg.thoughts.length > 0 && (
+                  <details className={styles.thinkingBlock} style={{ marginBottom: '1rem', cursor: 'pointer' }}>
+                    <summary className={styles.thinkingHeader} style={{ listStyle: 'none' }}>
+                      <Brain size={14} color="#5e6ad2" />
+                      <span className={styles.thinkingTitle}>View Process</span>
+                    </summary>
+                    <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {msg.thoughts.map((t, i) => {
+                        const Icon = NODE_ICONS[t.node] || Sparkles;
+                        return (
+                          <div key={i} className={styles.thoughtStep} style={{ opacity: 1 }}>
+                            <div className={styles.thoughtIcon}>
+                              <Icon size={14} />
+                            </div>
+                            <div className={styles.thoughtContent}>
+                              <div className={styles.thoughtLabel}>{NODE_LABELS[t.node]}</div>
+                              <div className={styles.thoughtDetail}>{NODE_DESCRIPTIONS[t.node]}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </details>
+                )}
+
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                 {msg.citations && msg.citations.length > 0 && (
                   <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid #2e2e2e', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -368,7 +407,34 @@ export default function ChatPage() {
             <div className={`${styles.messageBox} ${styles.messageAssistant}`}>
               <div className={`${styles.avatar} ${styles.avatarBot}`}>AI</div>
               <div className={styles.messageBubble}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamBuffer}</ReactMarkdown>
+                {/* Thinking Mode Block */}
+                <div className={styles.thinkingBlock}>
+                   <div className={styles.thinkingHeader}>
+                      <Spinner size={14} color="#5e6ad2" />
+                      <span className={styles.thinkingTitle}>AI is thinking...</span>
+                   </div>
+                   {currentThoughts.map((t, i) => {
+                      const Icon = NODE_ICONS[t.node] || Sparkles;
+                      const isActive = i === currentThoughts.length - 1;
+                      return (
+                        <div key={i} className={`${styles.thoughtStep} ${isActive ? styles.thoughtStepActive : styles.thoughtStepDone}`}>
+                          <div className={`${styles.thoughtIcon} ${isActive ? styles.pulseIcon : ''}`}>
+                            <Icon size={14} />
+                          </div>
+                          <div className={styles.thoughtContent}>
+                            <div className={styles.thoughtLabel}>{NODE_LABELS[t.node]}</div>
+                            {isActive && <div className={styles.thoughtDetail}>{NODE_DESCRIPTIONS[t.node]}</div>}
+                          </div>
+                        </div>
+                      );
+                   })}
+                </div>
+                
+                {streamBuffer && (
+                  <div style={{ marginTop: '1.5rem', borderTop: '1px solid #1f1f1f', paddingTop: '1.5rem' }}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamBuffer}</ReactMarkdown>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -402,13 +468,12 @@ export default function ChatPage() {
           {inspectorOpen ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </div>
         <div className={styles.inspectorHeader}>
-          <button className={`${styles.inspectorTab} ${activeTab === 'thoughts' ? styles.active : ''}`} onClick={() => setActiveTab('thoughts')}>Thoughts</button>
-          <button className={`${styles.inspectorTab} ${activeTab === 'hivemind' ? styles.active : ''}`} onClick={() => setActiveTab('hivemind')}>HiveMind</button>
-          <button className={`${styles.inspectorTab} ${activeTab === 'citations' ? styles.active : ''}`} onClick={() => setActiveTab('citations')}>Sources</button>
+          <button className={`${styles.inspectorTab} ${activeTab === 'thoughts' ? styles.active : ''}`} onClick={() => setActiveTab('thoughts')}>Process Log</button>
         </div>
         <div className={styles.inspectorBody}>
            {activeTab === 'thoughts' && (
              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {currentThoughts.length === 0 && <p style={{ fontSize: '0.8rem', color: '#6b6b6b' }}>The AI thinking process will appear here during chat.</p>}
                 {currentThoughts.map((t, i) => (
                   <div key={i} style={{ padding: '0.75rem', borderRadius: '6px', background: '#161616', border: '1px solid #2e2e2e' }}>
                     <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#5e6ad2', marginBottom: '0.25rem' }}>{t.node.toUpperCase()}</div>
@@ -417,8 +482,6 @@ export default function ChatPage() {
                 ))}
              </div>
            )}
-           {activeTab === 'hivemind' && <p style={{ fontSize: '0.8rem', color: '#6b6b6b' }}>Alternative drafts and expert opinions appear here.</p>}
-           {activeTab === 'citations' && <p style={{ fontSize: '0.8rem', color: '#6b6b6b' }}>Detailed source analysis appears here.</p>}
         </div>
       </aside>
     </div>

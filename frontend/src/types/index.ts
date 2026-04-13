@@ -97,6 +97,7 @@ export interface Message {
   tutor_drafts?: TutorDraft[];
   explainability?: Explainability;
   critic?: CriticResult;
+  thoughts?: AgentThought[];
   trace_url?: string;
 }
 

@@ -186,6 +186,76 @@
   background: #161616;
 }
 
+/* Thinking Block */
+.thinkingBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  background: #121212;
+  border: 1px solid #1f1f1f;
+  border-radius: 12px;
+}
+
+.thinkingHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-bottom: 0.5rem;
+}
+
+.thinkingTitle {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #616161;
+}
+
+.thoughtStep {
+  display: flex;
+  gap: 0.875rem;
+  position: relative;
+}
+
+.thoughtIcon {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #5e6ad2;
+}
+
+.thoughtContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.thoughtLabel {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #ededed;
+}
+
+.thoughtDetail {
+  font-size: 0.75rem;
+  color: #888888;
+  line-height: 1.5;
+}
+
+.pulseIcon {
+  animation: pulse-opac 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-opac {
+  0%, 100% { opacity: 0.4; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
 .inputArea {
   padding: 1.5rem 0;
   background: #0f0f0f;
