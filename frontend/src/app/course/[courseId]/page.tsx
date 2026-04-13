@@ -11,7 +11,8 @@ import {
 } from 'lucide-react';
 
 import { api } from '@/lib/api';
-import type { Course, CourseContent, CourseItem } from '@/types';
+import type { Course, CourseContent } from '@/types';
+import Spinner from '@/components/Spinner';
 import styles from './course.module.css';
 
 export default function CoursePage() {
@@ -270,19 +271,19 @@ export default function CoursePage() {
               <button
                 onClick={handleSync}
                 disabled={syncing || deleting}
-                className="btn btn-ghost"
+                className={`btn btn-ghost ${syncing ? 'btn-loading' : ''}`}
                 style={{ width: '100%', justifyContent: 'flex-start' }}
               >
-                {syncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                {syncing ? 'Syncing...' : 'Sync classroom'}
+                {!syncing && <RefreshCw size={14} />}
+                Sync classroom
               </button>
               <button
                 onClick={handleDeleteIndex}
                 disabled={deleting || syncing || !course?.is_ingested}
-                className="btn btn-ghost"
+                className={`btn btn-ghost ${deleting ? 'btn-loading' : ''}`}
                 style={{ width: '100%', justifyContent: 'flex-start', color: '#e5484d' }}
               >
-                <Trash2 size={14} />
+                {!deleting && <Trash2 size={14} />}
                 Wipe AI index
               </button>
             </div>
@@ -291,10 +292,10 @@ export default function CoursePage() {
               <p style={{ fontSize: '0.7rem', fontWeight: 600, color: '#6b6b6b', textTransform: 'uppercase', marginBottom: '1rem' }}>
                 Upload Local Materials
               </p>
-              <label className={styles.uploadBox}>
-                <Upload size={16} style={{ color: '#5e6ad2' }} />
+              <label className={`${styles.uploadBox} ${uploading ? 'btn-loading' : ''}`} style={{ cursor: uploading ? 'not-allowed' : 'default' }}>
+                {!uploading && <Upload size={16} style={{ color: '#5e6ad2' }} />}
                 <span style={{ fontSize: '0.8rem', color: '#a0a0a0' }}>
-                  {uploading ? 'Processing...' : 'Upload PDF'}
+                  {uploading ? 'Processing Document...' : 'Upload PDF'}
                 </span>
                 <input type="file" accept=".pdf" onChange={handleFileUpload} disabled={uploading} style={{ display: 'none' }} />
               </label>

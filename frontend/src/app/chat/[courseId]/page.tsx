@@ -13,6 +13,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { api, API_URL } from '@/lib/api';
+import Spinner from '@/components/Spinner';
 import type { 
   Course, CourseContent, Message, SSEEvent, AgentThought, TutorDraft, 
   Explainability, Citation, CriticResult 
@@ -263,8 +264,14 @@ export default function ChatPage() {
                   key={s.session_id} 
                   onClick={() => loadSession(s.session_id)}
                   className={`${styles.sessionItem} ${sessionId === s.session_id ? styles.activeSession : ''}`}
+                  style={{ position: 'relative' }}
                 >
                    {s.title}
+                   {isLoadingSessions === s.session_id && (
+                     <div style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)' }}>
+                       <Spinner size={12} color="#5e6ad2" />
+                     </div>
+                   )}
                 </div>
               ))}
             </div>

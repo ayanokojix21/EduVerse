@@ -11,6 +11,7 @@ import { signOut, useSession } from 'next-auth/react';
 import Image from 'next/image';
 
 import ThemeToggle from '@/components/ThemeToggle';
+import Spinner from '@/components/Spinner';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/Toast';
 import type { Course, Profile } from '@/types';
@@ -231,12 +232,19 @@ export default function DashboardPage() {
             ) : (
               courses.map((course, idx) => (
                 <motion.div
-                  key={course.id}
+                  key={`${course.id}-${idx}`}
                   className={styles.courseCard}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.04, duration: 0.3 }}
                 >
+                  {/* Loading Overlay */}
+                  {ingesting[`${course.id}-${idx}`] && (
+                    <div className="loading-overlay">
+                      <Spinner size={24} color="#5e6ad2" />
+                    </div>
+                  )}
+
                   {/* Card top */}
                   <div className={styles.courseCardTop}>
                     <h3 className={styles.courseTitle}>{course.name}</h3>
@@ -267,15 +275,12 @@ export default function DashboardPage() {
                     {course.is_ingested ? (
                       <>
                         <button
-                          className={styles.actionBtn}
+                          className={`btn ${styles.actionBtn} ${ingesting[`${course.id}-${idx}`] ? 'btn-loading' : ''}`}
                           onClick={() => handleIngest(course.id, idx)}
                           disabled={ingesting[`${course.id}-${idx}`]}
                           title="Re-sync materials"
                         >
-                          {ingesting[`${course.id}-${idx}`]
-                            ? <Loader2 size={13} className="animate-spin" />
-                            : <RefreshCw size={13} />
-                          }
+                          {!ingesting[`${course.id}-${idx}`] && <RefreshCw size={13} />}
                           {ingesting[`${course.id}-${idx}`] ? 'Syncing' : 'Sync'}
                         </button>
 
@@ -294,12 +299,12 @@ export default function DashboardPage() {
                         </button>
 
                         <button
-                          className={`${styles.actionBtn} ${styles.actionBtnIcon} ${styles.actionBtnDanger}`}
+                          className={`${styles.actionBtn} ${styles.actionBtnIcon} ${styles.actionBtnDanger} ${ingesting[`${course.id}-${idx}`] ? 'btn-loading' : ''}`}
                           onClick={() => handleDeleteIndex(course.id, idx)}
                           disabled={ingesting[`${course.id}-${idx}`]}
                           title="Wipe index"
                         >
-                          <Trash2 size={13} />
+                          {!ingesting[`${course.id}-${idx}`] && <Trash2 size={13} />}
                         </button>
                       </>
                     ) : (

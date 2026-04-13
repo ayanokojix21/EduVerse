@@ -118,6 +118,7 @@ input, textarea { font: inherit; }
   border-radius: 0.75rem;
   box-shadow: var(--shadow-sm);
   transition: box-shadow 0.2s ease;
+  position: relative; /* For overlays */
 }
 
 .glass-card:hover {
@@ -128,6 +129,52 @@ input, textarea { font: inherit; }
   background: var(--bg-surface-solid);
   border: 1px solid var(--border);
   border-radius: 0.75rem;
+  position: relative;
+}
+
+/* ── Loading Utilities ── */
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 15, 15, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  border-radius: inherit;
+  backdrop-filter: blur(2px); /* Subtle blur for the overlay ONLY */
+}
+
+.btn-loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+
+.btn-loading::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin-top: -8px;
+  margin-left: -8px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
 }
 
 /* ── Buttons ─────────────────────────────────────────── */
