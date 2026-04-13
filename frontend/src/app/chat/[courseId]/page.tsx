@@ -6,12 +6,13 @@ import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, Send, Sparkles, AlertCircle, ChevronRight, ChevronLeft, 
-  Brain, FileText, ListTree, RefreshCw, BookOpen, Plus, MessageSquare, Trash2
+  Brain, FileText, ListTree, RefreshCw, BookOpen, Plus, MessageSquare, Trash2,
+  Mail, Calendar
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-import { api } from '@/lib/api';
+import { api, API_URL } from '@/lib/api';
 import type { 
   Course, CourseContent, CourseItem, Message, SSEEvent, AgentThought, TutorDraft, 
   Explainability, Citation, CriticResult 
@@ -25,20 +26,24 @@ const NODE_LABELS: Record<string, string> = {
   supervisor: "Analyzing your request...",
   query_rewriter: "Expanding search queries...",
   rag_agent: "Searching Classroom materials...",
-  tutor_agent_a: "Drafting concise explanation...",
-  tutor_agent_b: "Drafting intuitive analogies...",
+  tutor_a: "Drafting concise explanation...",
+  tutor_b: "Drafting intuitive analogies...",
   synthesizer: "Merging expert drafts...",
   critic_agent: "Reviewing answer quality...",
+  email_agent: "Scanning academic emails...",
+  timetable_agent: "Compiling your timetable...",
 };
 
 const NODE_ICONS: Record<string, any> = {
   supervisor: RefreshCw,
   query_rewriter: Sparkles,
   rag_agent: BookOpen,
-  tutor_agent_a: FileText,
-  tutor_agent_b: Brain,
+  tutor_a: FileText,
+  tutor_b: Brain,
   synthesizer: ListTree,
   critic_agent: AlertCircle,
+  email_agent: Mail,
+  timetable_agent: Calendar,
 };
 
 export default function ChatPage() {
@@ -463,7 +468,7 @@ export default function ChatPage() {
               </div>
               <div className={styles.messageBubble}>
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {msg.content.replace(/CITATIONS_JSON:[\s\S]*?(?:```[\s\S]*?```|\[[\s\S]*?\])[\s\S]*?(?:$)/, '')}
+                  {msg.content}
                 </ReactMarkdown>
                 
                 {/* Embedded citations block */}
@@ -472,15 +477,37 @@ export default function ChatPage() {
                     <span className="font-semibold text-secondary mb-2 block">Sources Used:</span>
                     <div className="flex flex-wrap gap-2">
                       {msg.citations.map((cit, i) => {
-                        const href = cit.alternate_link || cit.link;
-                        return href ? (
-                          <a key={i} href={href} target="_blank" rel="noopener noreferrer" className="badge badge-secondary">
-                            {cit.title} ↗
-                          </a>
-                        ) : (
-                          <span key={i} className="badge badge-secondary">{cit.title}</span>
-                        );
-                      })}
+                         // 1. Determine target URL (Prefer file_url for Proxy)
+                         let target = cit.file_url || cit.alternate_link || cit.link;
+                         if (target && typeof target === 'object') {
+                           target = (target as any).url || (target as any).alternateLink;
+                         }
+                         
+                         // 2. Generate finalHref
+                         let finalHref = target;
+                         
+                         if (typeof target === 'string' && target.startsWith('http')) {
+                            const isPdf = target.toLowerCase().includes('.pdf') || cit.file_url;
+                            
+                            if (isPdf) {
+                               // Use Proxy for PDFs to enable native #page=N navigation
+                               const jwt = (session as any)?.app_jwt;
+                               const proxyBase = `${API_URL}/proxy/pdf?url=${encodeURIComponent(target)}${jwt ? `&token=${jwt}` : ''}`;
+                               finalHref = cit.page_number ? `${proxyBase}#page=${cit.page_number}` : proxyBase;
+                            } else if (cit.page_number) {
+                               // Fallback for non-PDF links
+                               finalHref = `${target}#page=${cit.page_number}`;
+                            }
+                         }
+                         
+                         return (typeof finalHref === 'string' && finalHref !== '#' && finalHref !== '') ? (
+                           <a key={i} href={finalHref} target="_blank" rel="noopener noreferrer" className="badge badge-secondary" title={cit.page_number ? `Open on page ${cit.page_number}` : ''}>
+                             {cit.source_index ? `[${cit.source_index}] ` : ''}{cit.title} {cit.page_number && `(P. ${cit.page_number})`} ↗
+                           </a>
+                         ) : (
+                           <span key={i} className="badge badge-secondary">{cit.source_index ? `[${cit.source_index}] ` : ''}{cit.title}</span>
+                         );
+                       })}
                     </div>
                   </div>
                 )}
@@ -495,7 +522,7 @@ export default function ChatPage() {
               </div>
               <div className={styles.messageBubble}>
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {streamBuffer.replace(/CITATIONS_JSON:[\s\S]*?(?:```[\s\S]*?```|\[[\s\S]*?\])[\s\S]*?(?:$)/, '')}
+                  {streamBuffer}
                 </ReactMarkdown>
                 <span className={styles.cursorBlink}>|</span>
               </div>
@@ -578,7 +605,7 @@ export default function ChatPage() {
                   let currentParallelGroup: any[] = [];
 
                   currentThoughts.forEach((thought) => {
-                    if (thought.node === 'tutor_agent_a' || thought.node === 'tutor_agent_b') {
+                    if (thought.node === 'tutor_a' || thought.node === 'tutor_b') {
                       currentParallelGroup.push(thought);
                       if (currentParallelGroup.length === 2) {
                         groups.push({ type: 'parallel', thoughts: [...currentParallelGroup] });
@@ -632,6 +659,22 @@ export default function ChatPage() {
                                           <p className="text-[11px] leading-tight text-secondary">
                                             {thought.summary}
                                           </p>
+                                          {thought.data && (
+                                            <div className="mt-2 pt-2 border-t border-white/5 flex flex-col gap-1">
+                                              {thought.data.reasoning && (
+                                                <p className="text-[9px] italic text-tertiary line-clamp-2">
+                                                  &quot;{thought.data.reasoning}&quot;
+                                                </p>
+                                              )}
+                                              <div className="flex gap-1">
+                                                {thought.data.citation_count !== undefined && (
+                                                  <span className="text-[8px] bg-secondary/20 text-secondary px-1.5 py-0.5 rounded">
+                                                    {thought.data.citation_count} Citations
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
                                         </motion.div>
                                       );
                                     })}
@@ -654,6 +697,47 @@ export default function ChatPage() {
                                   <p className="text-sm text-secondary">
                                     {group.thought.summary}
                                   </p>
+
+                                  {/* Rich Decision Data */}
+                                  {group.thought.data && Object.keys(group.thought.data).length > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-white/5 flex flex-col gap-2">
+                                      {group.thought.data.queries && (
+                                        <div className="flex flex-wrap gap-1">
+                                          {group.thought.data.queries.map((q: string, i: number) => (
+                                            <span key={i} className="text-[10px] bg-white/5 px-2 py-0.5 rounded border border-white/10 text-tertiary">
+                                              "{q}"
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {group.thought.data.consensus_reasoning && (
+                                        <div className="text-[11px] italic text-accent bg-accent-glow/20 p-2 rounded border border-accent/20">
+                                          <span className="font-bold uppercase text-[9px] block mb-1 opacity-70">Consensus Strategy</span>
+                                          {group.thought.data.consensus_reasoning}
+                                        </div>
+                                      )}
+                                      {group.thought.data.issues && group.thought.data.issues.length > 0 && (
+                                        <div className="flex flex-col gap-1">
+                                          <span className="text-[9px] font-bold uppercase opacity-60">Quality Issues:</span>
+                                          {group.thought.data.issues.map((issue: string, i: number) => (
+                                            <div key={i} className="text-[10px] text-red-400 bg-red-400/5 p-1.5 rounded border border-red-400/10 flex gap-2">
+                                              <span>•</span> {issue}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      <div className="flex flex-wrap gap-2">
+                                        {group.thought.data.task && <span className="badge badge-secondary text-[9px] h-4">Task: {group.thought.data.task}</span>}
+                                        {group.thought.data.difficulty && <span className="badge badge-accent text-[9px] h-4">Diff: {group.thought.data.difficulty}</span>}
+                                        {group.thought.data.retrieval_ms && <span className="text-[9px] bg-white/5 px-1.5 py-0.5 rounded opacity-60">Latency: {group.thought.data.retrieval_ms}ms</span>}
+                                        {group.thought.data.confidence_score !== undefined && (
+                                          <span className="text-[9px] bg-success/10 text-success px-1.5 py-0.5 rounded">
+                                            Match: {(group.thought.data.confidence_score * 100).toFixed(1)}%
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               )}
 
@@ -706,13 +790,28 @@ export default function ChatPage() {
               {(!lastAssistantMsg?.citations || lastAssistantMsg.citations.length === 0) ? (
                 <p className="text-sm text-tertiary">No sources were retrieved for the last answer.</p>
               ) : (
-                lastAssistantMsg.citations.map((cit, i) => (
-                  <div key={i} className={styles.citationCard}>
-                    <div className={styles.citationTitle}>{cit.title}</div>
-                    {cit.score && <div className={styles.citationScore}>Relevance: {(cit.score * 100).toFixed(1)}%</div>}
-                    {cit.snippet && <p className="text-xs text-tertiary mt-2">{cit.snippet}</p>}
-                  </div>
-                ))
+                lastAssistantMsg.citations.map((cit, i) => {
+                  let href = cit.alternate_link || cit.link;
+                  if (href && typeof href === 'object') {
+                    href = (href as any).url || (href as any).alternateLink;
+                  }
+                  
+                  return (
+                    <div key={i} className={styles.citationCard}>
+                      <div className={styles.citationTitle}>
+                        {typeof href === 'string' ? (
+                          <a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
+                            {cit.title} ↗
+                          </a>
+                        ) : (
+                          cit.title
+                        )}
+                      </div>
+                      {cit.score && <div className={styles.citationScore}>Relevance: {(cit.score * 100).toFixed(1)}%</div>}
+                      {cit.snippet && <p className="text-xs text-tertiary mt-2">{cit.snippet}</p>}
+                    </div>
+                  );
+                })
               )}
               
               {/* Explainability Block */}

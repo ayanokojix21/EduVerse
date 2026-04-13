@@ -1,7 +1,7 @@
 import { getSession } from "next-auth/react";
 import { type Session } from "next-auth";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 async function getAuthToken(providedSession?: Session | null): Promise<string | null> {
   // If running on the client, or if session is omitted, fetch it implicitly for the client
@@ -23,9 +23,12 @@ export async function apiFetch<T>(endpoint: string, options: FetchOptions = {}):
   const { session, ...customConfig } = options;
   const token = await getAuthToken(session);
 
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-  };
+  const headers: HeadersInit = {};
+
+  // Only set Content-Type for non-multipart requests
+  if (!options.body || typeof options.body === 'string') {
+    (headers as Record<string, string>)["Content-Type"] = "application/json";
+  }
 
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
@@ -83,6 +86,35 @@ export const api = {
         body: JSON.stringify({ course_id: courseId, force_refresh: forceRefresh }),
         session,
       }),
+    sync: (courseId: string, session?: Session | null) =>
+      apiFetch<any>('/ingest/sync', {
+        method: 'POST',
+        body: JSON.stringify({ course_id: courseId }),
+        session,
+      }),
+    deleteIndex: (courseId: string, session?: Session | null) =>
+      apiFetch<{ success: boolean; course_id: string; message: string }>(`/ingest/${courseId}`, {
+        method: 'DELETE',
+        session,
+      }),
+    deleteFile: (courseId: string, filename: string, session?: Session | null) =>
+      apiFetch<any>(`/ingest/${courseId}/files/${encodeURIComponent(filename)}`, {
+        method: 'DELETE',
+        session,
+      }),
+    getStatus: (courseId: string, session?: Session | null) =>
+      apiFetch<any>(`/ingest/status/${courseId}`, { session }),
+    listFiles: (courseId: string, session?: Session | null) =>
+      apiFetch<any[]>(`/ingest/${courseId}/files`, { session }),
+    uploadFile: (courseId: string, file: File, session?: Session | null) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return apiFetch<any>(`/ingest/upload?course_id=${courseId}`, {
+        method: 'POST',
+        body: formData,
+        session,
+      });
+    },
   },
   sessions: {
     list: (courseId: string, session?: Session | null) =>

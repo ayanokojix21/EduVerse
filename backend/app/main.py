@@ -4,6 +4,7 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.api import api_router
 from app.config import get_settings
@@ -23,6 +24,13 @@ def create_app(enable_db_lifespan: bool = True) -> FastAPI:
         lifespan=lifespan,
     )
 
+    # Added first = innermost (runs after CORS and GZip)
+    app.add_middleware(JWTAuthMiddleware)
+
+    # Added second = middle (compresses responses before they hit CORS)
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+    # Added last = outermost (catches every response, including 401s from JWT, to append CORS headers)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[settings.frontend_origin],
@@ -31,10 +39,6 @@ def create_app(enable_db_lifespan: bool = True) -> FastAPI:
         allow_headers=["*"],
     )
 
-    app.add_middleware(JWTAuthMiddleware)
-
-    # Add a global dependency so the Swagger UI "Authorize" button appears
-    # auto_error=False prevents it from rejecting public routes before our middleware handles them
     app.include_router(api_router, dependencies=[Depends(HTTPBearer(auto_error=False, description="Enter your JWT generated from scripts/dev_jwt_generator.py"))])
     return app
 

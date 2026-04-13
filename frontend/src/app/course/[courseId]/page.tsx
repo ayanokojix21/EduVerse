@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, BookOpen, AlertCircle, FileText, Calendar, Paperclip, ExternalLink, Video, MessageSquare, Sparkles } from 'lucide-react';
+import { ArrowLeft, BookOpen, AlertCircle, FileText, Calendar, Paperclip, ExternalLink, Video, MessageSquare, Sparkles, RefreshCw, Trash2, Upload, CheckCircle } from 'lucide-react';
 
 import { api } from '@/lib/api';
 import type { Course, CourseContent, CourseItem } from '@/types';
@@ -21,6 +21,11 @@ export default function CoursePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'assignments' | 'materials' | 'announcements'>('assignments');
+  const [syncing, setSyncing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/');
@@ -41,6 +46,54 @@ export default function CoursePage() {
       setError(err.message || 'Failed to load coursework');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSync = async () => {
+    if (!confirm('This will wipe and re-fetch all course materials from Google Classroom. Continue?')) return;
+    try {
+      setSyncing(true);
+      await api.ingestion.sync(courseId);
+      await fetchCourseData();
+    } catch (err: any) {
+      alert(err.message || 'Sync failed');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleDeleteIndex = async () => {
+    if (!confirm('This will permanently delete all AI knowledge for this course. Continue?')) return;
+    try {
+      setDeleting(true);
+      await api.ingestion.deleteIndex(courseId);
+      await fetchCourseData();
+    } catch (err: any) {
+      alert(err.message || 'Delete failed');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.endsWith('.pdf')) {
+      setUploadError('Only PDF files are supported.');
+      return;
+    }
+    try {
+      setUploading(true);
+      setUploadError(null);
+      setUploadSuccess(null);
+      await api.ingestion.uploadFile(courseId, file);
+      setUploadSuccess(`"${file.name}" successfully ingested!`);
+      await fetchCourseData();
+    } catch (err: any) {
+      setUploadError(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -253,66 +306,107 @@ export default function CoursePage() {
         </section>
         </div>
 
-        {/* Sidebar: All PDFs */}
+        {/* Sidebar: Manage Index */}
         <aside style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div className="glass-card-flat" style={{ position: 'sticky', top: '0', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', maxHeight: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <div style={{ background: 'var(--accent-glow)', padding: '0.4rem', borderRadius: '0.5rem', color: 'var(--accent)' }}>
                         <BookOpen size={20} />
                     </div>
-                    <h3 className="font-display" style={{ fontSize: '1.25rem', color: 'var(--text-primary)' }}>Attached PDFs</h3>
+                    <h3 className="font-display" style={{ fontSize: '1.25rem', color: 'var(--text-primary)' }}>AI Knowledge Base</h3>
                 </div>
-                
-                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                    All Drive documents from this course. Currently, we ingest the entire course at once.
-                </p>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', overflowY: 'auto' }}>
-                    {coursework && [
-                        ...(coursework.assignments || []),
-                        ...(coursework.materials || []),
-                        ...(coursework.announcements || [])
-                      ].flatMap(w => w.materials || [])
-                        .filter(m => m.driveFile)
-                        .map((mat, idx) => (
-                        <div key={idx} style={{ padding: '0.875rem 1rem', borderRadius: '0.75rem', background: 'var(--bg-subtle)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                                <FileText size={14} style={{ flexShrink: 0 }} />
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }} title={mat.driveFile!.driveFile.title}>
-                                    {mat.driveFile!.driveFile.title}
-                                </span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
-                                <a 
-                                    href={mat.driveFile!.driveFile.alternateLink} 
-                                    target="_blank" 
+                {/* Status badge */}
+                <div style={{ padding: '0.75rem 1rem', borderRadius: '0.75rem', background: course?.is_ingested ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${course?.is_ingested ? 'rgba(74,222,128,0.3)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', fontWeight: 600 }}>
+                    {course?.is_ingested
+                        ? <><CheckCircle size={16} color="#4ade80" /> <span style={{ color: '#4ade80' }}>Indexed & Ready for Chat</span></>
+                        : <><AlertCircle size={16} color="var(--text-tertiary)" /> <span style={{ color: 'var(--text-tertiary)' }}>Not yet ingested</span></>}
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                    <button
+                        onClick={handleSync}
+                        disabled={syncing || deleting}
+                        className="btn btn-secondary"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}
+                    >
+                        <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+                        {syncing ? 'Syncing from Classroom...' : 'Sync from Classroom'}
+                    </button>
+
+                    <button
+                        onClick={handleDeleteIndex}
+                        disabled={deleting || syncing || !course?.is_ingested}
+                        className="btn btn-ghost"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%', color: 'var(--error, #f87171)', borderColor: 'rgba(248,113,113,0.3)' }}
+                    >
+                        <Trash2 size={14} />
+                        {deleting ? 'Deleting Index...' : 'Delete AI Index'}
+                    </button>
+                </div>
+
+                {/* Divider */}
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Upload Local PDF</p>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', marginBottom: '0.875rem', lineHeight: 1.5 }}>Add your own notes or textbooks directly into this course's AI knowledge base.</p>
+
+                    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.65rem 1rem', borderRadius: '0.625rem', border: '1.5px dashed var(--border)', cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? 0.6 : 1, fontSize: '0.875rem', color: 'var(--text-secondary)', transition: 'border-color 0.2s', width: '100%' }}>
+                        <Upload size={14} />
+                        {uploading ? 'Uploading...' : 'Choose PDF to Upload'}
+                        <input type="file" accept=".pdf" onChange={handleFileUpload} disabled={uploading} style={{ display: 'none' }} />
+                    </label>
+
+                    {uploadSuccess && (
+                        <p style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#4ade80', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                            <CheckCircle size={13} /> {uploadSuccess}
+                        </p>
+                    )}
+                    {uploadError && (
+                        <p style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                            <AlertCircle size={13} /> {uploadError}
+                        </p>
+                    )}
+                </div>
+
+                {/* Attached PDFs list */}
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Attached PDFs</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', overflowY: 'auto', maxHeight: '280px' }}>
+                        {coursework && [
+                            ...(coursework.assignments || []),
+                            ...(coursework.materials || []),
+                            ...(coursework.announcements || [])
+                          ].flatMap(w => w.materials || [])
+                            .filter(m => m.driveFile)
+                            .map((mat, idx) => (
+                            <div key={idx} style={{ padding: '0.75rem', borderRadius: '0.625rem', background: 'var(--bg-subtle)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+                                    <FileText size={12} style={{ flexShrink: 0 }} />
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={mat.driveFile!.driveFile.title}>
+                                        {mat.driveFile!.driveFile.title}
+                                    </span>
+                                </div>
+                                <a
+                                    href={mat.driveFile!.driveFile.alternateLink}
+                                    target="_blank"
                                     rel="noopener noreferrer"
                                     style={{ fontSize: '0.75rem', color: 'var(--secondary)', textDecoration: 'underline' }}
                                 >
-                                    Open
+                                    Open in Drive
                                 </a>
-                                {course?.is_ingested ? (
-                                    <span style={{ fontSize: '0.75rem', color: '#4ade80', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                        ✅ Ingested
-                                    </span>
-                                ) : (
-                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: 600 }}>
-                                        Pending
-                                    </span>
-                                )}
                             </div>
-                        </div>
-                    ))}
-
-                    {coursework && [
-                        ...(coursework.assignments || []),
-                        ...(coursework.materials || []),
-                        ...(coursework.announcements || [])
-                      ].flatMap(w => w.materials || []).filter(m => m.driveFile).length === 0 && (
-                        <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', textAlign: 'center', padding: '2rem 1rem', background: 'var(--bg-subtle)', borderRadius: '0.75rem', border: '1px dashed var(--border)' }}>
-                            No PDFs attached to this course.
-                        </div>
-                    )}
+                        ))}
+                        {coursework && [
+                            ...(coursework.assignments || []),
+                            ...(coursework.materials || []),
+                            ...(coursework.announcements || [])
+                          ].flatMap(w => w.materials || []).filter(m => m.driveFile).length === 0 && (
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', textAlign: 'center', padding: '1.5rem 1rem', background: 'var(--bg-subtle)', borderRadius: '0.75rem', border: '1px dashed var(--border)' }}>
+                                No PDFs attached to this course.
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </aside>

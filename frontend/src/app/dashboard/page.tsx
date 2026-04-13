@@ -3,24 +3,28 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { BookOpen, LogOut, MessageSquare, RefreshCw, AlertCircle, Sparkles } from 'lucide-react';
+import { BookOpen, LogOut, MessageSquare, RefreshCw, AlertCircle, Sparkles, Loader2, Trash2, FileText } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import Image from 'next/image';
 
 import ThemeToggle from '@/components/ThemeToggle';
 import { api } from '@/lib/api';
+import { useToast } from '@/components/Toast';
 import type { Course, Profile } from '@/types';
 import styles from './dashboard.module.css';
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { showToast } = useToast();
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ingesting, setIngesting] = useState<Record<string, boolean>>({});
+  const [courseFiles, setCourseFiles] = useState<Record<string, any[]>>({});
+  const [showIndexManager, setShowIndexManager] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -46,15 +50,102 @@ export default function DashboardPage() {
     }
   };
 
+  const pollIngestionStatus = async (courseId: string) => {
+    const poll = async () => {
+      try {
+        const statusData = await api.ingestion.getStatus(courseId);
+        
+        if (statusData.status === 'completed') {
+          setIngesting(prev => ({ ...prev, [courseId]: false }));
+          showToast(`Ingestion complete: ${courses.find(c => c.id === courseId)?.name}`, 'success');
+          await fetchDashboardData(); // Refresh page data
+          return true; // Stop polling
+        } else if (statusData.status === 'failed') {
+          setIngesting(prev => ({ ...prev, [courseId]: false }));
+          showToast(`Ingestion failed: ${statusData.error || 'Unknown error'}`, 'error');
+          return true; // Stop polling
+        }
+        return false; // Keep polling
+      } catch (err) {
+        console.error('Polling error:', err);
+        return false;
+      }
+    };
+
+    const interval = setInterval(async () => {
+      const shouldStop = await poll();
+      if (shouldStop) clearInterval(interval);
+    }, 3000);
+  };
+
   const handleIngest = async (courseId: string) => {
     try {
       setIngesting(prev => ({ ...prev, [courseId]: true }));
-      await api.ingestion.trigger(courseId, true);
-      await fetchDashboardData(); // Refresh to update is_ingested state
+      const response = await api.ingestion.trigger(courseId, true);
+      
+      if (response.status === 'accepted') {
+        showToast('Ingestion started in background...', 'info');
+        pollIngestionStatus(courseId);
+      } else {
+        // Fallback for sync responses if any
+        showToast('Ingestion complete!', 'success');
+        setIngesting(prev => ({ ...prev, [courseId]: false }));
+        await fetchDashboardData();
+      }
     } catch (err: any) {
-      alert(err.message || 'Failed to ingest course materials');
+      showToast(err.message || 'Failed to start ingestion', 'error');
+      setIngesting(prev => ({ ...prev, [courseId]: false }));
+    }
+  };
+
+  const handleDeleteIndex = async (courseId: string) => {
+    if (!confirm('Are you sure you want to completely wipe the AI index for this course? This will remove all learned materials.')) return;
+    
+    try {
+      setIngesting(prev => ({ ...prev, [courseId]: true }));
+      const result = await api.ingestion.deleteIndex(courseId);
+      if (result.success) {
+        showToast('Index wiped successfully.', 'success');
+        await fetchDashboardData();
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to wipe index', 'error');
     } finally {
       setIngesting(prev => ({ ...prev, [courseId]: false }));
+    }
+  };
+
+  const handleDeleteFile = async (courseId: string, filename: string) => {
+    if (!confirm(`Delete "${filename}" from the AI index?`)) return;
+    
+    try {
+      setIngesting(prev => ({ ...prev, [courseId]: true }));
+      const result = await api.ingestion.deleteFile(courseId, filename);
+      if (result.success) {
+        showToast(`"${filename}" removed.`, 'success');
+        await fetchDashboardData();
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete file', 'error');
+    } finally {
+      setIngesting(prev => ({ ...prev, [courseId]: false }));
+    }
+  };
+
+  const fetchCourseFiles = async (courseId: string) => {
+    try {
+      const files = await api.ingestion.listFiles(courseId);
+      setCourseFiles(prev => ({ ...prev, [courseId]: files }));
+    } catch (err) {
+      console.error('Failed to fetch course files:', err);
+    }
+  };
+
+  const toggleIndexManager = (courseId: string) => {
+    const nextState = !showIndexManager[courseId];
+    setShowIndexManager(prev => ({ ...prev, [courseId]: nextState }));
+    if (nextState) {
+      fetchCourseFiles(courseId);
     }
   };
 
@@ -159,43 +250,92 @@ export default function DashboardPage() {
                     <p>{course.assignment_count !== undefined ? course.assignment_count : 0} assignments</p>
                   </div>
 
-                  <div className={styles.courseActions}>
-                    {course.is_ingested ? (
-                      <button 
-                        className="btn btn-secondary btn-sm"
-                        style={{ borderColor: 'var(--success)', color: 'var(--success)' }}
-                        onClick={() => handleIngest(course.id)}
-                        disabled={ingesting[course.id]}
-                        title="Re-ingest materials"
-                      >
-                        <RefreshCw size={14} className={ingesting[course.id] ? "animate-spin" : ""} />
-                        {ingesting[course.id] ? 'Ingesting...' : 'Ingested ✅'}
-                      </button>
-                    ) : (
-                      <button 
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => handleIngest(course.id)}
-                        disabled={ingesting[course.id]}
-                      >
-                        <RefreshCw size={14} className={ingesting[course.id] ? "animate-spin" : ""} />
-                        {ingesting[course.id] ? 'Ingesting...' : 'Ingest'}
-                      </button>
-                    )}
-                    <button 
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => router.push(`/course/${course.id}`)}
-                    >
-                      <BookOpen size={14} />
-                      Coursework
-                    </button>
-                    <button 
-                      className="btn btn-primary btn-sm"
-                      onClick={() => router.push(`/chat/${course.id}`)}
-                    >
-                      <MessageSquare size={14} />
-                      Chat
-                    </button>
-                  </div>
+                      <div className={styles.courseActions}>
+                        {course.is_ingested ? (
+                          <div className="flex gap-1">
+                            <button 
+                              className="btn btn-secondary btn-sm"
+                              style={{ borderColor: 'var(--success)', color: 'var(--success)' }}
+                              onClick={() => handleIngest(course.id)}
+                              disabled={ingesting[course.id]}
+                              title="Re-ingest (Sync)"
+                            >
+                              {ingesting[course.id] ? (
+                                <Loader2 size={14} className="animate-spin" />
+                              ) : (
+                                <RefreshCw size={14} />
+                              )}
+                              {ingesting[course.id] ? 'Syncing...' : 'Sync'}
+                            </button>
+                            <button 
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => toggleIndexManager(course.id)}
+                              title="Manage Index"
+                            >
+                              <RefreshCw size={14} className={showIndexManager[course.id] ? 'rotate-180' : ''} />
+                            </button>
+                            <button 
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => handleDeleteIndex(course.id)}
+                              disabled={ingesting[course.id]}
+                              title="Wipe Index"
+                            >
+                              <Trash2 size={14} className="text-error" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button 
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => handleIngest(course.id)}
+                            disabled={ingesting[course.id]}
+                          >
+                            {ingesting[course.id] ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <RefreshCw size={14} />
+                            )}
+                            {ingesting[course.id] ? 'Ingesting...' : 'Ingest'}
+                          </button>
+                        )}
+                        <button 
+                          className="btn btn-primary btn-sm"
+                          onClick={() => router.push(`/chat/${course.id}`)}
+                        >
+                          <MessageSquare size={14} />
+                          Chat
+                        </button>
+                      </div>
+
+                      {/* Index Manager Drawer */}
+                      {showIndexManager[course.id] && (
+                        <div className="mt-4 p-3 rounded-lg bg-black/20 border border-white/5 animate-in slide-in-from-top-2">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-xs font-semibold uppercase tracking-wider opacity-60">Managed Files</span>
+                            <span className="text-[10px] opacity-40">{courseFiles[course.id]?.length || 0} documents</span>
+                          </div>
+                          <div className="space-y-1 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+                            {!courseFiles[course.id] || courseFiles[course.id].length === 0 ? (
+                              <div className="text-xs opacity-40 italic py-2">No files indexed for this course yet.</div>
+                            ) : (
+                              courseFiles[course.id].map((file, fidx) => (
+                                <div key={fidx} className="flex justify-between items-center p-2 rounded bg-white/5 hover:bg-white/10 transition-colors">
+                                  <div className="flex items-center gap-2 overflow-hidden">
+                                    <FileText size={12} className="shrink-0 text-primary" />
+                                    <span className="text-xs truncate" title={file.filename}>{file.filename}</span>
+                                    <span className="text-[10px] opacity-30 shrink-0">({file.chunk_count} chk)</span>
+                                  </div>
+                                  <button 
+                                    onClick={() => handleDeleteFile(course.id, file.filename)}
+                                    className="p-1 hover:text-error transition-colors"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      )}
                 </motion.div>
               ))
             )}

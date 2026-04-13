@@ -112,12 +112,13 @@ export interface ChatSession {
 }
 
 
-export interface Citation {
-  title: string;
+export interface Citation {  source_index?: number;   // 1-indexed reference from the backend  title: string;
   content_type: 'document' | 'announcement' | 'assignment' | 'material';
   link?: string;           // web fallback sources
   alternate_link?: string; // Google Classroom source URL
+  file_url?: string;       // Direct file link for proxy deep-linking
   snippet?: string;
+  page_number?: number;
   score?: number;
 }
 
@@ -161,8 +162,8 @@ export const AGENT_NODES = [
   'supervisor',
   'query_rewriter',
   'rag_agent',
-  'tutor_agent_a',
-  'tutor_agent_b',
+  'tutor_a',
+  'tutor_b',
   'synthesizer',
   'critic_agent',
 ] as const;

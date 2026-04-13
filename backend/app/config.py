@@ -20,12 +20,12 @@ class Settings(BaseSettings):
     mongo_parent_chunks_collection: str = "course_chunks_parent"
     mongo_semantic_cache_collection: str = "semantic_cache"
     mongo_user_profiles_collection: str = "user_profiles"
-    mongo_tavily_usage_collection: str = "tavily_usage"
     mongo_checkpoints_collection: str = "checkpoints"
     mongo_checkpoint_writes_collection: str = "checkpoint_writes"
     mongo_timetables_collection: str = "timetables"
     mongo_events_collection: str = "student_events"
     mongo_chat_sessions_collection: str = "chat_sessions"
+    mongo_ingestion_jobs_collection: str = "ingestion_jobs"
 
     # Atlas search index names
     mongo_child_vector_index_name: str = "child_vector_index"
@@ -62,12 +62,12 @@ class Settings(BaseSettings):
 
     # Agent LLM model IDs
     groq_supervisor_model: str = "llama-3.1-8b-instant"
-    groq_rewriter_model: str = "llama-3.3-70b-versatile"
-    groq_tutor_a_model: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+    groq_rewriter_model: str = "llama-3.1-8b-instant"
+    groq_tutor_a_model: str = "llama-3.3-70b-versatile"
     groq_tutor_b_model: str = "openai/gpt-oss-120b"
     groq_synthesizer_model: str = "llama-3.3-70b-versatile"
     groq_critic_model: str = "llama-3.3-70b-versatile"
-    groq_timetable_model: str = "llama-3.3-70b-versatile"
+    groq_timetable_model: str = "openai/gpt-oss-20b"
 
     # ── Nomic Embeddings ──────────────────────────────────────────────────────
     nomic_api_key: str = ""
@@ -79,16 +79,13 @@ class Settings(BaseSettings):
     chunk_overlap: int = 100
 
     # ── Retrieval ─────────────────────────────────────────────────────────────
-    retrieval_k: int = 40           # candidates from hybrid search
-    reranker_top_n: int = 12         # top-N after cross-encoder reranking
-    # FlashRank model name — must be one of the keys in flashrank.Ranker.model_file_map
-    # Options: ms-marco-TinyBERT-L-2-v2 (fastest), ms-marco-MiniLM-L-12-v2 (best quality)
-    reranker_model: str = "ms-marco-MiniLM-L-12-v2"
+    retrieval_k: int = 30           # Candidates from hybrid search
+    reranker_top_n: int = 4         # Top-N after Cohere cross-encoder reranking
+    reranker_model: str = "rerank-english-v3.0"  # Enterprise standard
+    cohere_api_key: str = ""
 
-    # Web fallback thresholds
-    tavily_threshold: float = 0.35  # fire web search if top reranker score < this
-    tavily_daily_limit: int = 900   # switch to DuckDuckGo above this
-    tavily_api_key: str = ""
+    # ── Grounding Threshold ───────────────────────────────────────────────────
+    grounding_threshold: float = 0.35  # threshold for grounding confidence labels
 
     # ── LangSmith observability ───────────────────────────────────────────────
     langsmith_tracing: bool = False

@@ -35,6 +35,22 @@ class GroqVisionWrapper:
     async def ainvoke(self, messages: Any, **kwargs: Any) -> Any:
         return await self._chat_model.ainvoke(messages, **kwargs)
 
+    async def describe_image(self, base64_image: str, prompt: str = "Describe this image in detail.") -> str:
+        """Sends a base64 image to the vision model and returns a description."""
+        from langchain_core.messages import HumanMessage
+        
+        message = HumanMessage(
+            content=[
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+                },
+            ]
+        )
+        response = await self.ainvoke([message])
+        return response.content if hasattr(response, 'content') else str(response)
+
     def __getattr__(self, name: str) -> Any:
         return getattr(self._chat_model, name)
 
