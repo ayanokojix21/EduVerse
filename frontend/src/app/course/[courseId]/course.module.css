@@ -1,0 +1,325 @@
+.root {
+  min-height: 100vh;
+  background: #0f0f0f;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  background: #161616;
+  border-bottom: 1px solid #2e2e2e;
+}
+
+.logoIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  background: #5e6ad2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.main {
+  flex: 1;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 2rem;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 2rem;
+}
+
+/* ── Hero ─────────────────────────────────────────────── */
+.hero {
+  background: #161616;
+  border: 1px solid #2e2e2e;
+  border-radius: 10px;
+  padding: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.heroContent h1 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #ededed;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.heroMeta {
+  font-size: 1rem;
+  color: #a0a0a0;
+}
+
+.heroActions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+/* ── Tabs ─────────────────────────────────────────────── */
+.tabBar {
+  display: flex;
+  gap: 1.5rem;
+  border-bottom: 1px solid #2e2e2e;
+  margin-bottom: 1.5rem;
+}
+
+.tabBtn {
+  padding: 0.75rem 0.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #6b6b6b;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+.tabBtn:hover {
+  color: #a0a0a0;
+}
+
+.tabBtnActive {
+  color: #5e6ad2;
+  border-bottom-color: #5e6ad2;
+}
+
+/* ── Coursework Grid ──────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  background: #161616;
+  border: 1px solid #2e2e2e;
+  border-radius: 8px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  transition: border-color 0.15s;
+}
+
+.card:hover {
+  border-color: #3d3d3d;
+}
+
+.cardContent h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ededed;
+  margin-bottom: 0.5rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cardDesc {
+  font-size: 0.85rem;
+  color: #6b6b6b;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.materialList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.materialItem {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.5rem;
+  background: #0f0f0f;
+  border: 1px solid #2e2e2e;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  color: #a0a0a0;
+  max-width: 140px;
+}
+
+.materialItem span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #2e2e2e;
+  margin-top: auto;
+}
+
+.cardMetaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #6b6b6b;
+}
+
+.statusBadge {
+  padding: 0.15rem 0.5rem;
+  border-radius: 99px;
+  background: #222222;
+  color: #a0a0a0;
+  font-weight: 600;
+  font-size: 0.65rem;
+}
+
+.cardBtns {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.cardBtns > * {
+  flex: 1;
+}
+
+/* ── Sidebar ─────────────────────────────────────────── */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.sidebarCard {
+  position: sticky;
+  top: 5rem;
+  background: #161616;
+  border: 1px solid #2e2e2e;
+  border-radius: 8px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.sidebarTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ededed;
+}
+
+.statusInfo {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  background: #222222;
+  border: 1px solid #2e2e2e;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  color: #a0a0a0;
+}
+
+.statusInfoActive {
+  background: rgba(48, 164, 108, 0.05);
+  border-color: rgba(48, 164, 108, 0.2);
+  color: #30a46c;
+}
+
+.uploadBox {
+  padding: 1rem;
+  border: 1px dashed #2e2e2e;
+  border-radius: 6px;
+  background: #0f0f0f;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.uploadBox:hover {
+  border-color: #3d3d3d;
+}
+
+.attachedList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.attachedItem {
+  padding: 0.75rem;
+  background: #0f0f0f;
+  border: 1px solid #2e2e2e;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.attachedName {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #ededed;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachedLink {
+  font-size: 0.75rem;
+  color: #5e6ad2;
+  text-decoration: none;
+}
+
+.attachedLink:hover {
+  text-decoration: underline;
+}
+
+/* ── Error & Loading ─────────────────────────────────── */
+.errorContainer {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  text-align: center;
+  padding: 2rem;
+  color: #ededed;
+}
+
+/* ── Responsive ───────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .main {
+    grid-template-columns: 1fr;
+  }
+  .sidebarCard {
+    position: static;
+  }
+}

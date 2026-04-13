@@ -112,7 +112,9 @@ export interface ChatSession {
 }
 
 
-export interface Citation {  source_index?: number;   // 1-indexed reference from the backend  title: string;
+export interface Citation {
+  source_index?: number; // 1-indexed reference from the backend
+  title: string;
   content_type: 'document' | 'announcement' | 'assignment' | 'material';
   link?: string;           // web fallback sources
   alternate_link?: string; // Google Classroom source URL
