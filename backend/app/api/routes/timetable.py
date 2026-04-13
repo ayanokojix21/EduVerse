@@ -5,7 +5,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.api.routes.chat import _run_pipeline
-from app.db.mongodb import get_db
+from app.db.mongodb import get_db, get_sync_client
 
 router = APIRouter()
 
@@ -18,6 +18,7 @@ async def timetable_stream(
     payload: TimetableChatRequest,
     request: Request,
     db=Depends(get_db),
+    sync_client=Depends(get_sync_client),
 ) -> StreamingResponse:
     """
     Isolated SSE endpoint for the Timetable-only interface.
@@ -43,6 +44,7 @@ async def timetable_stream(
             course_id="GLOBAL_TIMETABLE", 
             message=payload.message,
             db=db,
+            sync_client=sync_client,
             session_id=session_id,
         ),
         media_type="text/event-stream",

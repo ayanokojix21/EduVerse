@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from app.agents.graph import get_compiled_graph
 from app.config import get_settings
 from app.db.chat_history import ChatHistoryService
-from app.db.mongodb import get_db
+from app.db.mongodb import get_db, get_sync_client
 from app.db.profile_store import ProfileStore
 from app.utils.streaming import sse_event
 
@@ -28,7 +28,7 @@ router = APIRouter()
 
 # All node names that appear in astream_events; used to filter agent_thought emissions
 _AGENT_NODES = frozenset(
-    {"supervisor", "query_rewriter", "rag_agent",
+    {"orchestrator", "rag_agent",
      "tutor_a", "tutor_b", "synthesizer", "critic_agent",
      "email_agent", "timetable_agent"}
 )
@@ -130,6 +130,7 @@ async def _run_pipeline(
     course_id: str,
     message: str,
     db,
+    sync_client,
     session_id: str | None = None,
 ) -> AsyncGenerator[str, None]:
     try:
@@ -156,6 +157,7 @@ async def _run_pipeline(
             "thread_id": session_id,
             "user_id": user_id,          # available to nodes via config["configurable"]
             "db": db,
+            "mongo_client_sync": sync_client,
         },
         "tags": ["eduverse"],
         "metadata": {
@@ -175,6 +177,7 @@ async def _run_pipeline(
         "weak_topics":        weak_topics,         # loaded above from MongoDB
         "task":               "timetable" if session_id.startswith("timetable:") else "",
         "rewritten_queries":  [],
+        "needs_rewrite":      True,
         "context_docs":       [],
         "retrieval_label":    "",
         "top_reranker_score": 0.0,
@@ -302,6 +305,7 @@ async def chat_stream(
     payload: ChatRequest,
     request: Request,
     db=Depends(get_db),
+    sync_client=Depends(get_sync_client),
 ) -> StreamingResponse:
     """
     Main chat endpoint.  Returns a ``StreamingResponse`` carrying a
@@ -324,6 +328,7 @@ async def chat_stream(
             course_id=payload.course_id,
             message=payload.message,
             db=db,
+            sync_client=sync_client,
             session_id=payload.session_id,
         ),
         media_type="text/event-stream",

@@ -58,11 +58,6 @@ class RoundRobinLLM:
         """
         Build a resilient LLM runnable for a specific agent role.
         """
-        # Create a unique cache key based on params
-        cache_key = f"{role}_{temperature}_{streaming}_{schema.__name__ if schema else 'none'}"
-        if cache_key in cls._cache:
-            return cls._cache[cache_key]
-
         pools = {
             "structured": _STRUCTURED_POOL,
             "chat": _CHAT_POOL,
@@ -90,13 +85,10 @@ class RoundRobinLLM:
                 return llm.with_structured_output(schema)
             return llm
 
-        # 2. Construct Primary and Native Fallbacks
         primary_llm = _build_model(reordered_pool[0])
         fallbacks = [_build_model(m) for m in reordered_pool[1:]]
 
-        runnable = primary_llm.with_fallbacks(fallbacks)
-        cls._cache[cache_key] = runnable
-        return runnable
+        return primary_llm.with_fallbacks(fallbacks)
 
     @classmethod
     async def warm_up(cls):

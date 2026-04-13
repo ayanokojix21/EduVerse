@@ -67,7 +67,7 @@ def build_explainability(
         Original student question (reserved for future use).
     reranked_children:
         Top-N child chunk Documents after cross-encoder reranking.
-        Each should have ``metadata["reranker_score"]`` set.
+        Each should have ``metadata["relevance_score"]`` set.
     parent_docs:
         Corresponding parent chunk dicts (same order as reranked_children).
     top_score:
@@ -104,7 +104,7 @@ def build_explainability(
 
     per_source: list[dict] = []
     for i, child in enumerate(reranked_children):
-        score = float(child.metadata.get("reranker_score", 0.0))
+        score = float(child.metadata.get("relevance_score", 0.0))
 
         # Best-effort metadata from the parent doc (richer than child metadata)
         parent = parent_docs[i] if i < len(parent_docs) else {}

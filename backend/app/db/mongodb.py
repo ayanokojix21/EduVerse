@@ -6,12 +6,14 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI, Request
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import MongoClient
 
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 MONGO_CLIENT_STATE_KEY = "mongo_client"
+MONGO_CLIENT_SYNC_STATE_KEY = "mongo_client_sync"
 MONGO_DB_STATE_KEY = "mongo_db"
 
 
@@ -21,9 +23,11 @@ async def mongo_lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     logger.info("Connecting to MongoDB…")
     client = AsyncIOMotorClient(settings.mongo_uri, serverSelectionTimeoutMS=10000)
+    sync_client = MongoClient(settings.mongo_uri, serverSelectionTimeoutMS=10000)
     db = client[settings.mongo_db_name]
 
     await db.command("ping")
+    sync_client.admin.command("ping")
     logger.info("MongoDB connected — db=%s", settings.mongo_db_name)
 
     # ── Regular (non-Atlas) indexes ──────────────────────────────────────────
@@ -83,6 +87,7 @@ async def mongo_lifespan(app: FastAPI) -> AsyncIterator[None]:
             logger.info("EduVerse AI Engine ready.")
             
             setattr(app.state, MONGO_CLIENT_STATE_KEY, client)
+            setattr(app.state, MONGO_CLIENT_SYNC_STATE_KEY, sync_client)
             setattr(app.state, MONGO_DB_STATE_KEY, db)
             
             # App lifecycle block - checkpointer remains active
@@ -93,7 +98,8 @@ async def mongo_lifespan(app: FastAPI) -> AsyncIterator[None]:
         raise
     finally:
         client.close()
-        logger.info("MongoDB client closed.")
+        sync_client.close()
+        logger.info("MongoDB clients (async & sync) closed.")
 
 
 def get_motor_client() -> AsyncIOMotorClient:
@@ -107,3 +113,10 @@ def get_db(request: Request) -> AsyncIOMotorDatabase:
     if db is None:
         raise RuntimeError("MongoDB is not initialized. Start app with DB lifespan enabled.")
     return db
+
+
+def get_sync_client(request: Request) -> MongoClient:
+    client = getattr(request.app.state, MONGO_CLIENT_SYNC_STATE_KEY, None)
+    if client is None:
+        raise RuntimeError("Sync MongoDB client is not initialized.")
+    return client

@@ -81,7 +81,7 @@ class Settings(BaseSettings):
     # ── Retrieval ─────────────────────────────────────────────────────────────
     retrieval_k: int = 30           # Candidates from hybrid search
     reranker_top_n: int = 4         # Top-N after Cohere cross-encoder reranking
-    reranker_model: str = "rerank-english-v3.0"  # Enterprise standard
+    reranker_model: str = "rerank-v3.5"  # Current Cohere standard
     cohere_api_key: str = ""
 
     # ── Grounding Threshold ───────────────────────────────────────────────────
