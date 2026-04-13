@@ -1,51 +1,16 @@
 """
 POST /chat/stream — Server-Sent Events (SSE) Chat Endpoint
-
 This is the main entry point for the EduVerse AI Tutor frontend.
-It accepts a student message and course ID, then streams the full
-7-node agent pipeline back to the browser via SSE.
-
-SSE Event sequence (in order of emission)
-------------------------------------------
-1.  ``status``          — pipeline accepted, processing started
-2.  ``agent_thought``   — emitted once per node as it completes (×7)
-3.  ``retrieval_label`` — emitted when rag_agent finishes
-4.  ``tutor_draft``     — emitted when tutor_a OR tutor_b finishes (×2)
-5.  ``token``           — streaming tokens from the synthesizer LLM
-6.  ``done``            — full payload: response, citations, explainability,
-                          critic review, trace URL, all agent thoughts
-7.  ``error``           — only on unhandled exception
-
-Implementation notes
----------------------
-* ``graph.astream_events(version="v2")`` is used — not ``astream()`` —
-  because v2 surfaces individual LLM streaming tokens via
-  ``on_chat_model_stream`` events.  This is what lets the UI show
-  synthesizer tokens in real time.
-
-* The ``synthesizer`` run tag is injected inside ``synthesizer.py`` so
-  ``on_chat_model_stream`` events that belong to the synthesizer can be
-  filtered precisely by tag.
-
-* The MongoDB ``db`` handle is passed through ``config["configurable"]``
-  so the RAG Agent can use async Motor operations inside the graph.
-
-* After the ``done`` event, a background task updates the student's weak
-  topics and session count asynchronously — zero latency impact on the
-  client's SSE stream.
-
-* ``X-Accel-Buffering: no`` disables Nginx proxy buffering so SSE frames
-  reach the browser immediately.
 """
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import uuid
 from typing import AsyncGenerator
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
@@ -64,7 +29,8 @@ router = APIRouter()
 # All node names that appear in astream_events; used to filter agent_thought emissions
 _AGENT_NODES = frozenset(
     {"supervisor", "query_rewriter", "rag_agent",
-     "tutor_agent_a", "tutor_agent_b", "synthesizer", "critic_agent"}
+     "tutor_a", "tutor_b", "synthesizer", "critic_agent",
+     "email_agent", "timetable_agent"}
 )
 
 
@@ -91,11 +57,9 @@ async def _post_run_update(
         store = ProfileStore(db=db, settings=settings)
         await store.increment_session(user_id)
 
-        # If the critic flagged issues, treat them as potential weak topics
         critic = final_state.get("critic_review") or {}
         if critic.get("severity") == "high":
             raw_issues = critic.get("issues") or []
-            # Extract short topic labels from the issues (first 40 chars each)
             new_topics = [issue[:40].strip() for issue in raw_issues if issue]
             if new_topics:
                 await store.update_weak_topics(user_id, new_topics)
@@ -168,8 +132,6 @@ async def _run_pipeline(
     db,
     session_id: str | None = None,
 ) -> AsyncGenerator[str, None]:
-    # Load user's weak topics from MongoDB BEFORE the graph runs
-    # so all agents receive them in state from the very first node.
     try:
         _profile_store = ProfileStore(db=db, settings=settings)
         weak_topics: list[str] = await _profile_store.get_weak_topics(user_id)
@@ -213,9 +175,6 @@ async def _run_pipeline(
         "weak_topics":        weak_topics,         # loaded above from MongoDB
         "task":               "timetable" if session_id.startswith("timetable:") else "",
         "rewritten_queries":  [],
-        # tutor_drafts intentionally OMITTED from initial_state.
-        # The supervisor node resets it to [] via the _reset_or_add_drafts
-        # reducer (returning None), so old drafts never bleed across turns.
         "context_docs":       [],
         "retrieval_label":    "",
         "top_reranker_score": 0.0,
@@ -235,6 +194,7 @@ async def _run_pipeline(
 
     final_state: dict = {}
     all_thoughts: list[dict] = []
+    last_response_text: str = ""
 
     try:
         # astream_events v2 yields granular events from every node and LLM call
@@ -266,7 +226,7 @@ async def _run_pipeline(
                     )
 
                 # Extra: emit tutor_draft as each parallel tutor finishes
-                if name in ("tutor_agent_a", "tutor_agent_b"):
+                if name in ("tutor_a", "tutor_b"):
                     drafts: list[dict] = output.get("tutor_drafts") or []
                     for draft in drafts:
                         yield sse_event("tutor_draft", draft)
@@ -274,11 +234,15 @@ async def _run_pipeline(
                 # Track final state from the last node (critic or synthesizer on pass)
                 final_state.update(output)
 
-            # ── Streaming tokens from synthesizer LLM ─────────────────────
-            elif kind == "on_chat_model_stream" and "synthesizer" in tags:
-                chunk = event["data"].get("chunk")
-                if chunk and chunk.content:
-                    yield sse_event("token", {"text": chunk.content})
+            # ── High-Fidelity Streaming (on_parser_stream) ────────────────
+            elif kind == "on_parser_stream" and "synthesizer" in tags:
+                parser_output = event["data"].get("chunk")
+                if isinstance(parser_output, dict):
+                    current_text = parser_output.get("response_text", "")
+                    if current_text and len(current_text) > len(last_response_text):
+                        delta = current_text[len(last_response_text):]
+                        yield sse_event("token", {"text": delta})
+                        last_response_text = current_text
 
         # ── Fetch final persisted state from checkpointer ─────────────────
         try:
@@ -302,7 +266,7 @@ async def _run_pipeline(
             "session_id":      session_id,
             "trace_url":       trace_url,
         }
-        yield sse_event("done", done_payload)
+        yield sse_event("done", jsonable_encoder(done_payload))
 
         # Background task: update weak topics + session count (non-blocking)
         asyncio.create_task(
