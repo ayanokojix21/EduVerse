@@ -1,27 +1,6 @@
 """
 Node 2 — Query Rewriter
-
-Transforms the student's conversational query into 2 retrieval-optimised
-academic queries.  Two queries dramatically increase hybrid-search recall —
-they are run in parallel by the RAG Agent.
-
-Memory handling
----------------
-Uses ``trim_messages`` to extract the last 6 messages from the conversation
-history (3 turns of Q&A).  These are injected natively into the prompt via
-``MessagesPlaceholder`` so the LLM can resolve pronouns and contextual
-references ("explain that further", "relate that to the previous question").
-
-LangChain best-practices applied
-----------------------------------
-* ``with_structured_output`` — guarantees parseable JSON; no regex hackery.
-* ``ChatPromptTemplate`` + ``MessagesPlaceholder`` — passes conversation turns
-  as proper role-aware messages (not a flat string), which fine-tuned LLMs
-  handle significantly better.
-* ``trim_messages`` — caps history at 6 messages using simple message-count
-  strategy, guaranteeing context window safety with any Groq model.
-* Module-level chain singleton — avoids cold construction inside hot path.
-* ``@traceable`` — LangSmith span with ``name="query_rewriter"``.
+Transforms the conversational query into retrieval-optimised academic queries.
 """
 from __future__ import annotations
 
@@ -30,7 +9,6 @@ import logging
 from langchain_core.messages import trim_messages
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableConfig
-from langchain_groq import ChatGroq
 from langsmith import traceable
 from pydantic import BaseModel, Field
 
@@ -46,15 +24,13 @@ settings = get_settings()
 
 class RewriterOutput(BaseModel):
     rewrites: list[str] = Field(
-        description="2 or 3 retrieval-optimised academic queries.",
-        min_length=2,
-        max_length=3,
+        description="1 retrieval-optimised search query string. DO NOT answer the question here.",
+        min_length=1,
+        max_length=1,
     )
 
 
 # ── Prompt template + LLM pool (module-level singletons) ────────────────────
-# RoundRobinLLM.for_role("structured") rotates through JSON-capable models.
-# The pool starts at a different index per request so load spreads across models.
 
 _rewriter_prompt = ChatPromptTemplate.from_messages([
     (
@@ -67,13 +43,8 @@ _rewriter_prompt = ChatPromptTemplate.from_messages([
         "  4. Make each query standalone — resolve ALL pronouns and references "
         "(like 'that', 'it', 'this topic', 'the second one', 'explain more') "
         "by replacing them with the actual terms from the conversation history.\n"
-        "  5. Produce exactly 3 diverse queries:\n"
-        "     - Query 1: focused on definition/concept\n"
-        "     - Query 2: focused on application/example\n"
-        "     - Query 3: a CONTINUITY query — if the conversation history contains "
-        "previous AI answers, extract the key terms/topics discussed and create a query "
-        "that retrieves related content. If there is no history, make this a synonym/alternative "
-        "phrasing of Query 1.\n\n"
+        "  5. Produce exactly 1 search engine query string. It should succinctly capture the core concepts.\n"
+        "  6. DO NOT write an answer to the question. You are ONLY generating a keyword search string to query a vector database.\n\n"
         "IMPORTANT: Look carefully at the previous AI assistant messages in the history. "
         "If the student says something vague like 'tell me more' or 'explain that', "
         "you MUST identify exactly what 'that' refers to from the last AI answer "
@@ -85,23 +56,19 @@ _rewriter_prompt = ChatPromptTemplate.from_messages([
     ("human", "{question}"),
 ])
 
-_rewriter_llm = RoundRobinLLM.for_role("structured", temperature=0.1)
-
-# NOTE: The chain is rebuilt per-request inside the node because
-# with_structured_output must be re-applied on each round-robin attempt.
-# See the node function below.
-
-
 # ── Node ─────────────────────────────────────────────────────────────────────
 
 @traceable(name="query_rewriter")
 async def query_rewriter_node(state: AgentState, config: RunnableConfig) -> dict:
     """
-    Rewrite the student query into 2 retrieval-optimised academic queries.
-
-    Injects the trimmed conversation history into the prompt so pronoun
-    resolution works correctly across turns.
+    Rewrite the student query into retrieval-optimised academic queries.
     """
+    # Lazy init to prevent import-time hangs
+    llm = RoundRobinLLM.for_role(
+        "structured", 
+        temperature=0.1, 
+        schema=RewriterOutput
+    )
     original = state["original_query"]
     task = state.get("task", "qa")
     difficulty = state.get("difficulty", "medium")
@@ -118,8 +85,6 @@ async def query_rewriter_node(state: AgentState, config: RunnableConfig) -> dict
     )
 
     try:
-        structured_llm = _rewriter_llm.with_structured_output(RewriterOutput)
-        # Format the prompt messages, then invoke the structured pool
         prompt_value = await _rewriter_prompt.ainvoke(
             {
                 "task": task,
@@ -128,14 +93,14 @@ async def query_rewriter_node(state: AgentState, config: RunnableConfig) -> dict
                 "question": original,
             }
         )
-        result: RewriterOutput = await structured_llm.ainvoke(
+        result: RewriterOutput = await llm.ainvoke(
             prompt_value.to_messages(),
             config=config,
         )
         rewrites = result.rewrites
     except Exception as exc:  # noqa: BLE001
         logger.warning("Query rewriter failed, using original query: %s", exc)
-        rewrites = [original, original]
+        rewrites = [original]
 
     logger.info("Query rewriter → %d queries produced", len(rewrites))
 

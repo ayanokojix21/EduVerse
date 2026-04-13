@@ -2,7 +2,6 @@ from app.agents.critic import critic_agent_node
 from app.agents.graph import (
     build_graph,
     compile_graph,
-    dispatch_tutors,
     get_compiled_graph,
     init_graph_on_startup,
     should_retry_synthesizer,
@@ -30,7 +29,6 @@ __all__ = [
     # Graph utilities
     "build_graph",
     "compile_graph",
-    "dispatch_tutors",
     "get_compiled_graph",
     "init_graph_on_startup",
     "should_retry_synthesizer",

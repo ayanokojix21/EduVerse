@@ -1,23 +1,6 @@
 """
 Node 1 — Supervisor
-
-Classifies the incoming student query into:
-  * task       : "qa" | "explain" | "quiz" | "feedback"
-  * difficulty : "easy" | "medium" | "hard"
-
-Memory reset
-------------
-The supervisor also resets ``tutor_drafts`` to [] by returning ``None`` for
-that field.  This is the mechanism used by the custom ``_reset_or_add_drafts``
-reducer in state.py — returning ``None`` signals "start of new turn, discard
-previous drafts."  Without this reset, the parallel tutor nodes would
-accumulate across turns and the synthesizer would see stale drafts.
-
-LangChain best-practices applied
-----------------------------------
-* ``with_structured_output`` — instructs the LLM to return a validated
-  Pydantic model directly; eliminates manual json.loads() and error handling.
-* ``RunnableConfig`` passed through so tracing config propagates.
+Classifies the incoming student query into a specific task and difficulty constraint.
 """
 from __future__ import annotations
 
@@ -25,7 +8,6 @@ import logging
 
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
-from langchain_groq import ChatGroq
 from langsmith import traceable
 from pydantic import BaseModel, Field
 
@@ -49,14 +31,10 @@ class SupervisorOutput(BaseModel):
         description="One of: easy, medium, hard",
         pattern="^(easy|medium|hard)$",
     )
-
-
-# ── LLM pool (round-robin across models with auto-fallback) ──────────────────
-# Uses the structured pool: llama-3.3-70b → llama-4-scout → kimi-k2 → llama-3.1-8b
-
-_supervisor_llm = RoundRobinLLM.for_role("structured", temperature=0).with_structured_output(
-    SupervisorOutput
-)
+    needs_rewrite: bool = Field(
+        description="Set to true if the query is conversational, missing context from previous messages, contains pronouns like 'it' or 'that', or needs strict keyword extraction. Set to false if it's already a clean, standalone search query.",
+        default=True,
+    )
 
 
 # ── Node ─────────────────────────────────────────────────────────────────────
@@ -65,10 +43,13 @@ _supervisor_llm = RoundRobinLLM.for_role("structured", temperature=0).with_struc
 async def supervisor_node(state: AgentState, config: RunnableConfig) -> dict:
     """
     Classify the student's query and reset tutor_drafts for the new turn.
-
-    Returns dict slice updating ``task``, ``difficulty``, ``agent_thoughts``,
-    and ``tutor_drafts=None`` (reset signal for the custom reducer).
     """
+    # Lazy init to prevent import-time hangs
+    llm = RoundRobinLLM.for_role(
+        "structured", 
+        temperature=0, 
+        schema=SupervisorOutput
+    )
     query = state["original_query"]
     weak_topics: list[str] = state.get("weak_topics") or []
 
@@ -91,26 +72,25 @@ async def supervisor_node(state: AgentState, config: RunnableConfig) -> dict:
     )
 
     try:
-        result: SupervisorOutput = await _supervisor_llm.ainvoke(
+        result: SupervisorOutput = await llm.ainvoke(
             [HumanMessage(content=prompt)], config=config
         )
         task = result.task
         difficulty = result.difficulty
+        needs_rewrite = result.needs_rewrite
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Supervisor LLM failed, using defaults: %s", exc)
-        task, difficulty = "qa", "medium"
+        logger.warning("Supervisor LLM failed, using defaults: %s", exc)        
+        task, difficulty, needs_rewrite = "qa", "medium", True
 
     logger.info(
-        "Supervisor → task=%s difficulty=%s weak_topics=%d",
-        task, difficulty, len(weak_topics),
+        "Supervisor â†’ task=%s difficulty=%s needs_rewrite=%s weak_topics=%d",
+        task, difficulty, needs_rewrite, len(weak_topics),
     )
 
     return {
         "task": task,
         "difficulty": difficulty,
-        # CRITICAL: returning None through the _reset_or_add_drafts reducer
-        # resets tutor_drafts to [] — prevents previous-turn stale drafts
-        # from leaking into the current turn's synthesizer.
+        "needs_rewrite": needs_rewrite,
         "tutor_drafts": None,
         "agent_thoughts": [
             {
@@ -119,6 +99,7 @@ async def supervisor_node(state: AgentState, config: RunnableConfig) -> dict:
                 "data": {
                     "task": task,
                     "difficulty": difficulty,
+                    "needs_rewrite": needs_rewrite,
                     "weak_topics": weak_topics,
                 },
             }

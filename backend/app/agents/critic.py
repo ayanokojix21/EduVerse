@@ -1,28 +1,6 @@
 """
-Node 7 — Critic Agent  (Quality Gate)
-
+Node 7 — Critic Agent (Quality Gate)
 Validates the Synthesizer's output against the retrieved source documents.
-Uses a structured JSON output to produce an actionable quality review.
-
-Decision logic
---------------
-* severity == "none" | "low" → pass (graph proceeds to END)
-* severity == "high" AND retry_count < 1 → graph loops back to Synthesizer
-* severity == "high" AND retry_count >= 1 → pass anyway (one retry max)
-
-The Critic uses specific, actionable language — not vague complaints.
-For example:
-  BAD:  "answer is incorrect"
-  GOOD: "paragraph 2 states F=m/a but source [1] clearly shows F=ma"
-
-This specificity is enforced in the prompt and validated by
-``with_structured_output``.
-
-LangChain best-practices
---------------------------
-* ``with_structured_output`` for guaranteed JSON + Pydantic validation.
-* temperature=0 for fully deterministic, reproducible quality gate.
-* ``@traceable`` for LangSmith span.
 """
 from __future__ import annotations
 
@@ -61,25 +39,19 @@ class CriticOutput(BaseModel):
     )
 
 
-# ── LLM pool (round-robin structured pool) ────────────────────────────
-# temperature=0 for deterministic quality gate; JSON output required.
-
-_critic_llm = RoundRobinLLM.for_role("structured", temperature=0).with_structured_output(
-    CriticOutput
-)
-
-
 # ── Node ─────────────────────────────────────────────────────────────────────
 
 @traceable(name="critic_agent")
 async def critic_agent_node(state: AgentState, config: RunnableConfig) -> dict:
     """
     Quality-gate the Synthesizer's answer.
-
-    Determines if the response contains hallucinations or contradictions
-    vs. the retrieved source documents.  If so, feeds specific issues back
-    to the Synthesizer for targeted correction (one retry max).
     """
+    # Lazy init to prevent import-time hangs
+    llm = RoundRobinLLM.for_role(
+        "structured", 
+        temperature=0, 
+        schema=CriticOutput
+    )
     response_text = state.get("response_text", "")
     context_docs = state.get("context_docs", [])
     retry_count = state.get("retry_count", 0)
@@ -119,7 +91,7 @@ Severity="high" should be reserved for factual contradictions with the sources.
 Return ONLY the structured JSON matching the required schema."""
 
     try:
-        result: CriticOutput = await _critic_llm.ainvoke(
+        result: CriticOutput = await llm.ainvoke(
             [HumanMessage(content=prompt)], config=config
         )
         severity = result.severity

@@ -1,58 +1,29 @@
-"""
-Node 6 — Synthesizer
-
-Fan-in node that runs after BOTH parallel tutors have completed.
-Operates in two modes depending on ``state["critic_feedback"]``:
-
-Mode A — First pass (no critic feedback)
-    Merges Tutor A (concise) and Tutor B (explanatory) into a single,
-    superior answer. Structure: precise core → analogy → merged citations.
-
-Mode B — Retry (critic provided specific issues)
-    Rewrite ONLY the parts the critic flagged. Everything else stays identical.
-    This targeted rewrite avoids regressing on correct content.
-
-Memory handling
----------------
-The synthesizer appends an ``AIMessage`` with the final response back into
-``state["messages"]``.  This ensures subsequent turns have the complete
-conversation history (Human questions + AI answers) available to all agents
-via ``trim_messages``.
-
-tutor_drafts fix
------------------
-The ``_reset_or_add_drafts`` reducer (state.py) + supervisor's ``None`` reset
-guarantees ``state["tutor_drafts"]`` only ever contains the two drafts from
-THIS turn.  The old ``reversed()`` hack is removed.
-
-Streaming
----------
-The synthesizer LLM is instantiated with ``streaming=True``.
-When the chat endpoint uses ``graph.astream_events(version="v2")``,
-``on_chat_model_stream`` events from this node carry the ``synthesizer``
-run tag, enabling the frontend to show tokens as they arrive.
-"""
 from __future__ import annotations
 
 import logging
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
+from langchain_core.prompts import ChatPromptTemplate
 from langsmith import traceable
+from pydantic import BaseModel, Field
 
-from app.agents.state import AgentState
+from app.agents.state import AgentState, Citation
 from app.config import get_settings
 from app.utils.llm_pool import RoundRobinLLM
-from app.utils.parse_output import parse_response_and_citations
+from app.utils.prompt_helpers import build_context_text
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-# ── LLM pool ───────────────────────────────────────────────────
-# streaming=True so astream_events surfaces per-token events under the "synthesizer" tag.
+# ── Structured output schema ─────────────────────────────────────────────────
 
-_synthesizer_llm = RoundRobinLLM.for_role("chat", temperature=0.15, streaming=True)
+class SynthesizerOutput(BaseModel):
+    """Schema for the final synthesized tutoring response."""
+    response_text: str = Field(description="The final educational response text")
+    citations: list[Citation] = Field(description="Merged and deduplicated course citations")
+    consensus_reasoning: str = Field(description="One-sentence synthetic reasoning")
 
 
 # ── Node ─────────────────────────────────────────────────────────────────────
@@ -61,100 +32,146 @@ _synthesizer_llm = RoundRobinLLM.for_role("chat", temperature=0.15, streaming=Tr
 async def synthesizer_node(state: AgentState, config: RunnableConfig) -> dict:
     """
     Merge or refine the tutors' outputs into a single grounded answer.
-    Appends an AIMessage to state["messages"] for future conversation context.
     """
+    # Lazy init to prevent import-time hangs
+    llm = RoundRobinLLM.for_role(
+        "chat", 
+        temperature=0.15, 
+        streaming=True,
+        schema=SynthesizerOutput
+    )
+    synthesizer_chain = llm
+    
     critic_feedback: list[str] = state.get("critic_feedback") or []
     is_retry = len(critic_feedback) > 0
+    context_docs = state.get("context_docs", [])
+    context_text = build_context_text(context_docs)
+    
+    system_template = (
+        "You are an expert AI Synthesizer. You must combine multiple tutor drafts into a single, cohesive, grounded response.\n"
+    )
 
     if is_retry:
         # ── Mode B: targeted critic-guided rewrite ────────────────────────
         issues_text = "\n".join(f"  • {issue}" for issue in critic_feedback)
-        prompt = f"""The previous tutoring response requires targeted corrections.
+        user_template = """The previous tutoring response requires targeted corrections based on the course materials.
 
 Specific issues identified by the quality reviewer:
 {issues_text}
 
+Course Content (Ground Truth):
+{context_text}
+
 Previous answer (do NOT rewrite sections that are not listed above):
-{state.get("response_text", "")}
+{response_text}
 
 Instructions:
-1. Fix ONLY the issues listed above.
+1. Fix ONLY the issues listed above using the Course Content provided.
 2. Maintain all correct content verbatim.
 3. Keep all citation references [1], [2], etc.
-
-End with:
-CITATIONS_JSON: [{{"source_index":1,"title":"...","alternate_link":"...","content_type":"...","item_id":"...","snippet":"..."}}]"""
+4. Output ONLY the citations that are actively and explicitly referenced with [i] numbers in your updated text.
+5. Output your answer in JSON format."""
+        
+        input_data = {
+            "issues_text": issues_text,
+            "context_text": context_text,
+            "response_text": state.get("response_text", "")
+        }
 
     else:
         # ── Mode A: first-pass merge of both tutor drafts ─────────────────
-        # Thanks to the _reset_or_add_drafts reducer + supervisor's None reset,
-        # tutor_drafts only contains THIS turn's two drafts — no stale data.
         drafts = state.get("tutor_drafts") or []
-        draft_a = next((d for d in drafts if d["agent_id"] == "tutor_a"), {})
-        draft_b = next((d for d in drafts if d["agent_id"] == "tutor_b"), {})
+        draft_a = next((d for d in drafts if getattr(d, "agent_id", None) == "tutor_a"), None)
+        draft_b = next((d for d in drafts if getattr(d, "agent_id", None) == "tutor_b"), None)
 
-        a_text = draft_a.get("response_text", "(Tutor A draft not available)")
-        b_text = draft_b.get("response_text", "(Tutor B draft not available)")
-        a_reasoning = draft_a.get("reasoning", "")
-        b_reasoning = draft_b.get("reasoning", "")
+        a_text = draft_a.response_text if draft_a else "(Tutor A draft not available)"
+        b_text = draft_b.response_text if draft_b else "(Tutor B draft not available)"
+        a_reasoning = draft_a.reasoning if draft_a else ""
+        b_reasoning = draft_b.reasoning if draft_b else ""
 
-        prompt = f"""Two specialist tutors answered the same student question in different styles.
+        user_template = """Two specialist tutors answered the same student question in different styles.
 Your task: synthesise their answers into a single, superior response.
 
 RULES:
 - Combine the best of both drafts into one clear, helpful answer.
-- You MAY add brief clarifications or connecting explanations to make the answer flow better.
-- DO NOT fabricate facts or invent information. Keep it accurate.
-- If both tutors indicate the question is off-topic for the course, maintain that message.
+- You MUST maintain all inline citation references [1], [2], etc.
+- DO NOT write "SOURCE_1" or "SOURCE_2" in your text. Instead, integrate the reference smoothly (e.g., "according to the notes [1]") or just use the brackets.
+- ONLY include citations in your final CITATIONS list if they are EXPLICITLY referenced with a number (e.g. [1]) in your synthesized text. Discard any unused sources.
+- You MUST merge and deduplicate the final citations based exactly on the source documents provided.
+- For every citation, extract the `page_number` from the SOURCE_i header if available and include it in the JSON.
+- Ensure every index [i] in the final response maps exactly to source [i] in the final CITATIONS list.
 
 Tutor A (concise/formula-first) — reasoning: {a_reasoning}
 {a_text}
 
 ---
 Tutor B (explanatory/analogy-rich) — reasoning: {b_reasoning}
-{b_text}
+{b_text}"""
 
-Synthesis rules:
-1. Lead with Tutor A's precise answer (formulas, definitions, structure).
-2. Follow with Tutor B's best analogy or real-world example.
-3. Cut all redundant content — every sentence must add value.
-4. Merge and deduplicate citations from both tutors.
-5. The merged answer must be better than either draft alone.
-6. Maintain inline citation references [1], [2], etc.
+        input_data = {
+            "context_text": context_text,
+            "a_reasoning": a_reasoning,
+            "a_text": a_text,
+            "b_reasoning": b_reasoning,
+            "b_text": b_text
+        }
 
-Student question (for verification): {state.get("original_query", "")}
-
-End with:
-CITATIONS_JSON: [{{"source_index":1,"title":"...","alternate_link":"...","content_type":"...","item_id":"...","snippet":"..."}}]"""
-
-    # Inject "synthesizer" tag so astream_events can filter this node's tokens
     invoke_config = {
         **config,
         "tags": [*(config.get("tags") or []), "synthesizer"],
     }
 
-    result = await _synthesizer_llm.ainvoke(
-        [HumanMessage(content=prompt)], config=invoke_config
-    )
-    response_text, citations = parse_response_and_citations(
-        result.content, state.get("context_docs", [])
-    )
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", system_template),
+        ("human", user_template)
+    ])
+    
+    full_chain = prompt | synthesizer_chain
+
+    # Invoke with all dynamic content
+    result = await full_chain.ainvoke(input_data, config=invoke_config)
+    
+    response_text = result.response_text
+    raw_citations = result.citations
+    consensus_reasoning = result.consensus_reasoning
+
+    # Post-process: Enforce Ground Truth Metadata on Citations
+    citations: list[Citation] = []
+    for cit in raw_citations:
+        idx = cit.source_index - 1
+        if 0 <= idx < len(context_docs):
+            # Map directly from retrieved documents, overriding potential LLM hallucinations
+            doc = context_docs[idx]
+            meta = getattr(doc, "metadata", doc.get("metadata", {}))
+            cit.title = meta.get("title") or cit.title
+            # Cover both snake_case and camelCase (LangChain Google Classroom loader uses varying schemes)
+            cit.alternate_link = meta.get("alternate_link") or meta.get("alternateLink") or cit.alternate_link
+            cit.file_url = meta.get("attachment_url") or meta.get("attachmentUrl") or meta.get("file_url") or cit.file_url
+            
+            # Allow LLM to extract page number if the metadata doesn't have it explicitly bound,
+            # but prefer metadata
+            if meta.get("page_number"):
+                cit.page_number = int(meta["page_number"])
+                
+            citations.append(cit)
+        else:
+            # Invalid source_index hallucinated by LLM
+            continue
 
     action = "Targeted critic-guided rewrite" if is_retry else "Merged A+B drafts"
     logger.info(
-        "Synthesizer → %s · %d chars · %d citations",
+        "Synthesizer → %s · %d chars · %d citations · consensus=%r",
         action,
         len(response_text),
         len(citations),
+        consensus_reasoning[:60] if consensus_reasoning else "",
     )
 
     return {
         "response_text": response_text,
         "citations": citations,
-        # Append the AI response to messages so all future agents see the
-        # complete conversation history (Human questions + AI answers).
+        "consensus_reasoning": consensus_reasoning,
         "messages": [AIMessage(content=response_text)],
-        # Clear critic feedback so a second pass doesn't loop again
         "critic_feedback": [],
         "agent_thoughts": [
             {
@@ -164,6 +181,7 @@ CITATIONS_JSON: [{{"source_index":1,"title":"...","alternate_link":"...","conten
                     "is_retry": is_retry,
                     "citation_count": len(citations),
                     "char_count": len(response_text),
+                    "consensus_reasoning": consensus_reasoning,
                 },
             }
         ],

@@ -3,11 +3,11 @@ import json
 from datetime import datetime
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
-from langchain_groq import ChatGroq
 from langsmith import traceable
 from app.agents.state import AgentState
 from app.db.event_store import EventStore
 from app.config import get_settings
+from app.utils.llm_pool import RoundRobinLLM
 
 settings = get_settings()
 
@@ -23,7 +23,7 @@ async def timetable_agent_node(state: AgentState, config: RunnableConfig) -> dic
     stored_events = await event_store.get_events_for_date(state["user_id"], target_date)
     
     # 3. Generate Timetable
-    llm = ChatGroq(model=settings.groq_timetable_model, api_key=settings.groq_api_key)
+    llm = RoundRobinLLM.for_role("chat", temperature=0.2)
     prompt = (
         f"Date: {target_date}\nMemory (Stored Events): {json.dumps(stored_events)}\n"
         f"New Events: {json.dumps(state['email_events'])}\nUser Request: {state['original_query']}\n"
