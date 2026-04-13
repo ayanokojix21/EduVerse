@@ -12,6 +12,7 @@ from app.agents.state import AgentState, Citation
 from app.config import get_settings
 from app.utils.llm_pool import RoundRobinLLM
 from app.utils.prompt_helpers import build_context_text
+from app.utils.token_utils import truncate_context_docs
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -44,7 +45,10 @@ async def synthesizer_node(state: AgentState, config: RunnableConfig) -> dict:
     
     critic_feedback: list[str] = state.get("critic_feedback") or []
     is_retry = len(critic_feedback) > 0
-    context_docs = state.get("context_docs", [])
+    
+    # ── Token-Aware Context Pruning ──────────────────────────────────────────
+    raw_context = state.get("context_docs", [])
+    context_docs = truncate_context_docs(raw_context, max_tokens=5800)
     context_text = build_context_text(context_docs)
     
     system_template = (
@@ -53,27 +57,33 @@ async def synthesizer_node(state: AgentState, config: RunnableConfig) -> dict:
 
     if is_retry:
         # ── Mode B: targeted critic-guided rewrite ────────────────────────
-        issues_text = "\n".join(f"  • {issue}" for issue in critic_feedback)
-        user_template = """The previous tutoring response requires targeted corrections based on the course materials.
-
-Specific issues identified by the quality reviewer:
-{issues_text}
-
-Course Content (Ground Truth):
-{context_text}
-
-Previous answer (do NOT rewrite sections that are not listed above):
-{response_text}
-
-Instructions:
-1. Fix ONLY the issues listed above using the Course Content provided.
-2. Maintain all correct content verbatim.
-3. Keep all citation references [1], [2], etc.
-4. Output ONLY the citations that are actively and explicitly referenced with [i] numbers in your updated text.
-5. Output your answer in JSON format."""
+        review = state.get("critic_review") or {}
+        required_facts = review.get("required_facts") or []
         
+        issues_text = "\n".join(f"  • {issue}" for issue in critic_feedback)
+        facts_text = "\n".join(f"  • {fact}" for fact in required_facts)
+        
+        user_template = """The previous tutoring response requires targeted corrections based on the course materials.
+ 
+ Specific issues identified:
+ {issues_text}
+ 
+ GROUND TRUTH FACTS (MUST BE INCLUDED):
+ {facts_text}
+ 
+ Course Content (Ground Truth Documents):
+ {context_text}
+ 
+ Previous answer (Fix only the errors where the facts above were violated):
+ {response_text}
+ 
+ Instructions:
+ 1. Fix the accuracy using the GROUND TRUTH FACTS provided above.
+ 2. Ensure the response remains educational and helpful.
+ 3. Output your answer in JSON format."""
         input_data = {
             "issues_text": issues_text,
+            "facts_text": facts_text,
             "context_text": context_text,
             "response_text": state.get("response_text", "")
         }

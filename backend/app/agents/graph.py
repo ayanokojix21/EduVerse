@@ -10,10 +10,9 @@ from fastapi import FastAPI
 from langgraph.graph import END, START, StateGraph
 
 from app.agents.critic import critic_agent_node
-from app.agents.query_rewriter import query_rewriter_node
+from app.agents.orchestrator import orchestrator_node
 from app.agents.rag_agent import rag_agent_node
 from app.agents.state import AgentState
-from app.agents.supervisor import supervisor_node
 from app.agents.synthesizer import synthesizer_node
 from app.agents.email_agent import email_agent_node
 from app.agents.timetable_agent import timetable_agent_node
@@ -29,19 +28,15 @@ _compiled_graph = None
 
 # ── Conditional edges ────────────────────────────────────────────────────────
 
-def route_supervisor(state: AgentState) -> Literal["email_agent", "query_rewriter", "rag_agent"]:
+def route_orchestrator(state: AgentState) -> Literal["email_agent", "rag_agent"]:
     """
-    Routing edge after supervisor.
-
+    Routing edge after orchestrator.
     Branches to the timetable pipeline if the task is 'timetable'.
-    Otherwise proceeds to the standard RAG tutoring pipeline,
-    optionally skipping the query_rewriter if needs_rewrite is False.
+    Otherwise proceeds to the standard RAG tutoring pipeline.
     """
     if state.get("task") == "timetable":
         return "email_agent"
-    if not state.get("needs_rewrite", True):
-        return "rag_agent"
-    return "query_rewriter"
+    return "rag_agent"
 
 
 def should_retry_synthesizer(
@@ -78,8 +73,7 @@ def build_graph() -> StateGraph:
     g: StateGraph = StateGraph(AgentState)
 
     # 1. Register Core Nodes
-    g.add_node("supervisor",      supervisor_node)
-    g.add_node("query_rewriter",  query_rewriter_node)
+    g.add_node("orchestrator",    orchestrator_node)
     g.add_node("rag_agent",       rag_agent_node)
     g.add_node("synthesizer",     synthesizer_node)
     g.add_node("critic_agent",    critic_agent_node)
@@ -91,20 +85,18 @@ def build_graph() -> StateGraph:
 
     # ── Orchestration ────────────────────────────────────────────────────────
 
-    # Route after supervisor
-    g.add_edge(START, "supervisor")
+    # Route after orchestrator
+    g.add_edge(START, "orchestrator")
     g.add_conditional_edges(
-        "supervisor",
-        route_supervisor,
+        "orchestrator",
+        route_orchestrator,
         {
             "email_agent": "email_agent",
-            "query_rewriter": "query_rewriter",
             "rag_agent": "rag_agent"
         },
     )
 
     # Standard RAG branch
-    g.add_edge("query_rewriter", "rag_agent")
     g.add_edge("rag_agent", "tutor_ensemble")
     g.add_edge("tutor_ensemble", "synthesizer")
     g.add_edge("synthesizer", "critic_agent")

@@ -15,7 +15,6 @@ from app.agents.state import AgentState, TutorDraft
 from app.config import get_settings
 from app.utils.llm_pool import RoundRobinLLM
 from app.utils.prompt_helpers import build_context_text
-from app.utils.llm_pool import RoundRobinLLM
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

@@ -19,6 +19,7 @@ from app.retrieval.context_cache import ContextCache
 from app.retrieval.explainability import build_explainability
 from app.retrieval.retriever import build_embeddings, get_retrieval_chain
 from app.utils.llm_pool import RoundRobinLLM
+from app.utils.token_utils import truncate_context_docs, count_tokens
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -30,6 +31,11 @@ _distiller_llm = RoundRobinLLM.for_role("fast", temperature=0.0)
 async def _distill_batch(query: str, batch: list[dict], config: RunnableConfig) -> str:
     """Distill a batch of chunks into relevant facts for the query."""
     context_blob = "\n\n".join([f"--- Chunk ---\n{d['content']}" for d in batch])
+    
+    # Safety: If the batch itself is somehow massive, we must truncate it
+    if count_tokens(context_blob) > 2500:
+        context_blob = context_blob[:8000] # Rough char truncation as safety net
+        
     prompt = (
         f"You are a Context Distiller. Below are several chunks from a course document.\n\n"
         f"STUDENT QUERY: {query}\n\n"
@@ -53,6 +59,7 @@ async def rag_agent_node(state: AgentState, config: RunnableConfig) -> dict:
     t0 = time.monotonic()
 
     db: AsyncIOMotorDatabase = config["configurable"]["db"]
+    sync_client = config["configurable"]["mongo_client_sync"]
     user_id: str = state["user_id"]
     course_id: str = state["course_id"]
     original_query: str = state["original_query"]
@@ -91,9 +98,11 @@ async def rag_agent_node(state: AgentState, config: RunnableConfig) -> dict:
         query_vector = None
 
     # ── 1. Execute Declarative Retrieval Chain ───────────────────────────────
-    chain = get_retrieval_chain(user_id, course_id, db, settings)
+    chain = get_retrieval_chain(user_id, course_id, db, sync_client, settings)
     
-    retrieval_result = await chain.ainvoke(rewritten_queries, config=config)
+    # Send only the primary optimized query as a single string
+    query_to_search = rewritten_queries[0]
+    retrieval_result = await chain.ainvoke(query_to_search, config=config)
     
     parent_docs = retrieval_result["documents"]
     top_score = retrieval_result["top_score"]
@@ -142,7 +151,8 @@ async def rag_agent_node(state: AgentState, config: RunnableConfig) -> dict:
     else:
         retrieval_label = "CLASSROOM_INSUFFICIENT"
 
-    context_docs: list[dict] = parent_docs
+    # Final Safety Truncation: Ensure the synthesizer never gets an over-budget context
+    context_docs: list[dict] = truncate_context_docs(parent_docs, max_tokens=5800)
 
     # ── 4. Cache / Explain / Return ──────────────────────────────────────────
     if query_vector and context_docs and retrieval_label != "CLASSROOM_INSUFFICIENT":

@@ -6,10 +6,9 @@ from app.agents.graph import (
     init_graph_on_startup,
     should_retry_synthesizer,
 )
-from app.agents.query_rewriter import query_rewriter_node
+from app.agents.orchestrator import orchestrator_node
 from app.agents.rag_agent import rag_agent_node
 from app.agents.state import AgentState, TutorDraft
-from app.agents.supervisor import supervisor_node
 from app.agents.synthesizer import synthesizer_node
 from app.agents.tutor_a import tutor_agent_a_node
 from app.agents.tutor_b import tutor_agent_b_node
@@ -19,8 +18,7 @@ __all__ = [
     "AgentState",
     "TutorDraft",
     # Node functions
-    "supervisor_node",
-    "query_rewriter_node",
+    "orchestrator_node",
     "rag_agent_node",
     "tutor_agent_a_node",
     "tutor_agent_b_node",

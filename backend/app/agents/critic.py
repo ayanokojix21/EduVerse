@@ -37,6 +37,10 @@ class CriticOutput(BaseModel):
     passed: bool = Field(
         description="True if the answer is acceptable for delivery to the student.",
     )
+    required_facts: list[str] = Field(
+        description="List of specific, verifiable facts from the sources that MUST be included correctly in the revision.",
+        default_factory=list,
+    )
 
 
 # ── Node ─────────────────────────────────────────────────────────────────────
@@ -79,14 +83,14 @@ Evaluation criteria:
 2. Does the response cite sources it doesn't use, or misattribute content?
 3. Are there formulae, numbers, or dates that are clearly wrong per the sources?
 
-IMPORTANT — specificity rules for issues:
-  BAD: "The answer is wrong"
-  GOOD: "Sentence 2 claims the formula is F=m/a but source [1] states F=ma"
-  BAD: "Missing information"
-  GOOD: "The 10N friction force mentioned in source [2] is not addressed"
+Rules for `required_facts`:
+- For every error found, provide the CORRECT fact/formula from the source as a bullet point.
+- If a major point is missing, provide a summary of that missing context.
+- Keep facts atomic and grounded.
 
-If no significant issues are found, use severity="none" or severity="low".
-Severity="high" should be reserved for factual contradictions with the sources.
+Example:
+  ISSUE: "Claims gravity is 10 m/s2"
+  REQUIRED_FACT: "Acceleration due to gravity is exactly 9.81 m/s2 per source [1]"
 
 Return ONLY the structured JSON matching the required schema."""
 
@@ -109,6 +113,7 @@ Return ONLY the structured JSON matching the required schema."""
         "severity": severity,
         "issues": issues,
         "passed": passed,
+        "required_facts": result.required_facts if severity == "high" else [],
     }
 
     logger.info(
