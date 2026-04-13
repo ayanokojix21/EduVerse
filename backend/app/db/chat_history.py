@@ -65,7 +65,8 @@ class ChatHistoryService:
             "timestamp": now.isoformat(),
         }
         if citations:
-            message["citations"] = citations
+            from fastapi.encoders import jsonable_encoder
+            message["citations"] = jsonable_encoder(citations)
 
         # Try to push onto existing session
         result = await self.collection.update_one(

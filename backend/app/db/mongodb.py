@@ -38,6 +38,11 @@ async def mongo_lifespan(app: FastAPI) -> AsyncIterator[None]:
         unique=True,
     )
 
+    # sliding window fetches: metadata.source_doc_id + metadata.chunk_index
+    await db[settings.mongo_parent_chunks_collection].create_index(
+        [("metadata.source_doc_id", 1), ("metadata.chunk_index", 1)]
+    )
+
     # child chunks: lookup by (user, course)
     await db[settings.mongo_child_chunks_collection].create_index(
         [("user_id", 1), ("course_id", 1)]
@@ -55,18 +60,11 @@ async def mongo_lifespan(app: FastAPI) -> AsyncIterator[None]:
         "user_id", unique=True
     )
 
-    # tavily usage: unique per date
-    await db[settings.mongo_tavily_usage_collection].create_index(
-        "date", unique=True
+    # ingestion jobs: lookup by (user, course)
+    await db[settings.mongo_ingestion_jobs_collection].create_index(
+        [("user_id", 1), ("course_id", 1)],
+        unique=True,
     )
-
-    # ── Warm up the CrossEncoder reranker (avoids first-request cold start) ──
-    try:
-        from app.retrieval.reranker import warm_up_reranker
-        await warm_up_reranker()
-        logger.info("CrossEncoder reranker warmed up.")
-    except Exception as exc:          # noqa: BLE001
-        logger.warning("Reranker warm-up failed (non-fatal): %s", exc)
 
     # ── Compile LangGraph agent pipeline ────────────────────────────────────
     try:
@@ -75,7 +73,14 @@ async def mongo_lifespan(app: FastAPI) -> AsyncIterator[None]:
         
         async with AsyncMongoDBSaver.from_conn_string(settings.mongo_uri, db_name=settings.mongo_db_name) as checkpointer:
             await compile_graph(checkpointer)
-            logger.info("LangGraph agent pipeline compiled and ready.")
+            logger.info("LangGraph agent pipeline compiled.")
+            
+            # Eagerly warm up the LLM pools in the background
+            from app.utils.llm_pool import RoundRobinLLM
+            import asyncio
+            asyncio.create_task(RoundRobinLLM.warm_up())
+            
+            logger.info("EduVerse AI Engine ready.")
             
             setattr(app.state, MONGO_CLIENT_STATE_KEY, client)
             setattr(app.state, MONGO_DB_STATE_KEY, db)
