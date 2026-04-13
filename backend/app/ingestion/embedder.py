@@ -4,9 +4,6 @@ import warnings
 from datetime import datetime, timezone
 from typing import Any
 
-# The LangChain indexing API uses SHA-1 for document fingerprinting. We accept
-# this risk — our use case (chunk deduplication) does not require collision
-# resistance. Suppress the noise so server logs stay clean.
 warnings.filterwarnings(
     "ignore",
     message="Using SHA-1 for document hashing",
@@ -147,7 +144,7 @@ async def embed_and_store(
                 child_chunks,
                 record_manager,
                 vector_store,
-                cleanup="incremental",
+                cleanup="full",
                 source_id_key="source_id",
             )
         finally:
@@ -163,3 +160,90 @@ async def embed_and_store(
         "parent_upserts": parent_upserts,
         "stale_parents_deleted": stale_parents_deleted,
     }
+
+
+async def wipe_course_vectors(user_id: str, course_id: str, settings: Settings | None = None) -> int:
+    """
+    Manually clear all child vectors and indexing traces for a course.
+    Returns the number of deleted vectors.
+    """
+    resolved = settings or get_settings()
+    
+    def _run_wipe_sync() -> int:
+        sync_client = MongoClient(resolved.mongo_uri)
+        try:
+            sync_collection = sync_client[resolved.mongo_db_name][resolved.mongo_child_chunks_collection]
+            embeddings = NomicEmbeddings(
+                model=resolved.nomic_embedding_model,
+                nomic_api_key=resolved.nomic_api_key,
+            )
+            vector_store = MongoDBAtlasVectorSearch(
+                collection=sync_collection,
+                embedding=embeddings,
+                index_name=resolved.mongo_child_vector_index_name,
+                text_key="content",
+            )
+            namespace = f"mongodb/{resolved.mongo_db_name}/{resolved.mongo_child_chunks_collection}/{user_id}/{course_id}"
+            record_manager = SQLRecordManager(namespace, db_url=resolved.record_manager_db_url)
+            
+            # List all keys for this namespace
+            all_keys = record_manager.list_keys()
+            if not all_keys:
+                return 0
+                
+            # Delete from vector store and record manager
+            vector_store.delete(all_keys)
+            record_manager.delete_keys(all_keys)
+            return len(all_keys)
+        finally:
+            sync_client.close()
+
+    return await anyio.to_thread.run_sync(_run_wipe_sync)
+
+
+async def delete_file_vectors(user_id: str, course_id: str, filename: str, settings: Settings | None = None) -> int:
+    """
+    Targeted deletion of vectors for a specific file.
+    """
+    resolved = settings or get_settings()
+    
+    def _run_targeted_delete_sync() -> int:
+        sync_client = MongoClient(resolved.mongo_uri)
+        try:
+            sync_collection = sync_client[resolved.mongo_db_name][resolved.mongo_child_chunks_collection]
+            
+            # 1. Find the fingerprints from MongoDB first
+            # In our setup, the 'id' in the vector store collection IS the key in the RecordManager
+            cursor = sync_collection.find(
+                {"user_id": user_id, "course_id": course_id, "metadata.title": filename},
+                {"_id": 1}
+            )
+            keys_to_delete = [str(doc["_id"]) for doc in cursor]
+            
+            if not keys_to_delete:
+                return 0
+                
+            embeddings = NomicEmbeddings(
+                model=resolved.nomic_embedding_model,
+                nomic_api_key=resolved.nomic_api_key,
+            )
+            vector_store = MongoDBAtlasVectorSearch(
+                collection=sync_collection,
+                embedding=embeddings,
+                index_name=resolved.mongo_child_vector_index_name,
+                text_key="content",
+            )
+            namespace = f"mongodb/{resolved.mongo_db_name}/{resolved.mongo_child_chunks_collection}/{user_id}/{course_id}"
+            record_manager = SQLRecordManager(namespace, db_url=resolved.record_manager_db_url)
+            
+            # 2. Delete from vector store
+            vector_store.delete(keys_to_delete)
+            
+            # 3. Delete from record manager
+            record_manager.delete_keys(keys_to_delete)
+            
+            return len(keys_to_delete)
+        finally:
+            sync_client.close()
+
+    return await anyio.to_thread.run_sync(_run_targeted_delete_sync)

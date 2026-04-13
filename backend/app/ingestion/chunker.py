@@ -3,7 +3,7 @@ from __future__ import annotations
 from hashlib import sha1
 
 from langchain_core.documents import Document
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_text_splitters import MarkdownTextSplitter
 
 
 def _stable_source_doc_id(doc: Document, user_id: str) -> str:
@@ -27,11 +27,11 @@ def chunk_documents(
     child_chunk_size: int,
     chunk_overlap: int,
 ) -> tuple[list[Document], list[Document]]:
-    parent_splitter = RecursiveCharacterTextSplitter(
+    parent_splitter = MarkdownTextSplitter(
         chunk_size=parent_chunk_size,
         chunk_overlap=chunk_overlap,
     )
-    child_splitter = RecursiveCharacterTextSplitter(
+    child_splitter = MarkdownTextSplitter(
         chunk_size=child_chunk_size,
         chunk_overlap=chunk_overlap,
     )
@@ -50,16 +50,23 @@ def chunk_documents(
             parent_metadata = dict(parent.metadata or {})
             parent_metadata["source_doc_id"] = source_doc_id
             parent_metadata["parent_id"] = parent_id
+            parent_metadata["chunk_index"] = parent_idx
             parent.metadata = parent_metadata
             parent_chunks.append(parent)
 
             split_children = child_splitter.split_documents([parent])
+            source_title = source_doc.metadata.get("title", "Unknown Source")
+            
             for child_idx, child in enumerate(split_children):
                 child_metadata = dict(child.metadata or {})
                 child_metadata["source_doc_id"] = source_doc_id
                 child_metadata["parent_id"] = parent_id
                 child_metadata["source_id"] = f"{parent_id}:child:{child_idx}"
                 child.metadata = child_metadata
+                
+                # Context Injection: Prefix the content with its source context
+                child.page_content = f"[From: {source_title}]\n\n{child.page_content}"
+                
                 child_chunks.append(child)
 
     return parent_chunks, child_chunks
