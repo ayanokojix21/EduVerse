@@ -238,9 +238,52 @@
   white-space: nowrap;
 }
 
+.responseContainer {
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  margin-top: 0.75rem;
+  border-left: 2px solid var(--primary);
+  position: relative;
+}
+
+.responseHeader {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+}
+
+.teaser {
+  mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+}
+
+.readMoreBtn {
+  background: transparent;
+  border: none;
+  color: var(--primary-light, #7c89f8);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: opacity 0.2s;
+}
+
+.readMoreBtn:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
 .cellQuery {
   color: var(--text-primary);
-  max-width: 400px;
+  max-width: 500px;
   line-height: 1.5;
 }
 

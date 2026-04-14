@@ -62,9 +62,21 @@ export default function RLDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedIndices, setExpandedIndices] = useState<number[]>([]);
+  const [readMoreIndices, setReadMoreIndices] = useState<number[]>([]);
 
   const toggleRow = (idx: number) => {
     setExpandedIndices(prev => 
+      prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
+    );
+    // Reset read more when closing
+    if (expandedIndices.includes(idx)) {
+      setReadMoreIndices(prev => prev.filter(i => i !== idx));
+    }
+  };
+
+  const toggleReadMore = (idx: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setReadMoreIndices(prev => 
       prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
     );
   };
@@ -219,6 +231,8 @@ export default function RLDashboard() {
                    <AnimatePresence mode='popLayout'>
                     {episodes.map((episode, idx) => {
                        const isExpanded = expandedIndices.includes(idx);
+                       const isReadMore = readMoreIndices.includes(idx);
+                       const isLong = episode.response.length > 400;
                        
                        return (
                         <motion.tr 
@@ -260,7 +274,7 @@ export default function RLDashboard() {
                                        exit={{ opacity: 0 }}
                                        className={styles.truncatedResponse}
                                      >
-                                       A: {episode.response.substring(0, 100)}...
+                                       A: {episode.response.substring(0, 80)}...
                                      </motion.div>
                                    ) : (
                                      <motion.div
@@ -271,9 +285,12 @@ export default function RLDashboard() {
                                        transition={{ duration: 0.3, ease: "easeInOut" }}
                                        className={styles.fullResponse}
                                      >
-                                       <div className={styles.responseContainer} style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', marginTop: '0.5rem', borderLeft: '2px solid #5e6ad2' }}>
-                                         <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6b6b6b', marginBottom: '0.5rem' }}>Full Agent Response</div>
-                                         <div className={styles.markdownContent}>
+                                       <div className={styles.responseContainer}>
+                                         <div className={styles.responseHeader}>Full Agent Response</div>
+                                         <div 
+                                           className={`${styles.markdownContent} ${isLong && !isReadMore ? styles.teaser : ''}`}
+                                           style={isLong && !isReadMore ? { maxHeight: '160px', overflow: 'hidden' } : {}}
+                                         >
                                            <ReactMarkdown
                                              remarkPlugins={[remarkGfm, remarkMath]}
                                              rehypePlugins={[rehypeKatex, rehypeRaw]}
@@ -281,6 +298,15 @@ export default function RLDashboard() {
                                              {preprocessMarkdown(episode.response)}
                                            </ReactMarkdown>
                                          </div>
+                                         
+                                         {isLong && (
+                                           <button 
+                                             className={styles.readMoreBtn}
+                                             onClick={(e) => toggleReadMore(idx, e)}
+                                           >
+                                             {isReadMore ? 'Show Less' : 'Read Full Answer'}
+                                           </button>
+                                         )}
                                        </div>
                                      </motion.div>
                                    )}
