@@ -26,13 +26,33 @@ import type {
 } from '@/types';
 import styles from './chat.module.css';
 
+/**
+ * Shared utility to resolve a citation to its final link (handling PDF proxies).
+ */
+const resolveCitationUrl = (cit: Citation, session: any) => {
+  let target = cit.file_url || cit.alternate_link || cit.link;
+  if (!target || typeof target !== 'string') return '#';
+  
+  if (target.startsWith('http')) {
+     const isPdf = target.toLowerCase().includes('.pdf') || cit.file_url;
+     if (isPdf) {
+        const jwt = session?.app_jwt;
+        const proxyBase = `${API_URL}/proxy/pdf?url=${encodeURIComponent(target)}${jwt ? `&token=${jwt}` : ''}`;
+        return cit.page_number ? `${proxyBase}#page=${cit.page_number}` : proxyBase;
+     } else if (cit.page_number) {
+        return `${target}#page=${cit.page_number}`;
+     }
+  }
+  return target;
+};
+
 const uuid = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
 
 /**
  * Robustly converts various math delimiters to standard $ and $$ 
- * to ensure remark-math / rehype-katex can render them.
+ * and transforms [1] citations into direct links if URLs are available.
  */
-const preprocessMarkdown = (content: string) => {
+const preprocessMarkdown = (content: string, citations?: Citation[], session?: any) => {
   if (!content) return "";
   
   // 1. Convert \( ... \) to $ ... $
@@ -48,9 +68,17 @@ const preprocessMarkdown = (content: string) => {
   // 4. Convert citations [1] or [1, 2] to superscripts
   processed = processed.replace(/\[(\d+(?:,\s*\d+)*)\]/g, (match, indices) => {
     const parts = indices.split(',').map((i: string) => i.trim());
-    const links = parts.map((idx: string) => 
-      `<a href="#cit-${idx}" class="cit-link">${idx}</a>`
-    ).join(',');
+    const links = parts.map((idxStr: string) => {
+      const idx = parseInt(idxStr);
+      let href = `#cit-${idx}`; // Fallback to anchor
+      
+      // If we have citation metadata, resolve to direct link
+      if (citations && citations[idx - 1]) {
+        href = resolveCitationUrl(citations[idx - 1], session);
+      }
+      
+      return `<a href="${href}" ${href.startsWith('http') ? 'target="_blank" rel="noopener noreferrer"' : ''} class="cit-link">${idxStr}</a>`;
+    }).join(',');
     return `<sup>${links}</sup>`;
   });
 
@@ -395,24 +423,12 @@ export default function ChatPage() {
                   remarkPlugins={[remarkGfm, remarkMath]}
                   rehypePlugins={[rehypeKatex, rehypeRaw]}
                 >
-                  {preprocessMarkdown(msg.content)}
+                  {preprocessMarkdown(msg.content, msg.citations, session)}
                 </ReactMarkdown>
                 {msg.citations && msg.citations.length > 0 && (
                   <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid #2e2e2e', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                     {msg.citations.map((cit, i) => {
-                       let target = cit.file_url || cit.alternate_link || cit.link;
-                       let finalHref = target;
-                       
-                       if (typeof target === 'string' && target.startsWith('http')) {
-                          const isPdf = target.toLowerCase().includes('.pdf') || cit.file_url;
-                          if (isPdf) {
-                             const jwt = (session as any)?.app_jwt;
-                             const proxyBase = `${API_URL}/proxy/pdf?url=${encodeURIComponent(target)}${jwt ? `&token=${jwt}` : ''}`;
-                             finalHref = cit.page_number ? `${proxyBase}#page=${cit.page_number}` : proxyBase;
-                          } else if (cit.page_number) {
-                             finalHref = `${target}#page=${cit.page_number}`;
-                          }
-                       }
+                       const finalHref = resolveCitationUrl(cit, session);
 
                        return (finalHref && finalHref !== '#') ? (
                          <a 
