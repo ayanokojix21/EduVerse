@@ -14,4 +14,5 @@ api_router.include_router(health.router,  tags=["health"])
 api_router.include_router(chat.router,    tags=["chat"])
 api_router.include_router(sessions.router, tags=["sessions"])
 api_router.include_router(timetable.router, prefix="/timetable", tags=["timetable"])
+api_router.include_router(rl.router, prefix="/rl", tags=["rl"])
 

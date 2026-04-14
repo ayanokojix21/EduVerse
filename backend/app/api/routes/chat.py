@@ -9,7 +9,7 @@ import logging
 import uuid
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status, BackgroundTasks
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
@@ -107,6 +107,54 @@ async def _persist_chat_messages(
     except Exception as exc:  # noqa: BLE001
         logger.warning("Chat history save failed (non-fatal): %s", exc)
 
+async def _record_rl_trajectory(
+    user_id: str,
+    session_id: str,
+    course_id: str,
+    query: str,
+    response: str,
+    context_docs: list[dict],
+    db,
+) -> None:
+    """
+    Asynchronous Shadow RL Auditor:
+    1. Runs the Critic on the live interaction.
+    2. Calculates the OpenEnv Reward.
+    3. Persists to the rl_episodes collection.
+    """
+    try:
+        from app.agents.critic import critic_agent_node
+        from app.rl.scoring import calculate_rl_reward
+        from app.db.rl_store import RLStore
+        
+        # 1. Run Audit
+        critic_state = {
+            "response_text": response,
+            "context_docs": context_docs
+        }
+        # In shadow mode, we use the default config
+        node_config = {"configurable": {"db": db}}
+        critic_output = await critic_agent_node(critic_state, node_config)
+        review = critic_output.get("critic_review", {})
+        
+        # 2. Score
+        reward = calculate_rl_reward(review, response)
+        
+        # 3. Store
+        store = RLStore(db=db)
+        await store.record_trajectory(
+            user_id=user_id,
+            session_id=session_id,
+            query=query,
+            response=response,
+            reward=reward,
+            critic_review=review,
+            metadata={"course_id": course_id, "mode": "shadow_audit"}
+        )
+        logger.info("Shadow RL Audit complete for session=%s reward=%.2f", session_id[:8], reward)
+    except Exception as exc:
+        logger.warning("Shadow RL audit failed (non-fatal): %s", exc)
+
 def _get_langsmith_url(config: dict) -> str:
     """
     Build the LangSmith run URL for surfacing in the UI.
@@ -131,6 +179,7 @@ async def _run_pipeline(
     message: str,
     db,
     sync_client,
+    background_tasks: BackgroundTasks,
     session_id: str | None = None,
 ) -> AsyncGenerator[str, None]:
     try:
@@ -185,9 +234,7 @@ async def _run_pipeline(
         "explainability":     {},
         "response_text":      "",
         "citations":          [],
-        "retry_count":        0,
         "critic_review":      {},
-        "critic_feedback":    [],
         "agent_thoughts":     [],
         "trace_url":          "",
     }
@@ -271,22 +318,29 @@ async def _run_pipeline(
         }
         yield sse_event("done", jsonable_encoder(done_payload))
 
-        # Background task: update weak topics + session count (non-blocking)
-        asyncio.create_task(
-            _post_run_update(user_id, final_state, db)
+        # Background tasks using FastAPI's BackgroundTasks for safe DB session handling
+        background_tasks.add_task(_post_run_update, user_id, final_state, db)
+
+        background_tasks.add_task(
+            _persist_chat_messages,
+            session_id=session_id,
+            user_id=user_id,
+            course_id=course_id,
+            user_message=message,
+            ai_response=final_state.get("response_text", ""),
+            citations=final_state.get("citations", []),
+            db=db,
         )
 
-        # Background task: persist chat messages to chat_sessions collection
-        asyncio.create_task(
-            _persist_chat_messages(
-                session_id=session_id,
-                user_id=user_id,
-                course_id=course_id,
-                user_message=message,
-                ai_response=final_state.get("response_text", ""),
-                citations=final_state.get("citations", []),
-                db=db,
-            )
+        background_tasks.add_task(
+            _record_rl_trajectory,
+            user_id=user_id,
+            session_id=session_id,
+            course_id=course_id,
+            query=message,
+            response=final_state.get("response_text", ""),
+            context_docs=final_state.get("context_docs", []),
+            db=db,
         )
 
     except Exception as exc:  # noqa: BLE001
@@ -304,6 +358,7 @@ async def _run_pipeline(
 async def chat_stream(
     payload: ChatRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     db=Depends(get_db),
     sync_client=Depends(get_sync_client),
 ) -> StreamingResponse:
@@ -329,6 +384,7 @@ async def chat_stream(
             message=payload.message,
             db=db,
             sync_client=sync_client,
+            background_tasks=background_tasks,
             session_id=payload.session_id,
         ),
         media_type="text/event-stream",
