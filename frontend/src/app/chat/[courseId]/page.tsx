@@ -14,7 +14,6 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
-import { useToast } from '@/components/Toast';
 
 import 'katex/dist/katex.min.css';
 
@@ -110,7 +109,6 @@ export default function ChatPage() {
   const { showToast } = useToast();
   const params = useParams();
   const courseId = params.courseId as string;
-  const { showToast } = useToast();
 
   const [course, setCourse] = useState<Course | null>(null);
   const [coursework, setCoursework] = useState<CourseContent | null>(null);
