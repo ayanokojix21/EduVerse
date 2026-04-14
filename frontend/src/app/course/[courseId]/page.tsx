@@ -250,15 +250,6 @@ export default function CourseHubPage() {
         </main>
       </div>
 
-      {isIngesting && (
-        <div className={styles.backgroundTaskPanel}>
-          <Loader2 size={24} className="animate-spin text-[#5e6ad2]" />
-          <div className={styles.taskInfo}>
-            <span className={styles.taskLabel}>Background Process</span>
-            <span className={styles.taskStatus}>AI is learning course contents...</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

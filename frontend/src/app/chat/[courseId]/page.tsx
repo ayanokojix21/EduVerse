@@ -146,6 +146,7 @@ export default function ChatPage() {
   const [sessions_list, setSessionsList] = useState<any[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState<string | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamBuffer, setStreamBuffer] = useState('');
@@ -160,6 +161,7 @@ export default function ChatPage() {
 
   const loadCourse = useCallback(async () => {
     try {
+      setLoading(true);
       const [courses, assignments, sessionsData, uploadedFilesData] = await Promise.all([
         api.courses.list(),
         api.courses.getCoursework(courseId),
@@ -173,6 +175,8 @@ export default function ChatPage() {
       setUploadedFiles(uploadedFilesData);
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoading(false);
     }
   }, [courseId]);
 
@@ -354,6 +358,8 @@ export default function ChatPage() {
   };
 
   const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant');
+
+  if (loading) return <ChatSkeleton />;
 
   return (
     <div className={styles.root}>
@@ -679,6 +685,75 @@ export default function ChatPage() {
                 })}
              </div>
            )}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function ChatSkeleton() {
+  return (
+    <div className={styles.root}>
+      {/* Sidebar Skeleton */}
+      <aside className={styles.sidebar}>
+        <div className={styles.sidebarHeader}>
+          <div className={`${styles.skeleton}`} style={{ width: '40px', height: '24px' }} />
+        </div>
+        <div style={{ padding: '1.25rem' }}>
+          <div style={{ paddingBottom: '1.5rem', borderBottom: '1px solid #2e2e2e', marginBottom: '1.5rem' }}>
+             <div className={`${styles.skeleton}`} style={{ width: '70%', height: '1.25rem', marginBottom: '0.5rem' }} />
+             <div className={`${styles.skeleton}`} style={{ width: '40%', height: '0.75rem' }} />
+          </div>
+          <div style={{ marginBottom: '2rem' }}>
+             <div className={`${styles.skeleton}`} style={{ width: '30%', height: '0.75rem', marginBottom: '1rem' }} />
+             {[1, 2, 3].map(i => (
+               <div key={i} className={`${styles.skeleton} ${styles.skeletonSidebarItem}`} />
+             ))}
+          </div>
+          <div className={`${styles.skeleton}`} style={{ width: '100%', height: '40px', borderRadius: '4px', marginBottom: '2rem' }} />
+          <div>
+             <div className={`${styles.skeleton}`} style={{ width: '40%', height: '0.75rem', marginBottom: '1rem' }} />
+             {[1, 2, 3].map(i => (
+               <div key={i} className={`${styles.skeleton} ${styles.skeletonSidebarItem}`} style={{ height: '60px' }} />
+             ))}
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Chat Skeleton */}
+      <main className={styles.mainChat}>
+        <header className={styles.chatHeader}>
+          <div className={`${styles.skeleton}`} style={{ width: '120px', height: '20px' }} />
+          <div className={`${styles.skeleton}`} style={{ width: '80px', height: '32px', borderRadius: '4px' }} />
+        </header>
+
+        <div className={styles.messageArea}>
+           {[1, 2].map(i => (
+             <div key={i} className={styles.messageBox} style={{ width: '100%' }}>
+                <div className={`${styles.skeleton} ${styles.skeletonCircle}`} />
+                <div className={`${styles.skeleton} ${styles.skeletonBubble}`} />
+             </div>
+           ))}
+           <div className={styles.messageBox} style={{ width: '100%', flexDirection: 'row-reverse' }}>
+              <div className={`${styles.skeleton} ${styles.skeletonCircle}`} />
+              <div className={`${styles.skeleton} ${styles.skeletonBubble}`} style={{ borderRadius: '12px 0 12px 12px' }} />
+           </div>
+        </div>
+
+        <div className={styles.inputArea}>
+          <div className={`${styles.skeleton}`} style={{ width: '100%', height: '52px', borderRadius: '10px' }} />
+        </div>
+      </main>
+
+      {/* Inspector Skeleton */}
+      <aside className={styles.inspectorPanel}>
+        <div className={styles.inspectorHeader}>
+          <div className={`${styles.skeleton}`} style={{ width: '100px', height: '24px' }} />
+        </div>
+        <div className={styles.inspectorBody}>
+           {[1, 2, 3, 4, 5].map(i => (
+             <div key={i} className={`${styles.skeleton} ${styles.skeletonInspectorStep}`} />
+           ))}
         </div>
       </aside>
     </div>

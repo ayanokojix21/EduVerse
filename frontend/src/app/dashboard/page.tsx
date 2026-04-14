@@ -234,12 +234,6 @@ export default function DashboardPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.04, duration: 0.3 }}
                 >
-                  {/* Loading Overlay */}
-                  {ingesting[`${course.id}-${idx}`] && (
-                    <div className="loading-overlay">
-                      <Spinner size={24} color="#5e6ad2" />
-                    </div>
-                  )}
 
                   {/* Card top */}
                   <div className={styles.courseCardTop} onClick={() => router.push(`/course/${course.id}`)} style={{ cursor: 'pointer' }}>
@@ -362,6 +356,7 @@ export default function DashboardPage() {
             )}
           </div>
         </main>
+
     </div>
   );
 }
