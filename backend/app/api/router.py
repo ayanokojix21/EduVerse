@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routes import auth, cache, chat, courses, health, ingest, profile, sessions, tokens, timetable, proxy
+from app.api.routes import auth, cache, chat, courses, health, ingest, profile, sessions, tokens, timetable, proxy, rl
 
 api_router = APIRouter()
 api_router.include_router(auth.router,    tags=["auth"])

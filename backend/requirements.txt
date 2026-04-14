@@ -1,5 +1,3 @@
-# Direct runtime dependencies only (manually maintained)
-
 # ── Web framework ──────────────────────────────────────────────────────────────
 fastapi[standard]==0.135.3
 pydantic-settings==2.13.1
@@ -50,3 +48,7 @@ duckduckgo-search>=6.0.0
 
 pymupdf>=1.23.0
 pymupdf4llm>=0.0.17
+
+# ── Reinforcement Learning (OpenEnv) ──────────────────────────────────────────
+gymnasium==1.1.1
+numpy>=1.24.0
