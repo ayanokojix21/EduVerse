@@ -184,6 +184,47 @@
   background: var(--bg-subtle);
 }
 
+.expandedRow {
+  background: rgba(94, 106, 210, 0.03) !important;
+}
+
+.clickableCell {
+  cursor: pointer;
+}
+
+.truncatedResponse {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.fullResponse {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+.statusPass {
+  color: var(--secondary);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.statusWarning {
+  color: var(--warning);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.statusError {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .auditCell {
   padding: 0.875rem 1rem;
   font-size: 0.825rem;
@@ -293,6 +334,68 @@
   0% { opacity: 0.5; }
   50% { opacity: 0.8; }
   100% { opacity: 0.5; }
+}
+
+.markdownContent {
+  color: var(--text-primary);
+  font-size: 0.825rem;
+  line-height: 1.6;
+}
+
+.markdownContent p {
+  margin-bottom: 0.75rem;
+}
+
+.markdownContent p:last-child {
+  margin-bottom: 0;
+}
+
+.markdownContent strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.markdownContent h1, .markdownContent h2, .markdownContent h3 {
+  margin: 1.25rem 0 0.5rem 0;
+  color: #fff;
+  font-weight: 600;
+}
+
+.markdownContent h1 { font-size: 1.25rem; }
+.markdownContent h2 { font-size: 1.1rem; }
+.markdownContent h3 { font-size: 1rem; }
+
+.markdownContent ul, .markdownContent ol {
+  padding-left: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.markdownContent li {
+  margin-bottom: 0.25rem;
+}
+
+.markdownContent code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9em;
+  color: var(--primary-light, #7c89f8);
+}
+
+.markdownContent pre {
+  background: #111;
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 0.75rem 0;
+  border: 1px solid var(--border);
+}
+
+.markdownContent pre code {
+  background: transparent;
+  padding: 0;
+  color: #ededed;
 }
 
 @media (max-width: 768px) {
