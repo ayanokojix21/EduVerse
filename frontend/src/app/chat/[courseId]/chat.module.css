@@ -167,14 +167,115 @@
 }
 
 .messageBubble {
+  flex: 1;
   background: #161616;
   border: 1px solid #2e2e2e;
-  padding: 0.875rem 1.125rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  line-height: 1.6;
+  padding: 1rem 1.25rem;
+  border-radius: 0 12px 12px 12px;
   color: #ededed;
-  max-width: fit-content;
+  line-height: 1.625;
+  font-size: 0.9375rem;
+  word-wrap: break-word;
+}
+
+/* ── Premium Markdown Styling ── */
+.messageBubble h1, 
+.messageBubble h2, 
+.messageBubble h3 {
+  color: #ffffff;
+  margin: 1.5rem 0 0.75rem 0;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.messageBubble h1 { font-size: 1.25rem; }
+.messageBubble h2 { font-size: 1.125rem; }
+.messageBubble h3 { font-size: 1rem; }
+
+.messageBubble h1:first-child,
+.messageBubble h2:first-child,
+.messageBubble h3:first-child,
+.messageBubble p:first-child {
+  margin-top: 0;
+}
+
+.messageBubble p {
+  margin: 0.75rem 0;
+}
+
+.messageBubble ul, 
+.messageBubble ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.messageBubble li {
+  color: #ededed;
+}
+
+.messageBubble li::marker {
+  color: #5e6ad2;
+  font-weight: 600;
+}
+
+.messageBubble code {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.85em;
+  color: #5e6ad2;
+}
+
+.messageBubble pre {
+  background: #0f0f0f;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #2e2e2e;
+  margin: 1rem 0;
+  overflow-x: auto;
+}
+
+.messageBubble pre code {
+  background: transparent;
+  padding: 0;
+  color: #ededed;
+  display: block;
+  font-size: 0.875rem;
+}
+
+.messageBubble blockquote {
+  margin: 1rem 0;
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  border-left: 3px solid #5e6ad2;
+  background: rgba(94, 106, 210, 0.05);
+  color: #a1a1a1;
+  font-style: italic;
+  border-radius: 0 4px 4px 0;
+}
+
+/* ── KaTeX Specific Fixes ── */
+.messageBubble .katex-display {
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.messageBubble .katex {
+  font-size: 1.05em;
+  color: #ffffff;
+}
+
+/* Add padding around inline math so it's not cramped */
+.messageBubble :not(.katex-display) > .katex {
+  padding: 0 0.125rem;
 }
 
 .messageUser .messageBubble {

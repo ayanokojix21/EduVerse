@@ -110,6 +110,7 @@ RULES:
 - You MUST merge and deduplicate the final citations based exactly on the source documents provided.
 - For every citation, extract the `page_number` from the SOURCE_i header if available and include it in the JSON.
 - Ensure every index [i] in the final response maps exactly to source [i] in the final CITATIONS list.
+- MATH FORMATTING: Always use LaTeX for math. Use $...$ for inline and $$...$$ for blocks. NEVER use ( ... ) for math symbols.
 
 Tutor A (concise/formula-first) — reasoning: {a_reasoning}
 {a_text}

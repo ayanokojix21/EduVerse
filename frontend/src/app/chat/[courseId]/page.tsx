@@ -11,7 +11,11 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { useToast } from '@/components/Toast';
+
+import 'katex/dist/katex.min.css';
 
 import { api, API_URL } from '@/lib/api';
 import Spinner from '@/components/Spinner';
@@ -22,6 +26,26 @@ import type {
 import styles from './chat.module.css';
 
 const uuid = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
+
+/**
+ * Robustly converts various math delimiters to standard $ and $$ 
+ * to ensure remark-math / rehype-katex can render them.
+ */
+const preprocessMarkdown = (content: string) => {
+  if (!content) return "";
+  
+  // 1. Convert \( ... \) to $ ... $
+  let processed = content.replace(/\\\((.*?)\\\)/g, "$ $1 $");
+  
+  // 2. Convert \[ ... \] to $$ ... $$
+  processed = processed.replace(/\\\[(.*?)\\\]/g, "$$\n$1\n$$");
+
+  // 3. Heuristic: Find math-like content in parentheses (e.g. z = \sum_i...) and wrap in $
+  // This is a safety for model slips. We look for backslashes, underscores, or carets inside (...)
+  processed = processed.replace(/(\s)\(([^)]*?[\\_^{][^)]*?)\)(\s|\.|\,|$)/g, "$1$ $2 $ $3");
+
+  return processed;
+};
 
 const NODE_LABELS: Record<string, string> = {
   orchestrator: "Analyzing & Strategic Planning",
@@ -357,7 +381,12 @@ export default function ChatPage() {
                 {msg.role === 'user' ? session?.user?.name?.[0] : 'AI'}
               </div>
               <div className={styles.messageBubble}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                <ReactMarkdown 
+                  remarkPlugins={[remarkGfm, remarkMath]}
+                  rehypePlugins={[rehypeKatex]}
+                >
+                  {preprocessMarkdown(msg.content)}
+                </ReactMarkdown>
                 {msg.citations && msg.citations.length > 0 && (
                   <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid #2e2e2e', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                     {msg.citations.map((cit, i) => {
@@ -427,7 +456,12 @@ export default function ChatPage() {
                 
                 {streamBuffer && (
                   <div style={{ marginTop: '1.5rem', borderTop: '1px solid #1f1f1f', paddingTop: '1.5rem' }}>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamBuffer}</ReactMarkdown>
+                    <ReactMarkdown 
+                      remarkPlugins={[remarkGfm, remarkMath]}
+                      rehypePlugins={[rehypeKatex]}
+                    >
+                      {preprocessMarkdown(streamBuffer)}
+                    </ReactMarkdown>
                   </div>
                 )}
               </div>

@@ -33,6 +33,7 @@ _TUTOR_B_SYSTEM = (
     "• Follow with a concrete worked example from the course material or a helpful illustration.\n"
     "• Use conversational, encouraging language.\n"
     "• Reference course sources inline with [1], [2], etc.\n"
+    "• MATH FORMATTING: Use LaTeX for all math. Wrap inline math in $...$ (e.g. $E=mc^2$) and block equations in $$...$$. NEVER use parentheses like (x+y) for formal math symbols.\n"
     "• For \"{difficulty}\" difficulty, calibrate depth and analogy complexity.\n"
     "• If task is \"quiz\": create a scenario-based question that tests understanding.\n\n"
     "Task type: {task}\n\n"

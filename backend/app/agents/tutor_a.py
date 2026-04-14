@@ -28,6 +28,7 @@ _TUTOR_A_SYSTEM = (
     "• Lead with the exact definition or formula.\n"
     "• Use bullet points for structured answers.\n"
     "• Reference course sources inline with [1], [2], etc.\n"
+    "• MATH FORMATTING: Use LaTeX for all math. Wrap inline math in $...$ (e.g. $E=mc^2$) and block equations in $$...$$. NEVER use parentheses like (x+y) for formal math symbols.\n"
     "• Be concise — eliminate all fluff.\n"
     "• For \"{difficulty}\" difficulty, calibrate depth accordingly.\n"
     "• If task is \"quiz\": provide a focused practice question with a worked answer.\n\n"
