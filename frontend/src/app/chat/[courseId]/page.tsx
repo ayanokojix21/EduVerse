@@ -361,7 +361,7 @@ export default function ChatPage() {
       <aside className={styles.sidebar}>
         <div className={styles.sidebarHeader}>
           <button onClick={() => router.push('/dashboard')} className={styles.backBtn}>
-            <ArrowLeft size={16} /> Back
+            Back
           </button>
         </div>
         

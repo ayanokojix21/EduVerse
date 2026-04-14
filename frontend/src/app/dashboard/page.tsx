@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   BookOpen, LogOut, MessageSquare, RefreshCw,
-  AlertCircle, Loader2, Trash2, FileText, ChevronDown
+  AlertCircle, Loader2, Trash2, FileText, ChevronDown, ListTree
 } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import Image from 'next/image';
@@ -212,15 +212,14 @@ export default function DashboardPage() {
         </div>
 
         {/* Courses section */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div className={styles.sectionHeader}>
-            <h2>Your Courses</h2>
-            <button className={styles.sectionLink} onClick={fetchDashboardData}>
-              Sync from Classroom
-            </button>
-          </div>
+        <div className={styles.sectionHeader}>
+          <h2>Your Courses</h2>
+          <button className={styles.sectionLink} onClick={fetchDashboardData}>
+            Sync from Classroom
+          </button>
+        </div>
 
-          <div className={styles.courseGrid}>
+        <div className={styles.courseGrid}>
             {courses.length === 0 ? (
               <div className={styles.emptyState}>
                 <BookOpen size={28} style={{ color: '#3d3d3d' }} />
@@ -243,29 +242,18 @@ export default function DashboardPage() {
                   )}
 
                   {/* Card top */}
-                  <div className={styles.courseCardTop}>
+                  <div className={styles.courseCardTop} onClick={() => router.push(`/course/${course.id}`)} style={{ cursor: 'pointer' }}>
                     <h3 className={styles.courseTitle}>{course.name}</h3>
                     {course.section && (
                       <span className={styles.courseSection}>{course.section}</span>
                     )}
                   </div>
 
-                  {/* Metadata */}
-                  <div className={styles.courseMeta}>
-                    {course.teacher && (
-                      <span className={styles.courseMetaLine}>Teacher: {course.teacher}</span>
-                    )}
-                    <span className={styles.courseMetaLine}>
-                      {course.assignment_count ?? 0} assignment{course.assignment_count !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-
-                  {/* Ingested badge */}
-                  {course.is_ingested && (
-                    <div className={styles.ingestedBadge}>
-                      Ingested
+                  <div className={styles.courseCardMeta}>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                       <span className={styles.metaBadge}>{course.assignment_count ?? 0} Assignments</span>
                     </div>
-                  )}
+                  </div>
 
                   {/* Actions */}
                   <div className={styles.courseActions}>
@@ -318,13 +306,23 @@ export default function DashboardPage() {
                       </button>
                     )}
 
-                    <button
-                      className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
-                      onClick={() => router.push(`/chat/${course.id}`)}
-                    >
-                      <MessageSquare size={13} />
-                      Open Chat
-                    </button>
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
+                      <button
+                        className={`${styles.actionBtn} ${styles.actionBtnSecondary}`}
+                        onClick={() => router.push(`/course/${course.id}`)}
+                      >
+                        <ListTree size={13} />
+                        Course Hub
+                      </button>
+
+                      <button
+                        className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
+                        onClick={() => router.push(`/chat/${course.id}`)}
+                      >
+                        <MessageSquare size={13} />
+                        Open Chat
+                      </button>
+                    </div>
                   </div>
 
                   {/* Index Manager Drawer */}
@@ -363,8 +361,7 @@ export default function DashboardPage() {
               ))
             )}
           </div>
-        </div>
-      </main>
+        </main>
     </div>
   );
 }

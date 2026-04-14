@@ -1,359 +1,300 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { motion } from 'framer-motion';
 import { 
-  ArrowLeft, BookOpen, AlertCircle, FileText, Calendar, 
-  Paperclip, ExternalLink, Video, MessageSquare, Sparkles, 
-  RefreshCw, Trash2, Upload, CheckCircle, Loader2
+  BookOpen, FileText, MessageSquare, ListTree, Sparkles, 
+  ChevronRight, ArrowLeft, Calendar, File, Users, Clock,
+  Loader2, RefreshCw
 } from 'lucide-react';
-
 import { api } from '@/lib/api';
-import type { Course, CourseContent } from '@/types';
-import Spinner from '@/components/Spinner';
+import { useToast } from '@/components/Toast';
+import type { Course, CourseContent, CourseItem } from '@/types';
 import styles from './course.module.css';
 
-export default function CoursePage() {
-  const { data: session, status } = useSession();
+export default function CourseHubPage() {
+  const { data: session } = useSession();
   const router = useRouter();
   const params = useParams();
+  const { showToast } = useToast();
   const courseId = params.courseId as string;
 
   const [course, setCourse] = useState<Course | null>(null);
   const [coursework, setCoursework] = useState<CourseContent | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'assignments' | 'materials' | 'announcements'>('assignments');
-  const [syncing, setSyncing] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isIngesting, setIsIngesting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'assignments' | 'materials' | 'announcements' | 'uploaded'>('all');
 
-  useEffect(() => {
-    if (status === 'unauthenticated') router.replace('/');
-    if (status === 'authenticated') fetchCourseData();
-  }, [status, courseId]);
-
-  const fetchCourseData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [courses, assignments] = await Promise.all([
+      const [courses, courseworkData, filesData] = await Promise.all([
         api.courses.list(),
-        api.courses.getCoursework(courseId)
+        api.courses.getCoursework(courseId),
+        api.ingestion.listFiles(courseId)
       ]);
-      const found = courses.find((c: Course) => c.id === courseId);
-      if (found) setCourse(found);
-      setCoursework(assignments);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load coursework');
+
+      const currentCourse = courses.find((c: Course) => c.id === courseId);
+      if (currentCourse) setCourse(currentCourse);
+      setCoursework(courseworkData);
+      setUploadedFiles(filesData);
+    } catch (err) {
+      console.error('Failed to load course hub data:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [courseId]);
 
-  const handleSync = async () => {
-    if (!confirm('This will wipe and re-fetch all course materials from Google Classroom. Continue?')) return;
+  const pollIngestionStatus = useCallback(async () => {
+    const poll = async () => {
+      try {
+        const statusData = await api.ingestion.getStatus(courseId);
+        if (statusData.status === 'completed') {
+          setIsIngesting(false);
+          showToast(`Knowledge ingestion complete!`, 'success');
+          loadData();
+          return true;
+        } else if (statusData.status === 'failed') {
+          setIsIngesting(false);
+          showToast(`Ingestion failed: ${statusData.error || 'Unknown error'}`, 'error');
+          return true;
+        }
+        return false;
+      } catch (err) {
+        return false;
+      }
+    };
+    const interval = setInterval(async () => {
+      const shouldStop = await poll();
+      if (shouldStop) clearInterval(interval);
+    }, 3000);
+  }, [courseId, loadData, showToast]);
+
+  const handleTriggerIngestion = async () => {
     try {
-      setSyncing(true);
-      await api.ingestion.sync(courseId);
-      await fetchCourseData();
+      setIsIngesting(true);
+      const response = await api.ingestion.trigger(courseId, true);
+      if (response.status === 'accepted') {
+        showToast('AI is beginning to learn classroom materials...', 'info');
+        pollIngestionStatus();
+      } else {
+        showToast('Materials indexed successfully', 'success');
+        setIsIngesting(false);
+        loadData();
+      }
     } catch (err: any) {
-      alert(err.message || 'Sync failed');
-    } finally {
-      setSyncing(false);
+      showToast(err.message || 'Failed to start ingestion', 'error');
+      setIsIngesting(false);
     }
   };
 
-  const handleDeleteIndex = async () => {
-    if (!confirm('This will permanently delete all AI knowledge for this course. Continue?')) return;
-    try {
-      setDeleting(true);
-      await api.ingestion.deleteIndex(courseId);
-      await fetchCourseData();
-    } catch (err: any) {
-      alert(err.message || 'Delete failed');
-    } finally {
-      setDeleting(false);
+  useEffect(() => {
+    if (courseId) loadData();
+  }, [courseId, loadData]);
+
+  if (loading) return <CourseSkeleton />;
+  if (!course) return <div className={styles.emptyState}>Course not found.</div>;
+
+  const filteredItems = () => {
+    if (!coursework) return [];
+    const { assignments = [], materials = [], announcements = [] } = coursework;
+    
+    if (activeTab === 'assignments') return assignments;
+    if (activeTab === 'materials') return materials;
+    if (activeTab === 'announcements') return announcements;
+    if (activeTab === 'all') {
+      return [...assignments, ...materials, ...announcements].sort((a, b) => 
+        new Date(b.creationTime).getTime() - new Date(a.creationTime).getTime()
+      );
     }
+    return [];
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.name.endsWith('.pdf')) {
-      setUploadError('Only PDF files are supported.');
-      return;
-    }
-    try {
-      setUploading(true);
-      setUploadError(null);
-      setUploadSuccess(null);
-      await api.ingestion.uploadFile(courseId, file);
-      setUploadSuccess(`"${file.name}" successfully ingested!`);
-      await fetchCourseData();
-    } catch (err: any) {
-      setUploadError(err.message || 'Upload failed');
-    } finally {
-      setUploading(false);
-      e.target.value = '';
-    }
+  const getBadgeClass = (type: string) => {
+    if (type === 'assignment') return styles.assignmentBadge;
+    if (type === 'material') return styles.materialBadge;
+    return styles.announcementBadge;
   };
-
-  const formatDate = (dueDate?: { year: number; month: number; day: number }) => {
-    if (!dueDate) return 'No due date';
-    return `${dueDate.month}/${dueDate.day}/${dueDate.year}`;
-  };
-
-  if (status === 'loading' || loading) return <CourseSkeleton />;
-
-  if (error) {
-    return (
-      <div className={styles.errorContainer}>
-        <AlertCircle size={40} style={{ color: '#e5484d' }} />
-        <h2>Failed to load coursework</h2>
-        <p>{error}</p>
-        <button className="btn btn-primary" onClick={() => router.push('/dashboard')}>
-          Back to Dashboard
-        </button>
-      </div>
-    );
-  }
 
   return (
-    <div className={styles.root}>
+    <div className={styles.courseHub}>
       <header className={styles.header}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button onClick={() => router.push('/dashboard')} className="btn btn-ghost btn-sm">
-            <ArrowLeft size={14} /> Dashboard
+        <div className={styles.titleArea}>
+          <button onClick={() => router.push('/dashboard')} className="btn btn-ghost btn-sm mb-4 px-0 hover:bg-transparent">
+            <ArrowLeft size={16} className="mr-2" /> Back to Dashboard
           </button>
+          <h1>{course.name}</h1>
+          <p>{course.section || 'General Section'} • {course.teacher}</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-          <div className={styles.logoIcon}>
-            <BookOpen size={14} />
-          </div>
-          <span style={{ fontWeight: 600, color: '#ededed' }}>{course?.name}</span>
-        </div>
-        <div style={{ width: 100 }} />
+        
+        <button 
+          onClick={() => router.push(`/chat/${courseId}`)} 
+          className={styles.startButton}
+        >
+          <Sparkles size={20} />
+          Start Learning with AI
+        </button>
       </header>
 
-      <main className={styles.main}>
-        {/* Left Column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          {/* Hero */}
-          <section className={styles.hero}>
-            <div className={styles.heroContent}>
-              <h1>{course?.name}</h1>
-              <p className={styles.heroMeta}>
-                {course?.section || 'Active Course'} — Taught by {course?.teacher}
-              </p>
-            </div>
-            <div className={styles.heroActions}>
-              <div className={`${styles.statusInfo} ${course?.is_ingested ? styles.statusInfoActive : ''}`}>
-                {course?.is_ingested ? (
-                  <><CheckCircle size={14} /> AI Ready</>
-                ) : (
-                  <><AlertCircle size={14} /> Not Ingested</>
-                )}
-              </div>
-              <button 
-                onClick={() => router.push(`/chat/${courseId}`)}
-                className="btn btn-primary"
-                style={{ marginLeft: 'auto' }}
-              >
-                <MessageSquare size={16} />
-                Open AI Tutor
-              </button>
-            </div>
-          </section>
-
-          {/* Content */}
-          <section style={{ display: 'flex', flexDirection: 'column' }}>
-            <div className={styles.tabBar}>
-              <button 
-                onClick={() => setActiveTab('assignments')}
-                className={`${styles.tabBtn} ${activeTab === 'assignments' ? styles.tabBtnActive : ''}`}
-              >
-                Assignments ({coursework?.assignments?.length || 0})
-              </button>
-              <button 
-                onClick={() => setActiveTab('materials')}
-                className={`${styles.tabBtn} ${activeTab === 'materials' ? styles.tabBtnActive : ''}`}
-              >
-                Materials ({coursework?.materials?.length || 0})
-              </button>
-              <button 
-                onClick={() => setActiveTab('announcements')}
-                className={`${styles.tabBtn} ${activeTab === 'announcements' ? styles.tabBtnActive : ''}`}
-              >
-                Announcements ({coursework?.announcements?.length || 0})
-              </button>
-            </div>
-
-            <div className={styles.grid}>
-              {!coursework?.[activeTab] || coursework[activeTab].length === 0 ? (
-                <div style={{ gridColumn: '1 / -1', padding: '4rem', textAlign: 'center', color: '#6b6b6b' }}>
-                  <FileText size={40} style={{ margin: '0 auto 1rem', opacity: 0.3 }} />
-                  <p>No {activeTab} found for this class.</p>
-                </div>
-              ) : (
-                coursework[activeTab].map(work => (
-                  <motion.div 
-                    key={work.id}
-                    className={styles.card}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <div className={styles.cardContent}>
-                      <h3>{work.title}</h3>
-                      {work.description ? (
-                        <p className={styles.cardDesc}>{work.description}</p>
-                      ) : (
-                        <p className={styles.cardDesc} style={{ fontStyle: 'italic' }}>No description provided.</p>
-                      )}
-                    </div>
-
-                    {work.materials && work.materials.length > 0 && (
-                      <div className={styles.materialList}>
-                        {work.materials.slice(0, 3).map((mat, idx) => (
-                          <div key={idx} className={styles.materialItem}>
-                            <Paperclip size={10} />
-                            <span>Attachment</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className={styles.cardFooter}>
-                      <div className={styles.cardMetaRow}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                          <Calendar size={12} />
-                          {formatDate(work.dueDate)}
-                        </span>
-                        <span className={styles.statusBadge}>{work.state}</span>
-                      </div>
-                      <div className={styles.cardBtns}>
-                        <a 
-                          href={work.alternateLink} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="btn btn-ghost btn-sm"
-                        >
-                          View Source
-                        </a>
-                        <button 
-                          onClick={() => router.push(`/chat/${courseId}?query=Help me understand this ${activeTab.slice(0, -1)}: ${work.title}`)}
-                          className="btn btn-primary btn-sm"
-                        >
-                          <Sparkles size={14} />
-                          Ask AI
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))
-              )}
-            </div>
-          </section>
+      <div className={styles.statsGrid}>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>Total Assignments</span>
+          <span className={styles.statValue}>{coursework?.assignments?.length || 0}</span>
         </div>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>Course Materials</span>
+          <span className={styles.statValue}>{coursework?.materials?.length || 0}</span>
+        </div>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>AI Ingested Docs</span>
+          <span className={styles.statValue}>{(coursework?.materials?.length || 0) + (uploadedFiles?.length || 0)}</span>
+        </div>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>Course State</span>
+          <span className={styles.statValue} style={{ fontSize: '1.25rem', color: '#30a46c' }}>{course.state}</span>
+        </div>
+      </div>
 
-        {/* Right Column */}
+      <div className={styles.contentContainer}>
         <aside className={styles.sidebar}>
-          <div className={styles.sidebarCard}>
-            <div className={styles.sidebarTitle}>
-              <BookOpen size={18} style={{ color: '#5e6ad2' }} />
-              <span>Course Knowledge</span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <button
-                onClick={handleSync}
-                disabled={syncing || deleting}
-                className={`btn btn-ghost ${syncing ? 'btn-loading' : ''}`}
-                style={{ width: '100%', justifyContent: 'flex-start' }}
-              >
-                {!syncing && <RefreshCw size={14} />}
-                Sync classroom
-              </button>
-              <button
-                onClick={handleDeleteIndex}
-                disabled={deleting || syncing || !course?.is_ingested}
-                className={`btn btn-ghost ${deleting ? 'btn-loading' : ''}`}
-                style={{ width: '100%', justifyContent: 'flex-start', color: '#e5484d' }}
-              >
-                {!deleting && <Trash2 size={14} />}
-                Wipe AI index
-              </button>
-            </div>
-
-            <div style={{ paddingTop: '1rem', borderTop: '1px solid #2e2e2e' }}>
-              <p style={{ fontSize: '0.7rem', fontWeight: 600, color: '#6b6b6b', textTransform: 'uppercase', marginBottom: '1rem' }}>
-                Upload Local Materials
-              </p>
-              <label className={`${styles.uploadBox} ${uploading ? 'btn-loading' : ''}`} style={{ cursor: uploading ? 'not-allowed' : 'default' }}>
-                {!uploading && <Upload size={16} style={{ color: '#5e6ad2' }} />}
-                <span style={{ fontSize: '0.8rem', color: '#a0a0a0' }}>
-                  {uploading ? 'Processing Document...' : 'Upload PDF'}
-                </span>
-                <input type="file" accept=".pdf" onChange={handleFileUpload} disabled={uploading} style={{ display: 'none' }} />
-              </label>
-              {uploadSuccess && <p style={{ color: '#30a46c', fontSize: '0.75rem', marginTop: '0.5rem' }}>✓ {uploadSuccess}</p>}
-              {uploadError && <p style={{ color: '#e5484d', fontSize: '0.75rem', marginTop: '0.5rem' }}>✕ {uploadError}</p>}
-            </div>
-
-            {/* Attached PDFs */}
-            <div style={{ paddingTop: '1rem', borderTop: '1px solid #2e2e2e' }}>
-              <p style={{ fontSize: '0.7rem', fontWeight: 600, color: '#6b6b6b', textTransform: 'uppercase', marginBottom: '1rem' }}>
-                Course Documents
-              </p>
-              <div className={styles.attachedList}>
-                {coursework && [
-                  ...(coursework.assignments || []),
-                  ...(coursework.materials || []),
-                  ...(coursework.announcements || [])
-                ].flatMap(w => w.materials || [])
-                  .filter(m => m.driveFile)
-                  .map((mat, idx) => (
-                  <div key={idx} className={styles.attachedItem}>
-                    <span className={styles.attachedName} title={mat.driveFile!.driveFile.title}>
-                      {mat.driveFile!.driveFile.title}
-                    </span>
-                    <a href={mat.driveFile!.driveFile.alternateLink} target="_blank" rel="noopener noreferrer" className={styles.attachedLink}>
-                      Open Drive
-                    </a>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <div 
+            className={`${styles.navItem} ${activeTab === 'all' ? styles.navActive : ''}`} 
+            onClick={() => setActiveTab('all')}
+          >
+            <ListTree size={18} /> All Content
+          </div>
+          <div 
+            className={`${styles.navItem} ${activeTab === 'assignments' ? styles.navActive : ''}`} 
+            onClick={() => setActiveTab('assignments')}
+          >
+            <FileText size={18} /> Assignments
+          </div>
+          <div 
+            className={`${styles.navItem} ${activeTab === 'materials' ? styles.navActive : ''}`} 
+            onClick={() => setActiveTab('materials')}
+          >
+            <BookOpen size={18} /> Classroom Materials
+          </div>
+          <div 
+            className={`${styles.navItem} ${activeTab === 'announcements' ? styles.navActive : ''}`} 
+            onClick={() => setActiveTab('announcements')}
+          >
+            <MessageSquare size={18} /> Announcements
+          </div>
+          <div 
+            className={`${styles.navItem} ${activeTab === 'uploaded' ? styles.navActive : ''}`} 
+            onClick={() => setActiveTab('uploaded')}
+          >
+            <File size={18} /> Personal Uploads
           </div>
         </aside>
-      </main>
+
+        <main className={styles.mainSection}>
+          <div className={styles.sectionHeader}>
+            <h2>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h2>
+            {activeTab === 'materials' && (
+              <button 
+                className="btn btn-primary btn-sm" 
+                onClick={handleTriggerIngestion}
+                disabled={isIngesting}
+              >
+                {isIngesting ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                Ingest classroom materials
+              </button>
+            )}
+          </div>
+
+          <div className={styles.listGrid}>
+            {activeTab === 'uploaded' ? (
+              uploadedFiles.length > 0 ? (
+                uploadedFiles.map((file, idx) => (
+                  <div key={idx} className={styles.itemCard}>
+                    <div className={styles.itemHeader}>
+                      <span className={`${styles.typeBadge} ${styles.materialBadge}`}>PDF Document</span>
+                    </div>
+                    <span className={styles.itemTitle}>{file.filename}</span>
+                    <div className={styles.itemFooter}>
+                      <span>Manually Uploaded</span>
+                      <ChevronRight size={14} />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className={styles.emptyState}>No personal uploads found for this course.</div>
+              )
+            ) : (
+              filteredItems().length > 0 ? (
+                filteredItems().map((item: CourseItem) => (
+                  <div key={item.id} className={styles.itemCard} onClick={() => window.open(item.alternateLink, '_blank')}>
+                    <div className={styles.itemHeader}>
+                      <span className={`${styles.typeBadge} ${getBadgeClass(item.type)}`}>
+                        {item.type}
+                      </span>
+                    </div>
+                    <span className={styles.itemTitle}>{item.title}</span>
+                    <div className={styles.itemFooter}>
+                      <span>{new Date(item.creationTime).toLocaleDateString()}</span>
+                      <div className="flex items-center gap-1">
+                        View in Classroom
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className={styles.emptyState}>No items found in this category.</div>
+              )
+            )}
+          </div>
+        </main>
+      </div>
+
+      {isIngesting && (
+        <div className={styles.backgroundTaskPanel}>
+          <Loader2 size={24} className="animate-spin text-[#5e6ad2]" />
+          <div className={styles.taskInfo}>
+            <span className={styles.taskLabel}>Background Process</span>
+            <span className={styles.taskStatus}>AI is learning course contents...</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function CourseSkeleton() {
   return (
-    <div className={styles.root}>
+    <div className={styles.courseHub}>
       <header className={styles.header}>
-        <div className="skeleton" style={{ width: 100, height: 28 }} />
-        <div className="skeleton" style={{ width: 150, height: 28 }} />
+        <div className={styles.titleArea}>
+          <div className={`${styles.skeleton} ${styles.skeletonTitle}`} />
+          <div className={`${styles.skeleton} ${styles.skeletonSubtitle}`} />
+        </div>
+        <div className={`${styles.skeleton}`} style={{ width: '200px', height: '48px', borderRadius: '8px' }} />
       </header>
-      <main className={styles.main}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          <div className={`${styles.hero} skeleton`} style={{ height: 180 }} />
-          <div className={styles.grid}>
-            {[1, 2, 3, 4].map(k => (
-              <div key={k} className={`${styles.card} skeleton`} style={{ height: 240 }} />
+
+      <div className={styles.statsGrid}>
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className={`${styles.skeleton} ${styles.skeletonStat}`} />
+        ))}
+      </div>
+
+      <div className={styles.contentContainer}>
+        <aside className={styles.sidebar}>
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className={`${styles.skeleton} ${styles.skeletonNav}`} />
+          ))}
+        </aside>
+        <main className={styles.mainSection}>
+          <div className={`${styles.skeleton}`} style={{ width: '200px', height: '32px', marginBottom: '1.5rem' }} />
+          <div className={styles.listGrid}>
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className={`${styles.skeleton} ${styles.skeletonCard}`} />
             ))}
           </div>
-        </div>
-        <aside className={styles.sidebar}>
-          <div className={`${styles.sidebarCard} skeleton`} style={{ height: 500 }} />
-        </aside>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
