@@ -1,15 +1,13 @@
 import { SessionProvider } from 'next-auth/react';
-import { ThemeProvider } from '@/lib/theme';
+// Removed ThemeProvider import
 import { ToastProvider } from '@/components/Toast';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
-      <ThemeProvider>
-        <ToastProvider>
-          {children}
-        </ToastProvider>
-      </ThemeProvider>
+      <ToastProvider>
+        {children}
+      </ToastProvider>
     </SessionProvider>
   );
 }

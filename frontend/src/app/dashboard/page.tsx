@@ -10,7 +10,6 @@ import {
 import { signOut, useSession } from 'next-auth/react';
 import Image from 'next/image';
 
-import ThemeToggle from '@/components/ThemeToggle';
 import Spinner from '@/components/Spinner';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/Toast';
@@ -176,7 +175,6 @@ export default function DashboardPage() {
         </div>
 
         <div className={styles.headerRight}>
-          <ThemeToggle />
           <div className={styles.userInfo}>
             {session?.user?.image ? (
               <Image
