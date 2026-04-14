@@ -39,28 +39,6 @@ def route_orchestrator(state: AgentState) -> Literal["email_agent", "rag_agent"]
     return "rag_agent"
 
 
-def should_retry_synthesizer(
-    state: AgentState,
-) -> Literal["synthesizer", "__end__"]:
-    """
-    Routing edge after critic_agent.
-
-    Loops back to synthesizer when:
-      * severity is "high"   (critic found real issues)
-      * retry_count <= 1     (guard: max one retry)
-
-    Otherwise routes to END (answer is delivered to user).
-    """
-    review = state.get("critic_review") or {}
-    retry_count = state.get("retry_count", 0)
-    critic_feedback = state.get("critic_feedback") or []
-
-    # Only retry if critic gave specific, actionable feedback
-    if review.get("severity") == "high" and retry_count <= 1 and critic_feedback:
-        logger.info("Critic triggered retry #%d", retry_count)
-        return "synthesizer"
-
-    return END
 
 
 # ── Graph construction ───────────────────────────────────────────────────────
@@ -101,12 +79,8 @@ def build_graph() -> StateGraph:
     g.add_edge("tutor_ensemble", "synthesizer")
     g.add_edge("synthesizer", "critic_agent")
 
-    # Retry loop
-    g.add_conditional_edges(
-        "critic_agent",
-        should_retry_synthesizer,
-        {"synthesizer": "synthesizer", END: END},
-    )
+    # ── 3. Post-Processing ───────────────────────────────────────────────────
+    g.add_edge("critic_agent", END)
 
     # Timetable branch
     g.add_edge("email_agent",     "timetable_agent")

@@ -4,7 +4,6 @@ from app.agents.graph import (
     compile_graph,
     get_compiled_graph,
     init_graph_on_startup,
-    should_retry_synthesizer,
 )
 from app.agents.orchestrator import orchestrator_node
 from app.agents.rag_agent import rag_agent_node
@@ -29,5 +28,4 @@ __all__ = [
     "compile_graph",
     "get_compiled_graph",
     "init_graph_on_startup",
-    "should_retry_synthesizer",
 ]

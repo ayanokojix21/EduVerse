@@ -65,40 +65,48 @@ async def rag_agent_node(state: AgentState, config: RunnableConfig) -> dict:
     original_query: str = state["original_query"]
     rewritten_queries: list[str] = state.get("rewritten_queries") or [original_query]
     
+    # Check for dynamic RAG hyperparameter overrides (used for RL Optimization)
+    configurable = config.get("configurable", {})
+    active_settings = configurable.get("settings_override", settings)
+
     cache = ContextCache(db)
-    embeddings = build_embeddings(settings)
+    embeddings = build_embeddings(active_settings)
     
     # ── 0. Check Semantic Context Cache ──────────────────────────────────────
     try:
-        query_vector = await anyio.to_thread.run_sync(
-            lambda: embeddings.embed_query(original_query)
-        )
-        cached_docs = await cache.get_cached_context(user_id, course_id, query_vector)
-        if cached_docs:
-            retrieval_ms = int((time.monotonic() - t0) * 1000)
-            return {
-                "context_docs": cached_docs,
-                "retrieval_label": "CACHED_CONTEXT",
-                "top_reranker_score": 1.0,
-                "retrieval_ms": retrieval_ms,
-                "agent_thoughts": [
-                    {
-                        "node": "rag_agent",
-                        "summary": f"Context Cache HIT · Reusing {len(cached_docs)} documents · {retrieval_ms}ms",
-                        "data": {
-                            "is_cached": True,
-                            "parent_count": len(cached_docs),
-                            "retrieval_ms": retrieval_ms,
-                        },
-                    }
-                ],
-            }
+        # We skip cache if we are in an optimization/tuning run to ensure fresh results
+        if not configurable.get("settings_override"):
+            query_vector = await anyio.to_thread.run_sync(
+                lambda: embeddings.embed_query(original_query)
+            )
+            cached_docs = await cache.get_cached_context(user_id, course_id, query_vector)
+            if cached_docs:
+                retrieval_ms = int((time.monotonic() - t0) * 1000)
+                return {
+                    "context_docs": cached_docs,
+                    "retrieval_label": "CACHED_CONTEXT",
+                    "top_reranker_score": 1.0,
+                    "retrieval_ms": retrieval_ms,
+                    "agent_thoughts": [
+                        {
+                            "node": "rag_agent",
+                            "summary": f"Context Cache HIT · Reusing {len(cached_docs)} documents · {retrieval_ms}ms",
+                            "data": {
+                                "is_cached": True,
+                                "parent_count": len(cached_docs),
+                                "retrieval_ms": retrieval_ms,
+                            },
+                        }
+                    ],
+                }
+        else:
+            query_vector = None
     except Exception as e:
         logger.warning(f"Cache embedding check failed or miss: {e}")
         query_vector = None
 
     # ── 1. Execute Declarative Retrieval Chain ───────────────────────────────
-    chain = get_retrieval_chain(user_id, course_id, db, sync_client, settings)
+    chain = get_retrieval_chain(user_id, course_id, db, sync_client, active_settings)
     
     # Send only the primary optimized query as a single string
     query_to_search = rewritten_queries[0]
