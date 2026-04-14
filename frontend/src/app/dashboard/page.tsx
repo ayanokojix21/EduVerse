@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   BookOpen, LogOut, MessageSquare, RefreshCw,
-  AlertCircle, Loader2, Trash2, FileText, ChevronDown, ListTree
+  AlertCircle, Loader2, Trash2, FileText, ChevronDown, ListTree,
+  ShieldCheck
 } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import Image from 'next/image';
@@ -175,6 +176,23 @@ export default function DashboardPage() {
         </div>
 
         <div className={styles.headerRight}>
+          <button
+            onClick={() => router.push('/rl')}
+            className={styles.actionBtn}
+            style={{ 
+              height: '28px',
+              padding: '0 0.75rem',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              color: '#ededed',
+              marginRight: '0.5rem'
+            }}
+            title="Shadow Auditing Console"
+          >
+            <ShieldCheck size={14} />
+            Logic Audits
+          </button>
+
           <div className={styles.userInfo}>
             {session?.user?.image ? (
               <Image
@@ -191,6 +209,7 @@ export default function DashboardPage() {
             )}
             <span className={styles.userName}>{session?.user?.name}</span>
           </div>
+
           <button
             onClick={() => signOut({ callbackUrl: '/' })}
             className="btn btn-ghost btn-icon"
