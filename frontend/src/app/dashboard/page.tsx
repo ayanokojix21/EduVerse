@@ -163,7 +163,6 @@ export default function DashboardPage() {
     );
   }
 
-  const ingestedCount = courses.filter(c => c.is_ingested).length;
 
   return (
     <div className={styles.root}>
@@ -210,8 +209,8 @@ export default function DashboardPage() {
         {/* Stats */}
         <div className={styles.statsRow}>
           <StatBox label="Enrolled Courses" value={courses.length} />
-          <StatBox label="Tutoring Sessions" value={profile?.session_count || 0} />
-          <StatBox label="Documents Ingested" value={ingestedCount} />
+          <StatBox label="Tutoring Sessions" value={profile?.actual_session_count ?? profile?.session_count ?? 0} />
+          <StatBox label="Documents Ingested" value={profile?.total_documents ?? 0} />
         </div>
 
         {/* Courses section */}

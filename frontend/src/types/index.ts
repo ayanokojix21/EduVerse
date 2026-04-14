@@ -85,6 +85,8 @@ export interface WeakTopic {
 export interface Profile {
   session_count: number;
   weak_topics: WeakTopic[];
+  total_documents?: number;
+  actual_session_count?: number;
 }
 
 // ── Chat ──────────────────────────────────────────────
