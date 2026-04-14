@@ -61,37 +61,32 @@ async def critic_agent_node(state: AgentState, config: RunnableConfig) -> dict:
 
     # Build a compact source preview (avoid blowing out context window)
     source_lines = []
-    for i, doc in enumerate(context_docs[:5], 1):
+    for i, doc in enumerate(context_docs[:10], 1):
         meta = doc.get("metadata", {})
         title = meta.get("title", "?")
-        content = doc.get("content", "")[:300]
+        content = doc.get("content", "")[:350]
         source_lines.append(f"[{i}] {title}:\n{content}")
-    source_preview = "\n\n".join(source_lines) if source_lines else "(No sources retrieved)"
+    source_preview = "\n\n".join(source_lines) if source_lines else "(No relevant sources retrieved)"
 
-    prompt = f"""You are a rigorous academic fact-checker for an AI tutoring system.
-Your task: identify hallucinations or inaccuracies in the response below.
+    prompt = f"""You are a rigorous but fair academic fact-checker.
+Your task: Identify active hallucinations or contradictions in the Response based ONLY on the provided Sources.
 
-Student Response (first 2000 chars):
-{response_text[:2000]}
+RESPONSE:
+{response_text[:2500]}
 
-Source Documents:
+SOURCES:
 {source_preview}
 
-Evaluation criteria:
-1. Does the response make claims that contradict the source documents?
-2. Does the response cite sources it doesn't use, or misattribute content?
-3. Are there formulae, numbers, or dates that are clearly wrong per the sources?
+EVALUATION RULES:
+1. SEVERITY=HIGH: Only if the Response explicitly CONTRADICTS a fact in the Sources (e.g. Doc says 1914, Response says 1920).
+2. SEVERITY=LOW: If the Response makes a claim that is NOT in the Sources but sounds like "Common Knowledge" (e.g. "Paris is the capital of France").
+3. SEVERITY=NONE: If every claim is perfectly supported by the Sources.
 
-Rules for `required_facts`:
-- For every error found, provide the CORRECT fact/formula from the source as a bullet point.
-- If a major point is missing, provide a summary of that missing context.
-- Keep facts atomic and grounded.
+PASSED CRITERIA:
+- Set `passed=False` ONLY if there is a CONFIRMED ERROR (Severity=High).
+- If the info is helpful and factually sounds but not in the specific source snippets provided, set `passed=True` but `severity=low`.
 
-Example:
-  ISSUE: "Claims gravity is 10 m/s2"
-  REQUIRED_FACT: "Acceleration due to gravity is exactly 9.81 m/s2 per source [1]"
-
-Return ONLY the structured JSON matching the required schema."""
+Return ONLY the structured JSON matching the schema."""
 
     try:
         result: CriticOutput = await llm.ainvoke(

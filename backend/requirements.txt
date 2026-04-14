@@ -39,13 +39,10 @@ langchain-google-classroom==0.1.2
 langchain-google-genai==2.1.12
 langchain-groq==0.3.8
 
-# ── Reranking (Cloud API) ─────────────
+# ── Reranking (Cloud API) ──────────────────────────────────────────────────────
 langchain-cohere>=0.3.0
 
-# ── Web search fallback ─────────────────────────────────────────────────────────
-tavily-python>=0.3.0
-duckduckgo-search>=6.0.0
-
+# ── PDF processing ───────────────────────────────────────────────────────────
 pymupdf>=1.23.0
 pymupdf4llm>=0.0.17
 
