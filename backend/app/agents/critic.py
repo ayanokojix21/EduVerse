@@ -58,7 +58,6 @@ async def critic_agent_node(state: AgentState, config: RunnableConfig) -> dict:
     )
     response_text = state.get("response_text", "")
     context_docs = state.get("context_docs", [])
-    retry_count = state.get("retry_count", 0)
 
     # Build a compact source preview (avoid blowing out context window)
     source_lines = []
@@ -101,36 +100,32 @@ Return ONLY the structured JSON matching the required schema."""
         severity = result.severity
         issues = result.issues if severity == "high" else []
         passed = result.passed
+        required_facts = result.required_facts if severity == "high" else []
     except Exception as exc:  # noqa: BLE001
         logger.warning("Critic LLM failed, defaulting to pass: %s", exc)
         severity, issues, passed = "none", [], True
-
-    # Only send feedback if severity is high AND we haven't retried yet
-    actionable_feedback = issues if (severity == "high" and retry_count < 1) else []
-    new_retry_count = retry_count + (1 if severity == "high" and retry_count < 1 else 0)
+        required_facts = []
 
     review = {
         "severity": severity,
         "issues": issues,
         "passed": passed,
-        "required_facts": result.required_facts if severity == "high" else [],
+        "required_facts": required_facts,
     }
 
     logger.info(
-        "Critic → severity=%s · pass=%s · issues=%d · retry_count=%d→%d",
-        severity, passed, len(issues), retry_count, new_retry_count,
+        "Critic → severity=%s · pass=%s · issues=%d",
+        severity, passed, len(issues)
     )
 
     return {
         "critic_review": review,
-        "critic_feedback": actionable_feedback,
-        "retry_count": new_retry_count,
         "agent_thoughts": [
             {
                 "node": "critic_agent",
                 "summary": (
                     f"Quality: {severity} · Pass: {passed} · "
-                    f"Issues: {len(issues)} · Retry: {bool(actionable_feedback)}"
+                    f"Issues: {len(issues)}"
                 ),
                 "data": review,
             }

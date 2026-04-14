@@ -35,20 +35,30 @@ async def proxy_pdf(
 
     file_id = match.group(1)
     target_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media"
+    headers = {"Authorization": f"Bearer {credentials.token}"}
 
-    # 2. Fetch from Google
-    async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
-        headers = {"Authorization": f"Bearer {credentials.token}"}
-        response = await client.get(target_url, headers=headers)
+    # 2. Stream from Google
+    async def stream_from_google():
+        async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
+            async with client.stream("GET", target_url, headers=headers) as response:
+                if response.status_code != 200:
+                    # In a generator, we can't easily return a RedirectResponse here.
+                    # We log it and stop. The client will see a partial/empty load.
+                    logger.warning(f"Failed to stream PDF {file_id}: {response.status_code}")
+                    return
+                
+                # Fetch essential headers from the Google response
+                content_type = response.headers.get("Content-Type", "application/pdf")
+                content_length = response.headers.get("Content-Length")
+                
+                async for chunk in response.aiter_bytes():
+                    yield chunk
 
-        if response.status_code != 200:
-            return RedirectResponse(url=url)
-        
-    content_type = response.headers.get("Content-Type", "application/pdf")
+    from fastapi.responses import StreamingResponse
     
-    return Response(
-        content=response.content,
-        media_type=content_type,
+    return StreamingResponse(
+        stream_from_google(),
+        media_type="application/pdf",
         headers={
             "Content-Disposition": 'inline; filename="document"',
             "Accept-Ranges": "bytes"

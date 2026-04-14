@@ -198,10 +198,24 @@ class CourseIngestionService:
         }
 
     async def _clear_course_chunks(self, user_id: str, course_id: str) -> tuple[int, int]:
+        """
+        Clears both parent and child chunks from MongoDB to prevent orphaned data.
+        """
+        # 1. Clear Child Chunks (Actual vector storage in MongoDB)
+        child_result = await self.db[self.settings.mongo_child_chunks_collection].delete_many(
+            {"user_id": user_id, "course_id": course_id}
+        )
+        # 2. Clear Parent Chunks
         parent_result = await self.db[self.settings.mongo_parent_chunks_collection].delete_many(
             {"user_id": user_id, "course_id": course_id}
         )
-        return 0, int(parent_result.deleted_count)
+        
+        logger.info(
+            "Cleanup for course %s complete: %d child chunks, %d parent chunks removed.",
+            course_id, child_result.deleted_count, parent_result.deleted_count
+        )
+        
+        return int(child_result.deleted_count), int(parent_result.deleted_count)
 
 
 def get_course_ingestion_service(
