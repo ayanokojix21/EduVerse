@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { 
   BookOpen, FileText, MessageSquare, ListTree, Sparkles, 
   ChevronRight, ArrowLeft, Calendar, File, Users, Clock,
-  Loader2, RefreshCw
+  Loader2, RefreshCw, Upload
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/Toast';
@@ -19,12 +19,14 @@ export default function CourseHubPage() {
   const params = useParams();
   const { showToast } = useToast();
   const courseId = params.courseId as string;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [course, setCourse] = useState<Course | null>(null);
   const [coursework, setCoursework] = useState<CourseContent | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isIngesting, setIsIngesting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'assignments' | 'materials' | 'announcements' | 'uploaded'>('all');
 
   const loadData = useCallback(async () => {
@@ -90,6 +92,36 @@ export default function CourseHubPage() {
     }
   };
 
+  const handleFileClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.pdf')) {
+      showToast('Only PDF files are supported currently', 'error');
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      showToast(`Uploading ${file.name}...`, 'info');
+      
+      const result = await api.ingestion.uploadFile(courseId, file);
+      
+      showToast(`${file.name} uploaded and indexed successfully!`, 'success');
+      loadData(); // Refresh the list
+    } catch (err: any) {
+      console.error('Upload failed:', err);
+      showToast(err.message || 'Failed to upload document', 'error');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   useEffect(() => {
     if (courseId) loadData();
   }, [courseId, loadData]);
@@ -120,6 +152,14 @@ export default function CourseHubPage() {
 
   return (
     <div className={styles.courseHub}>
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleFileChange} 
+        accept=".pdf" 
+        style={{ display: 'none' }} 
+      />
+      
       <header className={styles.header}>
         <div className={styles.titleArea}>
           <button onClick={() => router.push('/dashboard')} className="btn btn-ghost btn-sm mb-4 px-0 hover:bg-transparent">
@@ -202,6 +242,16 @@ export default function CourseHubPage() {
               >
                 {isIngesting ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                 Ingest classroom materials
+              </button>
+            )}
+            {activeTab === 'uploaded' && (
+              <button 
+                className="btn btn-primary btn-sm" 
+                onClick={handleFileClick}
+                disabled={isUploading}
+              >
+                {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                Upload Document
               </button>
             )}
           </div>

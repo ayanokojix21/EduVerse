@@ -14,6 +14,7 @@ from app.ingestion.chunker import chunk_documents
 from app.ingestion.classroom_loader import ClassroomLoadError, load_course_documents
 from app.ingestion.embedder import embed_and_store, wipe_course_vectors, delete_file_vectors
 import logging
+import anyio
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +147,47 @@ class CourseIngestionService:
         }
 
     async def ingest_local_document(self, user_id: str, course_id: str, filename: str, file_bytes: bytes) -> dict:
+        """
+        Ingests a single local document.
+        Runs the parsing and chunking in a worker thread to avoid blocking the event loop
+        and to ensure thread-to-async bridging works correctly for vision models.
+        """
+        # Run parsing and chunking in a thread
+        parent_chunks, child_chunks = await anyio.to_thread.run_sync(
+            self._parse_and_chunk_local,
+            user_id,
+            course_id,
+            filename,
+            file_bytes,
+        )
+
+        # Index with incremental cleanup so we don't wipe other documents
+        indexing_stats = await embed_and_store(
+            user_id=user_id,
+            course_id=course_id,
+            parent_chunks=parent_chunks,
+            child_chunks=child_chunks,
+            db=self.db,
+            settings=self.settings,
+            cleanup="incremental",
+        )
+        
+        await self.semantic_cache_service.clear_course_cache(user_id=user_id, course_id=course_id)
+        
+        return {
+            "user_id": user_id,
+            "course_id": course_id,
+            "filename": filename,
+            "parent_chunks": len(parent_chunks),
+            "child_chunks": len(child_chunks),
+            **indexing_stats,
+        }
+
+    def _parse_and_chunk_local(self, user_id: str, course_id: str, filename: str, file_bytes: bytes) -> tuple[list[Document], list[Document]]:
+        """
+        Synchronous helper for parsing and chunking local files.
+        Intended to be run in a worker thread.
+        """
         from app.services.groq_vision import build_vision_model
         from app.ingestion.classroom_loader import MarkdownPyMuPDFParser
         from langchain_core.documents.base import Blob
@@ -176,26 +218,8 @@ class CourseIngestionService:
             child_chunk_size=self.settings.child_chunk_size,
             chunk_overlap=self.settings.chunk_overlap,
         )
-
-        indexing_stats = await embed_and_store(
-            user_id=user_id,
-            course_id=course_id,
-            parent_chunks=parent_chunks,
-            child_chunks=child_chunks,
-            db=self.db,
-            settings=self.settings,
-        )
         
-        await self.semantic_cache_service.clear_course_cache(user_id=user_id, course_id=course_id)
-        
-        return {
-            "user_id": user_id,
-            "course_id": course_id,
-            "filename": filename,
-            "parent_chunks": len(parent_chunks),
-            "child_chunks": len(child_chunks),
-            **indexing_stats,
-        }
+        return parent_chunks, child_chunks
 
     async def _clear_course_chunks(self, user_id: str, course_id: str) -> tuple[int, int]:
         """

@@ -38,6 +38,7 @@ async def embed_and_store(
     child_chunks: list[Document],
     db: AsyncIOMotorDatabase,
     settings: Settings | None = None,
+    cleanup: str = "full",
 ) -> dict[str, int]:
     resolved_settings = settings or get_settings()
 
@@ -63,6 +64,7 @@ async def embed_and_store(
         )
 
     parent_upserts = 0
+    stale_parents_deleted = 0
     if parent_records:
         operations = [
             ReplaceOne(
@@ -79,29 +81,37 @@ async def embed_and_store(
         write_result = await parent_collection.bulk_write(operations, ordered=False)
         parent_upserts = int((write_result.upserted_count or 0) + (write_result.modified_count or 0))
 
-        keep_parent_ids = [record["parent_id"] for record in parent_records]
-        stale_parent_delete_result = await parent_collection.delete_many(
-            {
-                "user_id": user_id,
-                "course_id": course_id,
-                "parent_id": {"$nin": keep_parent_ids},
-            }
-        )
-        stale_parents_deleted = int(stale_parent_delete_result.deleted_count)
-    else:
+        # Only perform global cleanup if requested
+        if cleanup == "full":
+            keep_parent_ids = [record["parent_id"] for record in parent_records]
+            stale_parent_delete_result = await parent_collection.delete_many(
+                {
+                    "user_id": user_id,
+                    "course_id": course_id,
+                    "parent_id": {"$nin": keep_parent_ids},
+                }
+            )
+            stale_parents_deleted = int(stale_parent_delete_result.deleted_count)
+    elif cleanup == "full":
+        # If no parent records and full cleanup, clear everything for this course
         clear_result = await parent_collection.delete_many(
             {"user_id": user_id, "course_id": course_id}
         )
         stale_parents_deleted = int(clear_result.deleted_count)
 
     if not child_chunks:
-        child_delete_result = await child_collection.delete_many(
-            {"user_id": user_id, "course_id": course_id}
-        )
+        if cleanup == "full":
+            child_delete_result = await child_collection.delete_many(
+                {"user_id": user_id, "course_id": course_id}
+            )
+            num_deleted = int(child_delete_result.deleted_count)
+        else:
+            num_deleted = 0
+            
         return {
             "num_added": 0,
             "num_updated": 0,
-            "num_deleted": int(child_delete_result.deleted_count),
+            "num_deleted": num_deleted,
             "num_skipped": 0,
             "parent_upserts": parent_upserts,
             "stale_parents_deleted": stale_parents_deleted,
@@ -144,7 +154,7 @@ async def embed_and_store(
                 child_chunks,
                 record_manager,
                 vector_store,
-                cleanup="full",
+                cleanup=cleanup,
                 source_id_key="source_id",
             )
         finally:
