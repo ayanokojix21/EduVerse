@@ -130,4 +130,10 @@ export const api = {
         session,
       }),
   },
+  rl: {
+    getStats: (session?: Session | null) =>
+      apiFetch<any>('/rl/stats', { session }),
+    listEpisodes: (limit: number = 50, session?: Session | null) =>
+      apiFetch<any[]>(`/rl/episodes?limit=${limit}`, { session }),
+  },
 };
