@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState, useRef, FormEvent, useCallback } from 'react';
+import React, { useEffect, useState, useRef, FormEvent, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, Send, Sparkles, AlertCircle, ChevronRight, ChevronLeft, 
   Brain, FileText, ListTree, RefreshCw, BookOpen, Plus, MessageSquare, Trash2,
-  Mail, Calendar, Loader2
+  Mail, Calendar, Loader2, CheckCircle
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -23,6 +23,7 @@ import styles from './chat.module.css';
 const uuid = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
 
 const NODE_LABELS: Record<string, string> = {
+  orchestrator: "Analyzing & Strategic Planning",
   supervisor: "Analyzing request",
   query_rewriter: "Expanding search",
   rag_agent: "Searching Classroom",
@@ -35,6 +36,7 @@ const NODE_LABELS: Record<string, string> = {
 };
 
 const NODE_ICONS: Record<string, any> = {
+  orchestrator: RefreshCw,
   supervisor: RefreshCw,
   query_rewriter: Sparkles,
   rag_agent: BookOpen,
@@ -57,6 +59,14 @@ const NODE_DESCRIPTIONS: Record<string, string> = {
   email_agent: "Scanning your classroom announcements for recent updates or deadlines.",
   timetable_agent: "Organizing schedule information into a clear, readable format.",
 };
+
+const PIPELINE_STEPS = [
+  { id: 'planning', type: 'single', nodes: ['orchestrator', 'supervisor', 'query_rewriter'], label: 'Strategic Planning' },
+  { id: 'rag_agent', type: 'single', label: 'Searching Classroom' },
+  { id: 'parallel_tutors', type: 'parallel', nodes: ['tutor_a', 'tutor_b'] },
+  { id: 'synthesizer', type: 'single', label: 'Synthesizing Response' },
+  { id: 'critic_agent', type: 'single', label: 'Final Quality Audit' }
+] as const;
 
 export default function ChatPage() {
   const { data: session, status } = useSession();
@@ -336,32 +346,6 @@ export default function ChatPage() {
                 {msg.role === 'user' ? session?.user?.name?.[0] : 'AI'}
               </div>
               <div className={styles.messageBubble}>
-                {/* Past Thinking Mode Block (Show Detail) */}
-                {msg.thoughts && msg.thoughts.length > 0 && (
-                  <details className={styles.thinkingBlock} style={{ marginBottom: '1rem', cursor: 'pointer' }}>
-                    <summary className={styles.thinkingHeader} style={{ listStyle: 'none' }}>
-                      <Brain size={14} color="#5e6ad2" />
-                      <span className={styles.thinkingTitle}>View Process</span>
-                    </summary>
-                    <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      {msg.thoughts.map((t, i) => {
-                        const Icon = NODE_ICONS[t.node] || Sparkles;
-                        return (
-                          <div key={i} className={styles.thoughtStep} style={{ opacity: 1 }}>
-                            <div className={styles.thoughtIcon}>
-                              <Icon size={14} />
-                            </div>
-                            <div className={styles.thoughtContent}>
-                              <div className={styles.thoughtLabel}>{NODE_LABELS[t.node]}</div>
-                              <div className={styles.thoughtDetail}>{NODE_DESCRIPTIONS[t.node]}</div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </details>
-                )}
-
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                 {msg.citations && msg.citations.length > 0 && (
                   <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid #2e2e2e', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -472,14 +456,78 @@ export default function ChatPage() {
         </div>
         <div className={styles.inspectorBody}>
            {activeTab === 'thoughts' && (
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {currentThoughts.length === 0 && <p style={{ fontSize: '0.8rem', color: '#6b6b6b' }}>The AI thinking process will appear here during chat.</p>}
-                {currentThoughts.map((t, i) => (
-                  <div key={i} style={{ padding: '0.75rem', borderRadius: '6px', background: '#161616', border: '1px solid #2e2e2e' }}>
-                    <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#5e6ad2', marginBottom: '0.25rem' }}>{t.node.toUpperCase()}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#ededed' }}>{t.summary}</div>
-                  </div>
-                ))}
+             <div className={styles.pipelineContainer}>
+                {PIPELINE_STEPS.map((step, sidx) => {
+                  const isLastStep = sidx === PIPELINE_STEPS.length - 1;
+                  const lastThought = currentThoughts[currentThoughts.length - 1];
+                  
+                  if (step.type === 'single') {
+                    const nodeIds = (step as any).nodes || [step.id];
+                    const isDone = currentThoughts.some(t => nodeIds.includes(t.node));
+                    const isActive = lastThought && nodeIds.includes(lastThought.node) && isStreaming;
+                    const displayId = step.id === 'planning' ? 'supervisor' : step.id;
+                    const Icon = NODE_ICONS[displayId as string] || Sparkles;
+
+                    return (
+                      <React.Fragment key={step.id}>
+                        <div className={`
+                          ${styles.pipelineNode} 
+                          ${!isActive && !isDone ? styles.pipelineNodePending : ''} 
+                          ${isActive ? styles.pipelineNodeActive : ''} 
+                          ${isDone && !isActive ? styles.pipelineNodeDone : ''}
+                        `}>
+                          <div className={`${styles.nodeIcon} ${isDone ? styles.nodeIconDone : ''} ${isActive ? styles.pulseIcon : ''}`}>
+                             <Icon size={16} />
+                          </div>
+                          <span className={styles.nodeLabel}>{(step as any).label || NODE_LABELS[step.id as string]}</span>
+                          {isDone && !isActive && <CheckCircle size={12} style={{ marginLeft: 'auto', color: '#30a46c' }} />}
+                        </div>
+                        {!isLastStep && (
+                          <div className={`${styles.connectorLine} ${isDone ? styles.connectorLineActive : ''}`} />
+                        )}
+                      </React.Fragment>
+                    );
+                  } else {
+                    // Parallel Tutors
+                    const isTutorADone = currentThoughts.some(t => t.node === 'tutor_a');
+                    const isTutorBDone = currentThoughts.some(t => t.node === 'tutor_b');
+                    const isAnyTutorProcessed = isTutorADone || isTutorBDone;
+
+                    return (
+                      <React.Fragment key={step.id}>
+                        <div className={styles.splitLineContainer}>
+                           <div className={`${styles.splitLine} ${isAnyTutorProcessed ? styles.splitLineActive : ''}`} />
+                        </div>
+                        <div className={styles.parallelWrapper}>
+                          {step.nodes.map(nid => {
+                            const isDone = currentThoughts.some(t => t.node === nid);
+                            const isActive = lastThought?.node === nid && isStreaming;
+                            const Icon = NODE_ICONS[nid] || Sparkles;
+
+                            return (
+                              <div key={nid} className={`
+                                ${styles.pipelineNode} 
+                                ${!isActive && !isDone ? styles.pipelineNodePending : ''} 
+                                ${isActive ? styles.pipelineNodeActive : ''} 
+                                ${isDone && !isActive ? styles.pipelineNodeDone : ''}
+                              `}>
+                                <div className={`${styles.nodeIcon} ${isDone ? styles.nodeIconDone : ''} ${isActive ? styles.pulseIcon : ''}`}>
+                                   <Icon size={16} />
+                                </div>
+                                <span className={styles.nodeLabel}>{NODE_LABELS[nid]}</span>
+                                {isDone && !isActive && <CheckCircle size={12} style={{ marginLeft: 'auto', color: '#30a46c' }} />}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className={styles.splitLineContainer} style={{ transform: 'rotate(180deg)' }}>
+                           <div className={`${styles.splitLine} ${isTutorADone && isTutorBDone ? styles.splitLineActive : ''}`} />
+                        </div>
+                        <div className={`${styles.connectorLine} ${isTutorADone && isTutorBDone ? styles.connectorLineActive : ''}`} />
+                      </React.Fragment>
+                    );
+                  }
+                })}
              </div>
            )}
         </div>
