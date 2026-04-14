@@ -2,7 +2,6 @@
 
 import { motion } from 'framer-motion';
 import { BookOpen, Zap, Brain, ChevronRight } from 'lucide-react';
-import ThemeToggle from '@/components/ThemeToggle';
 import styles from './login.module.css';
 import { signIn } from 'next-auth/react';
 
@@ -37,10 +36,6 @@ export default function LoginPage() {
 
   return (
     <>
-      <div className={styles.themeToggleWrap}>
-        <ThemeToggle />
-      </div>
-
       <main className={styles.root}>
         {/* ── Left panel ── */}
         <motion.div
