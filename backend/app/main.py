@@ -39,6 +39,10 @@ def create_app(enable_db_lifespan: bool = True) -> FastAPI:
         allow_headers=["*"],
     )
 
+    @app.get("/", tags=["health"])
+    def read_root():
+        return {"status": "EduVerse API is active", "environment": settings.app_env}
+
     app.include_router(api_router, dependencies=[Depends(HTTPBearer(auto_error=False, description="Enter your JWT generated from scripts/dev_jwt_generator.py"))])
     return app
 

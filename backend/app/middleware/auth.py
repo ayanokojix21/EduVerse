@@ -12,6 +12,7 @@ from app.config import get_settings
 # Paths that bypass JWT verification entirely.
 # /api/store-tokens is protected by INTERNAL_API_SECRET header instead.
 PUBLIC_PATH_PREFIXES = (
+    "/",
     "/health",
     "/docs",
     "/openapi.json",
