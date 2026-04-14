@@ -489,24 +489,59 @@
 }
 
 .sessionItem {
-  padding: 0.75rem 1rem;
+  padding: 0.625rem 0.875rem;
   border-radius: 6px;
-  font-size: 0.85rem;
-  color: #a0a0a0;
   cursor: pointer;
-  transition: all 0.15s;
+  font-size: 0.85rem;
+  color: #a1a1a1;
+  transition: all 0.2s ease;
   border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
-.sessionItem:hover {
-  background: #1c1c1c;
-  color: #ededed;
+.sessionTitle {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sessionActions {
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.sessionItem:hover .sessionActions {
+  opacity: 1;
+}
+
+.deleteSessionBtn {
+  background: transparent;
+  border: none;
+  color: #6b6b6b;
+  padding: 0.25rem;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.deleteSessionBtn:hover {
+  color: #ff4d4f;
+  background: rgba(255, 77, 79, 0.1);
 }
 
 .activeSession {
   background: #1c1c1c;
   color: #ededed;
-  border-color: #3d3d3d;
+  border-color: #2e2e2e;
 }
 
 /* ── Scrollbars ── */

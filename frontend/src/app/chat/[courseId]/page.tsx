@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useToast } from '@/components/Toast';
 
 import { api, API_URL } from '@/lib/api';
 import Spinner from '@/components/Spinner';
@@ -71,6 +72,7 @@ const PIPELINE_STEPS = [
 export default function ChatPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { showToast } = useToast();
   const params = useParams();
   const courseId = params.courseId as string;
 
@@ -151,7 +153,9 @@ export default function ChatPage() {
       await api.sessions.delete(sid);
       setSessionsList(prev => prev.filter(s => s.session_id !== sid));
       if (sessionId === sid) startNewChat();
-    } catch (err) {
+      showToast('Session deleted', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete session', 'error');
       console.error("Failed to delete session:", err);
     }
   };
@@ -287,14 +291,21 @@ export default function ChatPage() {
                   key={s.session_id} 
                   onClick={() => loadSession(s.session_id)}
                   className={`${styles.sessionItem} ${sessionId === s.session_id ? styles.activeSession : ''}`}
-                  style={{ position: 'relative' }}
                 >
-                   {s.title}
-                   {isLoadingSessions === s.session_id && (
-                     <div style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)' }}>
+                   <span className={styles.sessionTitle}>{s.title}</span>
+                   <div className={styles.sessionActions}>
+                     {isLoadingSessions === s.session_id ? (
                        <Spinner size={12} color="#5e6ad2" />
-                     </div>
-                   )}
+                     ) : (
+                       <button 
+                         className={styles.deleteSessionBtn} 
+                         onClick={(e) => handleDeleteSession(e, s.session_id)}
+                         title="Delete session"
+                       >
+                         <Trash2 size={12} />
+                       </button>
+                     )}
+                   </div>
                 </div>
               ))}
             </div>
