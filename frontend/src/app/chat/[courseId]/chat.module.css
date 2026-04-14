@@ -278,6 +278,28 @@
   padding: 0 0.125rem;
 }
 
+/* ── Interactive Citations ── */
+.messageBubble sup {
+  vertical-align: super;
+  line-height: 0;
+  font-size: 0.7rem;
+  margin-left: 1px;
+}
+
+.cit-link {
+  color: #5e6ad2;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  padding: 0 1px;
+  border-radius: 2px;
+}
+
+.cit-link:hover {
+  background: rgba(94, 106, 210, 0.2);
+  color: #7c89ff;
+}
+
 .messageUser .messageBubble {
   background: #1c1c1c;
   border-color: #3d3d3d;

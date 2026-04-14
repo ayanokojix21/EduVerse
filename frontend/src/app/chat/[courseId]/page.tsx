@@ -13,6 +13,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
 import { useToast } from '@/components/Toast';
 
 import 'katex/dist/katex.min.css';
@@ -43,6 +44,15 @@ const preprocessMarkdown = (content: string) => {
   // 3. Heuristic: Find math-like content in parentheses (e.g. z = \sum_i...) and wrap in $
   // This is a safety for model slips. We look for backslashes, underscores, or carets inside (...)
   processed = processed.replace(/(\s)\(([^)]*?[\\_^{][^)]*?)\)(\s|\.|\,|$)/g, "$1$ $2 $ $3");
+
+  // 4. Convert citations [1] or [1, 2] to superscripts
+  processed = processed.replace(/\[(\d+(?:,\s*\d+)*)\]/g, (match, indices) => {
+    const parts = indices.split(',').map((i: string) => i.trim());
+    const links = parts.map((idx: string) => 
+      `<a href="#cit-${idx}" class="cit-link">${idx}</a>`
+    ).join(',');
+    return `<sup>${links}</sup>`;
+  });
 
   return processed;
 };
@@ -383,7 +393,7 @@ export default function ChatPage() {
               <div className={styles.messageBubble}>
                 <ReactMarkdown 
                   remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={[rehypeKatex]}
+                  rehypePlugins={[rehypeKatex, rehypeRaw]}
                 >
                   {preprocessMarkdown(msg.content)}
                 </ReactMarkdown>
@@ -407,6 +417,7 @@ export default function ChatPage() {
                        return (finalHref && finalHref !== '#') ? (
                          <a 
                            key={i} 
+                           id={`cit-${i+1}`}
                            href={finalHref as string} 
                            target="_blank" 
                            rel="noopener noreferrer" 
@@ -458,7 +469,7 @@ export default function ChatPage() {
                   <div style={{ marginTop: '1.5rem', borderTop: '1px solid #1f1f1f', paddingTop: '1.5rem' }}>
                     <ReactMarkdown 
                       remarkPlugins={[remarkGfm, remarkMath]}
-                      rehypePlugins={[rehypeKatex]}
+                      rehypePlugins={[rehypeKatex, rehypeRaw]}
                     >
                       {preprocessMarkdown(streamBuffer)}
                     </ReactMarkdown>
