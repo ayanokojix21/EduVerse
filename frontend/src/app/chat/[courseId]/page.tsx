@@ -315,7 +315,7 @@ export default function ChatPage() {
         <header className={styles.chatHeader}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div className={isStreaming ? styles.loaderPulse : ''} style={{ width: 8, height: 8, borderRadius: '50%', background: '#30a46c' }} />
-            <span style={{ fontWeight: 600 }}>EduVerse AI Tutor</span>
+            <span style={{ fontWeight: 600 }}>EduVerse AI</span>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={() => setInspectorOpen(!inspectorOpen)}>
             {inspectorOpen ? 'Hide' : 'Inspect'} Brain

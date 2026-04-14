@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { BookOpen, Zap, Users, ChevronRight } from 'lucide-react';
+import { BookOpen, Zap, Brain, ChevronRight } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import styles from './login.module.css';
 import { signIn } from 'next-auth/react';
@@ -18,17 +18,17 @@ const FEATURES = [
     desc: 'See answers build word-by-word with multi-agent reasoning',
   },
   {
-    icon: Users,
-    label: 'HiveMind Mode',
-    desc: 'Two AI tutors debate the best way to explain a concept',
+    icon: Brain,
+    label: 'Smart Query Routing',
+    desc: 'An AI supervisor directs your specific question to the most qualified agent',
   },
 ];
 
-const STATS = [
-  { value: '10K+', label: 'Students' },
-  { value: '500+', label: 'Courses' },
-  { value: '98%',  label: 'Satisfaction' },
-];
+// const STATS = [
+//   { value: '10K+', label: 'Students' },
+//   { value: '500+', label: 'Courses' },
+//   { value: '98%',  label: 'Satisfaction' },
+// ];
 
 export default function LoginPage() {
   const handleGoogleSignIn = () => {
@@ -74,8 +74,9 @@ export default function LoginPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.18, duration: 0.5, ease: 'easeOut' }}
             >
-              EduVerse connects to Google Classroom and turns every lecture,
-              assignment, and resource into an interactive tutor — available 24/7.
+              Seamlessly sync with Google Classroom to transform your static 
+              lectures, assignments, and syllabus into an intelligent, 
+              always-on AI study companion.
             </motion.p>
 
             {/* Feature list */}
@@ -106,14 +107,14 @@ export default function LoginPage() {
           </div>
 
           {/* Bottom stats */}
-          <div className={styles.statsRow}>
+          {/* <div className={styles.statsRow}>
             {STATS.map(({ value, label }) => (
               <div key={label} className={styles.statItem}>
                 <span className={styles.statValue}>{value}</span>
                 <span className={styles.statLabel}>{label}</span>
               </div>
             ))}
-          </div>
+          </div> */}
         </motion.div>
 
         {/* ── Right panel ── */}
