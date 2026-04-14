@@ -20,11 +20,11 @@ class EduverseEnv(gym.Env):
     Standardizes the RAG-Evaluation loop into a Gymnasium interface.
     """
     
-    def __init__(self, user_id: str, course_id: str, config: Dict[str, Any], settings_override: Optional[Any] = None):
+    def __init__(self, user_id: str = "test_user", course_id: str = "test_course", config: Dict[str, Any] = None, settings_override: Optional[Any] = None, **kwargs):
         super().__init__()
         self.user_id = user_id
         self.course_id = course_id
-        self.config = config # Contains DB and Sync Client
+        self.config = config or {} # Contains DB and Sync Client
         self.settings = settings_override or get_settings()
         self.settings_override = settings_override # Store for node injection
         

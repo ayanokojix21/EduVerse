@@ -21,9 +21,12 @@ app = FastAPI(title="EduVerse OpenEnv RL Server")
 # For simplicity, we use a single global environment instance tied to a test user/course.
 # You can extend this to support dynamic sessions if needed.
 
-_ENV_INSTANCE: Optional[EduverseEnv] = None
+import gymnasium as gym
+import app.rl as rl_env # Ensure registration is triggered
 
-def get_env() -> EduverseEnv:
+_ENV_INSTANCE: Optional[gym.Env] = None
+
+def get_env() -> gym.Env:
     global _ENV_INSTANCE
     if _ENV_INSTANCE is None:
         settings = get_settings()
@@ -31,19 +34,20 @@ def get_env() -> EduverseEnv:
         sync_client = MongoClient(settings.mongo_uri)
         db = motor_client[settings.mongo_db_name]
         
-        config = {
-            "configurable": {
+        # OpenEnv Standard Configuration
+        options = {
+            "user_id": "nishchan",
+            "course_id": "848260096170",
+            "config": {
                 "db": db,
                 "mongo_client_sync": sync_client
             }
         }
         
-        # Initialize with test IDs
-        _ENV_INSTANCE = EduverseEnv(
-            user_id="nishchan", 
-            course_id="848260096170", 
-            config=config
-        )
+        # The 'Less Custom' Way: Use Gymnasium Factory
+        logger.info("Instantiating EduVerse RL Environment through Gymnasium Registry...")
+        _ENV_INSTANCE = gym.make("EduVerse-v0", **options)
+        
     return _ENV_INSTANCE
 
 # ── Request/Response Schemas ────────────────────────────────────────────────

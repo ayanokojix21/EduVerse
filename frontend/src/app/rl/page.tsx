@@ -10,6 +10,13 @@ import {
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
+import 'katex/dist/katex.min.css';
+
 import { api } from '@/lib/api';
 import Spinner from '@/components/Spinner';
 import styles from './rl.module.css';
@@ -29,11 +36,21 @@ interface RLEpisode {
   response: string;
   reward: number;
   review: {
-    score: number;
-    feedback: string;
+    severity: 'none' | 'low' | 'high';
+    issues: string[];
+    passed: boolean;
+    required_facts?: string[];
   };
   timestamp: string;
 }
+
+const preprocessMarkdown = (content: string) => {
+  if (!content) return "";
+  // Convert \( ... \) to $ ... $ and \[ ... \] to $$ ... $$
+  let processed = content.replace(/\\\((.*?)\\\)/g, "$ $1 $");
+  processed = processed.replace(/\\\[(.*?)\\\]/g, "$$\n$1\n$$");
+  return processed;
+};
 
 export default function RLDashboard() {
   const { data: session, status } = useSession();
@@ -44,6 +61,25 @@ export default function RLDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [expandedIndices, setExpandedIndices] = useState<number[]>([]);
+  const [readMoreIndices, setReadMoreIndices] = useState<number[]>([]);
+
+  const toggleRow = (idx: number) => {
+    setExpandedIndices(prev => 
+      prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
+    );
+    // Reset read more when closing
+    if (expandedIndices.includes(idx)) {
+      setReadMoreIndices(prev => prev.filter(i => i !== idx));
+    }
+  };
+
+  const toggleReadMore = (idx: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setReadMoreIndices(prev => 
+      prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
+    );
+  };
 
   const fetchData = async () => {
     try {
@@ -72,13 +108,7 @@ export default function RLDashboard() {
     }
   }, [status, router]);
 
-  if (loading && !isRefreshing) {
-    return (
-      <div className={styles.root} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Spinner size={32} color="#5e6ad2" />
-      </div>
-    );
-  }
+  if (loading && !isRefreshing) return <LogicAuditsSkeleton />;
 
   return (
     <div className={styles.root}>
@@ -193,45 +223,104 @@ export default function RLDashboard() {
                 <thead>
                    <tr>
                       <th>Timestamp</th>
-                      <th>Query & Context</th>
+                      <th>Trajectory (Click to expand)</th>
                       <th>Reward</th>
-                      <th>Critic Review</th>
                    </tr>
                 </thead>
                 <tbody>
                    <AnimatePresence mode='popLayout'>
-                    {episodes.map((episode, idx) => (
-                       <motion.tr 
-                         key={episode.timestamp + idx} 
-                         className={styles.auditRow}
-                         initial={{ opacity: 0 }}
-                         animate={{ opacity: 1 }}
-                         exit={{ opacity: 0 }}
-                         transition={{ duration: 0.2 }}
-                       >
-                          <td className={styles.auditCell} data-label="Timestamp">
-                             <div className={styles.cellTimestamp}>
-                                {new Date(episode.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                             </div>
-                          </td>
-                          <td className={styles.auditCell} data-label="Trajectory">
-                             <div className={styles.cellQuery}>
-                                <div style={{ fontWeight: 600, marginBottom: '4px' }}>Q: {episode.query}</div>
-                                <div style={{ fontSize: '0.75rem', opacity: 0.7 }}>A: {episode.response.substring(0, 100)}...</div>
-                             </div>
-                          </td>
-                          <td className={styles.auditCell} data-label="Reward">
-                             <div className={`${styles.cellReward} ${episode.reward >= 0 ? styles.positiveReward : styles.negativeReward}`}>
-                                {episode.reward >= 0 ? '+' : ''}{episode.reward.toFixed(2)}
-                             </div>
-                          </td>
-                          <td className={styles.auditCell} data-label="Critic">
-                             <div className={styles.cellReview}>
-                                "{episode.review.feedback}"
-                             </div>
-                          </td>
-                       </motion.tr>
-                    ))}
+                    {episodes.map((episode, idx) => {
+                       const isExpanded = expandedIndices.includes(idx);
+                       const isReadMore = readMoreIndices.includes(idx);
+                       const isLong = episode.response.length > 400;
+                       
+                       return (
+                        <motion.tr 
+                          key={episode.timestamp + idx} 
+                          className={`${styles.auditRow} ${isExpanded ? styles.expandedRow : ''}`}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                           <td className={styles.auditCell} data-label="Timestamp">
+                              <div className={styles.cellTimestamp}>
+                                 {new Date(episode.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                           </td>
+                           <td 
+                             className={`${styles.auditCell} ${styles.clickableCell}`} 
+                             data-label="Trajectory"
+                             onClick={() => toggleRow(idx)}
+                           >
+                              <div className={styles.cellQuery}>
+                                 <div style={{ fontWeight: 600, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <ChevronRight 
+                                      size={12} 
+                                      style={{ 
+                                        transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                                        transition: 'transform 0.2s',
+                                        color: '#5e6ad2'
+                                      }} 
+                                    />
+                                    Q: {episode.query}
+                                 </div>
+                                 <AnimatePresence mode="wait">
+                                   {!isExpanded ? (
+                                     <motion.div 
+                                       key="truncated"
+                                       initial={{ opacity: 0 }}
+                                       animate={{ opacity: 1 }}
+                                       exit={{ opacity: 0 }}
+                                       className={styles.truncatedResponse}
+                                     >
+                                       A: {episode.response.substring(0, 80)}...
+                                     </motion.div>
+                                   ) : (
+                                     <motion.div
+                                       key="full"
+                                       initial={{ height: 0, opacity: 0 }}
+                                       animate={{ height: 'auto', opacity: 1 }}
+                                       exit={{ height: 0, opacity: 0 }}
+                                       transition={{ duration: 0.3, ease: "easeInOut" }}
+                                       className={styles.fullResponse}
+                                     >
+                                       <div className={styles.responseContainer}>
+                                         <div className={styles.responseHeader}>Full Agent Response</div>
+                                         <div 
+                                           className={`${styles.markdownContent} ${isLong && !isReadMore ? styles.teaser : ''}`}
+                                           style={isLong && !isReadMore ? { maxHeight: '160px', overflow: 'hidden' } : {}}
+                                         >
+                                           <ReactMarkdown
+                                             remarkPlugins={[remarkGfm, remarkMath]}
+                                             rehypePlugins={[rehypeKatex, rehypeRaw]}
+                                           >
+                                             {preprocessMarkdown(episode.response)}
+                                           </ReactMarkdown>
+                                         </div>
+                                         
+                                         {isLong && (
+                                           <button 
+                                             className={styles.readMoreBtn}
+                                             onClick={(e) => toggleReadMore(idx, e)}
+                                           >
+                                             {isReadMore ? 'Show Less' : 'Read Full Answer'}
+                                           </button>
+                                         )}
+                                       </div>
+                                     </motion.div>
+                                   )}
+                                 </AnimatePresence>
+                              </div>
+                           </td>
+                           <td className={styles.auditCell} data-label="Reward">
+                              <div className={`${styles.cellReward} ${episode.reward >= 0 ? styles.positiveReward : styles.negativeReward}`}>
+                                 {episode.reward >= 0 ? '+' : ''}{episode.reward.toFixed(2)}
+                              </div>
+                           </td>
+                        </motion.tr>
+                       );
+                    })}
                    </AnimatePresence>
                 </tbody>
              </table>
@@ -267,5 +356,39 @@ function StatCard({ label, value, icon: Icon, delay, trend }: { label: string, v
         </div>
       )}
     </motion.div>
+  );
+}
+
+function LogicAuditsSkeleton() {
+  return (
+    <div className={styles.root}>
+      <header className={styles.header}>
+        <div className="skeleton" style={{ width: 140, height: 24 }} />
+        <div className="skeleton" style={{ width: 120, height: 24 }} />
+      </header>
+      <main className={styles.main}>
+        <div className={styles.dashboardHeader}>
+          <div className="skeleton" style={{ width: 280, height: 32, marginBottom: '0.5rem' }} />
+          <div className="skeleton" style={{ width: 400, height: 16 }} />
+        </div>
+        
+        <div className={styles.statsGrid}>
+          {[1, 2, 3, 4].map(k => (
+            <div key={k} className={`${styles.statCard} skeleton`} style={{ height: 110 }} />
+          ))}
+        </div>
+
+        <div className={styles.auditSection}>
+           <div className={styles.sectionHeader}>
+              <div className="skeleton" style={{ width: 220, height: 20 }} />
+           </div>
+           <div style={{ padding: '1.5rem' }}>
+              {[1, 2, 3, 4, 5].map(k => (
+                <div key={k} className="skeleton" style={{ width: '100%', height: 48, marginBottom: '0.75rem' }} />
+              ))}
+           </div>
+        </div>
+      </main>
+    </div>
   );
 }
