@@ -36,7 +36,13 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
 
         # Bypass JWT for all public paths (exact match or prefix match).
         for pub in self.public_paths:
-            if path == pub or path.startswith(pub):
+            # If the public path is just '/', it MUST be an exact match
+            # to avoid catching authenticated routes like /courses or /profile.
+            if pub == "/":
+                if path == "/":
+                    return await call_next(request)
+            # For other paths (like /docs or /health), match exactly or as a parent directory.
+            elif path == pub or path.startswith(pub + "/"):
                 return await call_next(request)
 
         authorization = request.headers.get("Authorization", "")
