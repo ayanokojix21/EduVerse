@@ -34,7 +34,7 @@ const resolveCitationUrl = (cit: Citation, session: any) => {
   if (!target || typeof target !== 'string') return '#';
   
   if (target.startsWith('http')) {
-     const isPdf = target.toLowerCase().includes('.pdf') || cit.file_url;
+     const isPdf = target.toLowerCase().includes('.pdf') || cit.file_url || target.includes('res.cloudinary.com');
      if (isPdf) {
         const jwt = session?.app_jwt;
         const proxyBase = `${API_URL}/proxy/pdf?url=${encodeURIComponent(target)}${jwt ? `&token=${jwt}` : ''}`;

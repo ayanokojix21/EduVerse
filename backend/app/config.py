@@ -56,6 +56,11 @@ class Settings(BaseSettings):
     # ── Groq — all agent models ───────────────────────────────────────────────
     groq_api_key: str = ""
     groq_vision_enabled: bool = True
+    
+    # ── Cloudinary ────────────────────────────────────────────────────────────
+    cloudinary_cloud_name: str = ""
+    cloudinary_api_key: str = ""
+    cloudinary_api_secret: str = ""
     groq_vision_model: str = "meta-llama/llama-4-scout-17b-16e-instruct"
     groq_vision_temperature: float = 0.0
     groq_vision_max_tokens: int = 1024

@@ -191,7 +191,34 @@ class CourseIngestionService:
         from app.services.groq_vision import build_vision_model
         from app.ingestion.classroom_loader import MarkdownPyMuPDFParser
         from langchain_core.documents.base import Blob
+        import cloudinary
+        import cloudinary.uploader
+        import base64
         
+        alternate_link = ""
+        if self.settings.cloudinary_cloud_name and self.settings.cloudinary_api_key and self.settings.cloudinary_api_secret:
+            try:
+                cloudinary.config(
+                    cloud_name=self.settings.cloudinary_cloud_name,
+                    api_key=self.settings.cloudinary_api_key,
+                    api_secret=self.settings.cloudinary_api_secret,
+                )
+                b64_pdf = base64.b64encode(file_bytes).decode('utf-8')
+                data_uri = f"data:application/pdf;base64,{b64_pdf}"
+                
+                # Cloudinary adds extensions automatically for raw files, so strip .pdf
+                safe_name = filename[:-4] if filename.lower().endswith('.pdf') else filename
+                
+                response = cloudinary.uploader.upload(
+                    data_uri,
+                    folder=f"eduverse/{user_id}/{course_id}",
+                    resource_type="raw",
+                    public_id=safe_name,
+                )
+                alternate_link = response.get("secure_url", "")
+            except Exception as e:
+                logger.error(f"Cloudinary upload failed: {e}")
+
         vision_model = build_vision_model(self.settings)
         parser = MarkdownPyMuPDFParser(vision_model=vision_model)
         
@@ -207,7 +234,7 @@ class CourseIngestionService:
                 "title": filename,
                 "user_id": user_id,
                 "course_id": course_id,
-                "alternate_link": "",
+                "alternate_link": alternate_link,
                 "item_id": f"local_{filename}",
             })
         
