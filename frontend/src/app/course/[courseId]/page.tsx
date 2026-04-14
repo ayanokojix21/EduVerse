@@ -149,11 +149,11 @@ export default function CourseHubPage() {
         </div>
         <div className={styles.statCard}>
           <span className={styles.statLabel}>AI Ingested Docs</span>
-          <span className={styles.statValue}>{(coursework?.materials?.length || 0) + (uploadedFiles?.length || 0)}</span>
+          <span className={styles.statValue}>{uploadedFiles?.length || 0}</span>
         </div>
         <div className={styles.statCard}>
-          <span className={styles.statLabel}>Course State</span>
-          <span className={styles.statValue} style={{ fontSize: '1.25rem', color: '#30a46c' }}>{course.state}</span>
+          <span className={styles.statLabel}>Classroom State</span>
+          <span className={styles.statValue} style={{ fontSize: '1.25rem', color: '#30a46c' }}>{course.state || 'ACTIVE'}</span>
         </div>
       </div>
 
@@ -208,8 +208,8 @@ export default function CourseHubPage() {
 
           <div className={styles.listGrid}>
             {activeTab === 'uploaded' ? (
-              uploadedFiles.length > 0 ? (
-                uploadedFiles.map((file, idx) => (
+              uploadedFiles.filter(f => f.source === 'local_upload').length > 0 ? (
+                uploadedFiles.filter(f => f.source === 'local_upload').map((file, idx) => (
                   <div key={idx} className={styles.itemCard}>
                     <div className={styles.itemHeader}>
                       <span className={`${styles.typeBadge} ${styles.materialBadge}`}>PDF Document</span>

@@ -114,10 +114,20 @@ async def list_ingested_files(
     # We query the parent chunks collection for unique titles
     cursor = ingestion_service.db[ingestion_service.settings.mongo_parent_chunks_collection].aggregate([
         {"$match": {"user_id": user_id, "course_id": course_id}},
-        {"$group": {"_id": "$metadata.title", "total_chunks": {"$sum": 1}}}
+        {"$group": {
+            "_id": "$metadata.title", 
+            "total_chunks": {"$sum": 1},
+            "source": {"$first": "$metadata.source"}
+        }}
     ])
     files = await cursor.to_list(length=None)
-    return [{"filename": f["_id"], "chunk_count": f["total_chunks"]} for f in files]
+    return [
+        {
+            "filename": f["_id"], 
+            "chunk_count": f["total_chunks"],
+            "source": f.get("source", "unknown")
+        } for f in files
+    ]
 
 
 @router.post("/ingest/upload")
