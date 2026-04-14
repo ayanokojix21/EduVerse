@@ -18,42 +18,78 @@ EduVerse operates on a complex but highly modular `LangGraph` pipeline.
 ### Core AI Flow Diagram
 
 ```mermaid
-graph TD
-    UserQuery[User Query via Next.js SSE] --> |FastAPI Request| Orchestrator
-    
-    subgraph "1. Planning & Orchestration"
-        Orchestrator[Orchestrator Node<br/>Classifies Task & Optimizes Query]
-    end
+flowchart TB
+ subgraph Client["Client Interface (Next.js)"]
+        UI["Streaming Chat & Math (KaTeX)"]
+  end
+ subgraph Ensemble[" Tutor Ensemble (Parallel)"]
+        TUTOR_A[" Tutor A (Concise)"]
+        TUTOR_B[" Tutor B (Explanatory)"]
+  end
+ subgraph Reasoning[" AI Reasoning Engine (LangGraph)"]
+        ORCH[" Orchestrator (Intent & Query)"]
+        RAG[" RAG Retrieval Agent"]
+        Ensemble
+        SYNC["Synthesizer (Merge &amp; Cite)"]
+  end
+ subgraph Data["</br>"]
+        VECT[("Vector Index (Child)")]
+        DOCS[("Document Store (Parent)")]
+        LOGS[("RL Episode History")]
+  end
+ subgraph Env[" RL ENV (EduVerse-v0)"]
+        JUDGE[" Scorer & Reward Calculator"]
+  end
+ subgraph Shadow[" Shadow Audit Lab (OpenEnv)"]
+        CRITIC[" Critic Agent (Auditor)"]
+        Env
+  end
+ subgraph External[" External Intelligence"]
+        GROQ{"Groq (Llama-3)"}
+        COHERE{" Cohere Rerank"}
+  end
+    CLASS[" Google Classroom Sync"] --> PARSE["PyMuPDF4LLM (PDF ➔ MD)"]
+    PARSE --> CHUNK[" Hierarchical Chunker (Parent/Child)"]
+    CHUNK --> EMBED[" Nomic Embedder"]
+    ORCH --> RAG
+    RAG --> TUTOR_A & TUTOR_B
+    TUTOR_A --> SYNC
+    TUTOR_B --> SYNC
+    UI <-- "1. SSE Streaming" --> SYNC
+    UI -- "2. Query" --> ORCH
+    EMBED -- Upsert --> VECT
+    CHUNK -- Meta --> DOCS
+    RAG <-- Hybrid Search --> VECT
+    RAG <-- Context --> DOCS
+    RAG --- COHERE
+    SYNC -. "3. Async Audit Trigger" .-> CRITIC
+    CRITIC --> JUDGE
+    JUDGE -- "4. Persist Trajectory" --> LOGS
+    Reasoning --- GROQ
 
-    Orchestrator -->|Task == QA/Explain| RAGAgent
-
-
-
-    subgraph "3. RAG Pipeline"
-        RAGAgent[RAG Agent<br/>1. Semantic Cache Check<br/>2. Atlas Hybrid Search<br/>3. Cohere Rerank<br/>4. Map-Reduce Distillation]
-        RAGAgent --> TutorSubgraph
-        
-        subgraph "Tutor Ensemble (Parallel)"
-            TutorSubgraph((Tutor Subgraph))
-            TutorA[Tutor A<br/>Concise / Formula-First]
-            TutorB[Tutor B<br/>Explanatory / Analogy-Rich]
-            TutorSubgraph --- TutorA
-            TutorSubgraph --- TutorB
-        end
-    end
-
-    TutorA --> Synthesizer
-    TutorB --> Synthesizer
-
-    subgraph "4. Synthesis & Quality Gate"
-        Synthesizer[Synthesizer Node<br/>Merges Drafts + Citations]
-        Critic[Critic Agent<br/>Hallucination & Contradiction Check]
-        Synthesizer --> Critic
-        Critic -->|Severity = HIGH| Synthesizer
-        Critic -->|Severity = LOW/NONE| OutputNode
-    end
-
-    OutputNode((Final Response Streamed to Client))
+     UI:::client
+     TUTOR_A:::reason
+     TUTOR_B:::reason
+     ORCH:::reason
+     RAG:::reason
+     SYNC:::reason
+     VECT:::storage
+     DOCS:::storage
+     LOGS:::storage
+     JUDGE:::shadow
+     CRITIC:::shadow
+     GROQ:::external
+     COHERE:::external
+     CLASS:::ingest
+     PARSE:::ingest
+     CHUNK:::ingest
+     EMBED:::ingest
+    classDef client fill:#f9f9f9,stroke:#333,stroke-width:2px,color:#333
+    classDef reason fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    classDef ingest fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c
+    classDef shadow fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#e65100
+    classDef storage fill:#f1f8e9,stroke:#558b2f,stroke-width:2px,color:#1b5e20
+    classDef external fill:#eceff1,stroke:#455a64,stroke-width:2px,stroke-dasharray: 5 5
 ```
 
 ### Flow Breakdown:
