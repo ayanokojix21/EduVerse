@@ -72,13 +72,7 @@ export default function RLDashboard() {
     }
   }, [status, router]);
 
-  if (loading && !isRefreshing) {
-    return (
-      <div className={styles.root} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Spinner size={32} color="#5e6ad2" />
-      </div>
-    );
-  }
+  if (loading && !isRefreshing) return <LogicAuditsSkeleton />;
 
   return (
     <div className={styles.root}>
@@ -267,5 +261,39 @@ function StatCard({ label, value, icon: Icon, delay, trend }: { label: string, v
         </div>
       )}
     </motion.div>
+  );
+}
+
+function LogicAuditsSkeleton() {
+  return (
+    <div className={styles.root}>
+      <header className={styles.header}>
+        <div className="skeleton" style={{ width: 140, height: 24 }} />
+        <div className="skeleton" style={{ width: 120, height: 24 }} />
+      </header>
+      <main className={styles.main}>
+        <div className={styles.dashboardHeader}>
+          <div className="skeleton" style={{ width: 280, height: 32, marginBottom: '0.5rem' }} />
+          <div className="skeleton" style={{ width: 400, height: 16 }} />
+        </div>
+        
+        <div className={styles.statsGrid}>
+          {[1, 2, 3, 4].map(k => (
+            <div key={k} className={`${styles.statCard} skeleton`} style={{ height: 110 }} />
+          ))}
+        </div>
+
+        <div className={styles.auditSection}>
+           <div className={styles.sectionHeader}>
+              <div className="skeleton" style={{ width: 220, height: 20 }} />
+           </div>
+           <div style={{ padding: '1.5rem' }}>
+              {[1, 2, 3, 4, 5].map(k => (
+                <div key={k} className="skeleton" style={{ width: '100%', height: 48, marginBottom: '0.75rem' }} />
+              ))}
+           </div>
+        </div>
+      </main>
+    </div>
   );
 }
