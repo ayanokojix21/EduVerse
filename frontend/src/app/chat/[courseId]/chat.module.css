@@ -677,3 +677,75 @@
 .messageArea::-webkit-scrollbar-thumb {
   background: #2e2e2e;
 }
+
+/* ── Input Area ── */
+.inputArea {
+  padding: 0.75rem 1.5rem 1.25rem;
+}
+
+/* ── Attach Button ── */
+.attachBtn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: #6b6b6b;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.attachBtn:hover:not(:disabled) {
+  color: #5e6ad2;
+  background: rgba(94, 106, 210, 0.1);
+}
+
+.attachBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Upload Chip ── */
+.uploadChip {
+  max-width: 760px;
+  margin: 0 auto 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background: #1c1c1c;
+  border: 1px solid #2e2e2e;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  color: #a0a0a0;
+  width: fit-content;
+  min-width: 0;
+}
+
+.uploadChipName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 280px;
+}
+
+.uploadChipCancel {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #6b6b6b;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.uploadChipCancel:hover {
+  color: #e5484d;
+}

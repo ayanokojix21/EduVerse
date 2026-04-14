@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useEffect, useState, useRef, FormEvent, useCallback } from 'react';
+import React, { useEffect, useState, useRef, FormEvent, useCallback, ChangeEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, Send, Sparkles, AlertCircle, ChevronRight, ChevronLeft, 
   Brain, FileText, ListTree, RefreshCw, BookOpen, Plus, MessageSquare, Trash2,
-  Mail, Calendar, Loader2, CheckCircle
+  Mail, Calendar, Loader2, Paperclip, X, CheckCircle2
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -20,6 +20,7 @@ import 'katex/dist/katex.min.css';
 
 import { api, API_URL } from '@/lib/api';
 import Spinner from '@/components/Spinner';
+import { useToast } from '@/components/Toast';
 import type { 
   Course, CourseContent, Message, SSEEvent, AgentThought, TutorDraft, 
   Explainability, Citation, CriticResult 
@@ -109,6 +110,7 @@ export default function ChatPage() {
   const { showToast } = useToast();
   const params = useParams();
   const courseId = params.courseId as string;
+  const { showToast } = useToast();
 
   const [course, setCourse] = useState<Course | null>(null);
   const [coursework, setCoursework] = useState<CourseContent | null>(null);
@@ -117,6 +119,7 @@ export default function ChatPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessions_list, setSessionsList] = useState<any[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState<string | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
   
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamBuffer, setStreamBuffer] = useState('');
@@ -125,18 +128,23 @@ export default function ChatPage() {
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'thoughts'|'hivemind'|'citations'|'explain'>('thoughts');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingFile, setUploadingFile] = useState<File | null>(null);
+  const [uploadDone, setUploadDone] = useState(false);
 
   const loadCourse = useCallback(async () => {
     try {
-      const [courses, assignments, sessionsData] = await Promise.all([
+      const [courses, assignments, sessionsData, uploadedFilesData] = await Promise.all([
         api.courses.list(),
         api.courses.getCoursework(courseId),
-        api.sessions.list(courseId)
+        api.sessions.list(courseId),
+        api.ingestion.listFiles(courseId)
       ]);
       const found = courses.find((c: Course) => c.id === courseId);
       if (found) setCourse(found);
       setCoursework(assignments);
       setSessionsList(sessionsData);
+      setUploadedFiles(uploadedFilesData);
     } catch (err) {
       console.error(err);
     }
@@ -192,6 +200,29 @@ export default function ChatPage() {
       showToast(err.message || 'Failed to delete session', 'error');
       console.error("Failed to delete session:", err);
     }
+  };
+
+  const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingFile(file);
+    setUploadDone(false);
+    try {
+      await api.ingestion.uploadFile(courseId, file, session);
+      setUploadDone(true);
+      showToast(`"${file.name}" uploaded successfully!`, 'success');
+      
+      api.ingestion.listFiles(courseId, session)
+        .then(freshFiles => setUploadedFiles(freshFiles))
+        .catch(() => {});
+        
+      setTimeout(() => { setUploadingFile(null); setUploadDone(false); }, 2500);
+    } catch (err: any) {
+      showToast(err.message || 'Upload failed', 'error');
+      setUploadingFile(null);
+    }
+    // Reset file input so same file can be re-uploaded
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSend = async (e?: FormEvent) => {
@@ -345,6 +376,39 @@ export default function ChatPage() {
             </div>
           </div>
 
+          {/* File Upload Button */}
+          <div style={{ marginBottom: '2rem' }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              style={{ display: 'none' }}
+              accept=".pdf"
+              onChange={handleFileUpload}
+            />
+            {uploadingFile ? (
+              <div style={{ padding: '0.625rem', borderRadius: '4px', background: '#161616', border: '1px solid #5e6ad2', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                 {uploadDone ? <CheckCircle2 size={14} color="#30a46c" /> : <Loader2 size={14} className="animate-spin" color="#5e6ad2" />}
+                 <span style={{ color: '#ededed', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{uploadingFile.name}</span>
+                 {!uploadDone && (
+                   <button onClick={() => setUploadingFile(null)} style={{ background: 'transparent', border: 'none', color: '#6b6b6b', cursor: 'pointer', padding: 0, display: 'flex' }}>
+                     <X size={12} />
+                   </button>
+                 )}
+              </div>
+            ) : (
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                style={{ 
+                  width: '100%', padding: '0.625rem', borderRadius: '4px', background: 'transparent', 
+                  border: '1px dashed #4a4a4a', color: '#a0a0a0', fontSize: '0.8rem', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
+                }}
+              >
+                <Plus size={14} /> Upload PDF Material
+              </button>
+            )}
+          </div>
+
           <div>
              <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#6b6b6b', textTransform: 'uppercase', marginBottom: '1rem', display: 'block' }}>Course Materials</span>
              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -362,6 +426,20 @@ export default function ChatPage() {
                 ))}
              </div>
           </div>
+
+          {/* Uploaded Materials */}
+          {uploadedFiles && uploadedFiles.length > 0 && (
+            <div style={{ marginTop: '2rem' }}>
+               <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#6b6b6b', textTransform: 'uppercase', marginBottom: '1rem', display: 'block' }}>Uploaded Documents</span>
+               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {uploadedFiles.map((f, idx) => (
+                    <div key={idx} style={{ padding: '0.625rem', borderRadius: '4px', background: '#161616', border: '1px dashed #2e2e2e', fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: '#ededed', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.filename}</span>
+                    </div>
+                  ))}
+               </div>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -488,6 +566,7 @@ export default function ChatPage() {
                <span>{NODE_LABELS[currentThoughts[currentThoughts.length - 1]?.node] || 'Thinking...'}</span>
             </div>
           )}
+
           <form className={styles.inputCard} onSubmit={handleSend}>
             <textarea 
               value={input}
@@ -536,7 +615,7 @@ export default function ChatPage() {
                              <Icon size={16} />
                           </div>
                           <span className={styles.nodeLabel}>{(step as any).label || NODE_LABELS[step.id as string]}</span>
-                          {isDone && !isActive && <CheckCircle size={12} style={{ marginLeft: 'auto', color: '#30a46c' }} />}
+                          {isDone && !isActive && <CheckCircle2 size={12} style={{ marginLeft: 'auto', color: '#30a46c' }} />}
                         </div>
                         {!isLastStep && (
                           <div className={`${styles.connectorLine} ${isDone ? styles.connectorLineActive : ''}`} />
@@ -571,7 +650,7 @@ export default function ChatPage() {
                                    <Icon size={16} />
                                 </div>
                                 <span className={styles.nodeLabel}>{NODE_LABELS[nid]}</span>
-                                {isDone && !isActive && <CheckCircle size={12} style={{ marginLeft: 'auto', color: '#30a46c' }} />}
+                                {isDone && !isActive && <CheckCircle2 size={12} style={{ marginLeft: 'auto', color: '#30a46c' }} />}
                               </div>
                             );
                           })}
