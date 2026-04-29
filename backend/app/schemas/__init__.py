@@ -1,0 +1,43 @@
+from app.schemas.api import (
+    ChatRequest,
+    CourseIngestionStatus,
+    GuestLoginResponse,
+    IngestedFile,
+    IngestRequest,
+    KnowledgeUniverseResponse,
+    LocalCourseCreate,
+    ProfileResponse,
+    RenameSessionRequest,
+    StoreTokensRequest,
+    StoreTokensResponse,
+    UnifiedCourse,
+    WipeDataResponse,
+)
+from app.schemas.db import (
+    ChatMessage,
+    ChatSession,
+    IngestionJob,
+    OAuthTokenRecord,
+    StudentProfile,
+)
+
+__all__ = [
+    "ChatRequest",
+    "CourseIngestionStatus",
+    "GuestLoginResponse",
+    "IngestedFile",
+    "IngestRequest",
+    "KnowledgeUniverseResponse",
+    "LocalCourseCreate",
+    "ProfileResponse",
+    "RenameSessionRequest",
+    "StoreTokensRequest",
+    "StoreTokensResponse",
+    "UnifiedCourse",
+    "WipeDataResponse",
+    "ChatMessage",
+    "ChatSession",
+    "IngestionJob",
+    "OAuthTokenRecord",
+    "StudentProfile",
+]
