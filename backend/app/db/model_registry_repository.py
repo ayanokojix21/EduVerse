@@ -46,6 +46,17 @@ class ModelRegistryRepository:
         
         return doc["model_id"]
 
+    async def get_model_history(self, role: str) -> List[Dict[str, Any]]:
+        """
+        Returns the version history for a specific role (stable, legacy, candidate),
+        including their eval scores and improvement deltas for the DPO dashboard.
+        """
+        cursor = self.collection.find(
+            {"role": role},
+            {"_id": 0}
+        ).sort("version", -1)
+        return await cursor.to_list(length=10)
+
     async def register_new_version(
         self,
         role: str,
