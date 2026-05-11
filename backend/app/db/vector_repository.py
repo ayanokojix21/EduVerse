@@ -1,34 +1,66 @@
+"""
+app/db/vector_repository.py
+────────────────────────────
+Vector Store Repository — Cloud Native.
+
+Uses:
+  - Nomic API (cloud) for text embeddings
+  - MongoDB Atlas Vector Search for similarity search
+  - MongoDBRecordManager for deduplication tracking (replaces SQLite)
+"""
 from __future__ import annotations
 
 import logging
+import time
 from contextlib import contextmanager
 from typing import Generator, Tuple
 
 from langchain_mongodb import MongoDBAtlasVectorSearch
-from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
-from langchain_community.indexes._sql_record_manager import SQLRecordManager
+from langchain_mongodb.indexes import MongoDBRecordManager
+from langchain_nomic import NomicEmbeddings
 from pymongo import MongoClient
 
 from app.config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
 
+
+class EduVerseRecordManager(MongoDBRecordManager):
+    """
+    Subclass of MongoDBRecordManager that overrides get_time() to use
+    Python's time.time() instead of MongoDB server time.
+
+    MongoDBRecordManager.get_time() reads `ping['operationTime']` which
+    only exists on replica sets / MongoDB Atlas. On a standalone local
+    MongoDB instance this raises a KeyError. Python's time.time() is
+    perfectly correct for deduplication tracking purposes.
+    """
+
+    def get_time(self) -> float:
+        return time.time()
+
+    async def aget_time(self) -> float:
+        return time.time()
+
+
 class VectorRepository:
-    """Encapsulates FastEmbed initialization and MongoDB Atlas Vector Search connectivity."""
+    """Encapsulates Nomic embeddings and MongoDB Atlas Vector Search connectivity."""
+
     def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
 
-    def get_embeddings(self) -> FastEmbedEmbeddings:
-        """Returns local FastEmbed embeddings."""
-        return FastEmbedEmbeddings(
-            model_name=self.settings.local_embedding_model,
-            threads=self.settings.local_num_threads,
+    def get_embeddings(self) -> NomicEmbeddings:
+        """Returns cloud Nomic embeddings."""
+        return NomicEmbeddings(
+            model=self.settings.nomic_embedding_model,
+            nomic_api_key=self.settings.nomic_api_key,
+            dimensionality=768,
         )
 
     @contextmanager
     def get_vector_store_context(
         self, user_id: str, course_id: str
-    ) -> Generator[Tuple[SQLRecordManager, MongoDBAtlasVectorSearch, MongoClient], None, None]:
+    ) -> Generator[Tuple[MongoDBRecordManager, MongoDBAtlasVectorSearch, MongoClient], None, None]:
         """Context manager to safely manage sync PyMongo connections and Vector Store handles."""
         sync_client = MongoClient(
             self.settings.mongo_uri,
@@ -36,17 +68,17 @@ class VectorRepository:
         )
         try:
             sync_collection = sync_client[self.settings.mongo_db_name][self.settings.mongo_child_chunks_collection]
-            
+
             vector_store = MongoDBAtlasVectorSearch(
                 collection=sync_collection,
                 embedding=self.get_embeddings(),
                 index_name=self.settings.mongo_child_vector_index_name,
                 text_key="content",
             )
-            
-            namespace = f"mongodb/{self.settings.mongo_db_name}/{self.settings.mongo_child_chunks_collection}/{user_id}/{course_id}"
-            record_manager = SQLRecordManager(namespace, db_url=self.settings.record_manager_db_url)
-            
+
+            rm_collection = sync_client[self.settings.mongo_db_name]["record_manager_cache"]
+            record_manager = EduVerseRecordManager(collection=rm_collection)
+
             yield record_manager, vector_store, sync_client
         finally:
             sync_client.close()
