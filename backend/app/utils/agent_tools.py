@@ -1,79 +1,64 @@
 """
 app/utils/agent_tools.py
 ─────────────────────────
-Agent Tooling
-- Code Execution: Local subprocess sandbox 
-- Web Search: SerperAPI
+Agent Tooling — Cloud Native.
+
+- Code Execution: E2B Cloud Sandbox (fully isolated container)
+- Web Search:     SerperDev API
 """
 import logging
-import os
-import subprocess
-import tempfile
 
 from langchain_core.tools import tool
 
-logger = logging.getLogger(__name__)
+from app.config import get_settings
 
-# ── Security: Blocked patterns for local code sandbox ─────────────────────────
-_BLOCKED_PATTERNS = frozenset([
-    "import os", "import sys", "import subprocess", "import shutil",
-    "import pathlib", "__import__", "exec(", "eval(",
-    "open(", "os.system", "os.popen", "os.remove", "os.unlink",
-    "shutil.rmtree", "subprocess.run", "subprocess.call",
-])
+logger = logging.getLogger(__name__)
 
 
 @tool
 def python_repl_tool(code: str) -> str:
     """
-    Executes Python code in a secure local subprocess sandbox.
+    Executes Python code in a secure E2B cloud sandbox.
     Use this for validating math, logic, coding concepts, or verifying student solutions.
-    Runs with a 10-second timeout and blocked dangerous operations.
+    Runs in a fully isolated cloud container with a 30-second timeout.
     """
-    code_lower = code.lower()
-    for pattern in _BLOCKED_PATTERNS:
-        if pattern.lower() in code_lower:
-            return f"Security: '{pattern}' is not allowed in the sandbox."
+    settings = get_settings()
 
-    tmp_file = None
+    if not settings.e2b_api_key:
+        return "Code execution is currently disabled (missing E2B_API_KEY). Please describe the solution instead."
+
     try:
-        tmp_file = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".py", delete=False, dir=tempfile.gettempdir()
-        )
-        tmp_file.write(code)
-        tmp_file.flush()
-        tmp_file.close()
+        from e2b_code_interpreter import Sandbox
 
-        result = subprocess.run(
-            ["python", tmp_file.name],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            cwd=tempfile.gettempdir(),
-        )
+        sbx = Sandbox(api_key=settings.e2b_api_key, timeout=30)
+        try:
+            execution = sbx.run_code(code)
+        finally:
+            sbx.kill()
 
-        output = ""
-        if result.stdout:
-            output += f"Output:\n{result.stdout}\n"
-        if result.stderr:
-            output += f"Error:\n{result.stderr}\n"
-        if result.returncode != 0 and not output:
-            output = f"Process exited with code {result.returncode}"
+        # Collect outputs
+        outputs = []
+        if execution.results:
+            for result in execution.results:
+                if result.text:
+                    outputs.append(result.text)
 
-        return output.strip() if output else "Execution successful (no output)."
+        if execution.error:
+            return f"Error ({execution.error.name}): {execution.error.value}"
 
-    except subprocess.TimeoutExpired:
-        return "Execution timed out (10s limit). Simplify the code and try again."
-    except FileNotFoundError:
-        return "Python interpreter not found. Ensure Python is installed."
-    except Exception as e:
-        return f"Sandbox error: {e}"
-    finally:
-        if tmp_file and os.path.exists(tmp_file.name):
-            try:
-                os.unlink(tmp_file.name)
-            except OSError:
-                pass
+        if execution.logs.stdout:
+            outputs.extend(execution.logs.stdout)
+
+        if execution.logs.stderr:
+            stderr_text = "".join(execution.logs.stderr).strip()
+            if stderr_text:
+                outputs.append(f"Stderr:\n{stderr_text}")
+
+        return "\n".join(outputs).strip() or "Execution successful (no output)."
+
+    except Exception as exc:
+        logger.warning("E2B sandbox error: %s", exc)
+        return f"Sandbox error: {exc}"
 
 
 @tool
@@ -82,13 +67,12 @@ def web_search_tool(query: str) -> str:
     Searches the live web for the latest educational content, news, or validation facts.
     Ideal for finding recent events, contemporary research, or current news.
     """
-    from app.config import get_settings
     from langchain_community.utilities import SerperAPIWrapper
 
     settings = get_settings()
     if not settings.serper_api_key:
         return "Web search is currently disabled (missing SERPER_API_KEY). Use local documentation instead."
-    
+
     try:
         search = SerperAPIWrapper(serper_api_key=settings.serper_api_key)
         return search.run(query)
