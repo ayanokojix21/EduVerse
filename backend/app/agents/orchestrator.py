@@ -28,12 +28,16 @@ async def orchestrator_node(
     config: RunnableConfig,
 ) -> Command[Literal["rag_swarm", "quiz_swarm", "feedback_swarm"]]:
     """Classifies the student's intent and routes to the correct swarm."""
+    # Safety check: ensure image_data is not a short placeholder like "string" or empty
+    image_data = state.get("image_data")
+    is_multi = state.get("is_multimodal", False) and image_data and len(image_data) > 20
     llm = RoundRobinLLM.for_role(
         "orchestrator", 
         temperature=0.3, 
         top_p=0.95, 
         top_k=64, 
-        schema=OrchestratorOutput
+        schema=OrchestratorOutput,
+        vision=is_multi
     )
     original = state["original_query"]
     
@@ -56,9 +60,25 @@ async def orchestrator_node(
             "critic_feedback": feedback_text
         })
         prompt_msgs = prompt_value.to_messages()
+        
+        reasoning_trigger = "\n\n### REASONING INSTRUCTION\nThink step-by-step to analyze intent and context before routing."
 
-        if isinstance(prompt_msgs[-1].content, str):
-            prompt_msgs[-1].content += "\n\n### REASONING INSTRUCTION\nBegin with <|thought|> to analyze intent and context before routing."
+        if is_multi:
+            from langchain_core.messages import HumanMessage
+            last_msg = prompt_msgs[-1]
+            text_content = (last_msg.content if isinstance(last_msg.content, str) else "") + reasoning_trigger
+            
+            mm_content = [
+                {"type": "text", "text": text_content}, 
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{state.get('image_mimetype', 'image/png')};base64,{state['image_data']}"}
+                }
+            ]
+            prompt_msgs[-1] = HumanMessage(content=mm_content)
+        else:
+            if isinstance(prompt_msgs[-1].content, str):
+                prompt_msgs[-1].content += reasoning_trigger
             
         result_raw = await llm.ainvoke(prompt_msgs, config=config)
         result: OrchestratorOutput = result_raw["parsed"]
@@ -66,8 +86,10 @@ async def orchestrator_node(
         difficulty = result.difficulty
         topic_source = result.topic_source
     except Exception as exc:
-        logger.warning("Orchestrator failed: %s", exc)
-        return Command(goto="integrity_guard", update={"task": "safety_fallback"})
+        logger.exception("Orchestrator failed with a critical error: %s", exc)
+        task = "rag"
+        difficulty = "medium"
+        topic_source = "course_material"
 
     update_state = {
         "task": task,

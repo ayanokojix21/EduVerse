@@ -16,14 +16,6 @@ class OrchestratorOutput(BaseModel):
     Determines which swarm handles the student's request.
     """
 
-    model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [
-                {"task": "quiz", "difficulty": "medium", "topic_source": "course_material"}
-            ]
-        }
-    )
-
     task: Literal["rag", "quiz", "feedback"] = Field(
         description="Target swarm that handles this student request.",
     )
