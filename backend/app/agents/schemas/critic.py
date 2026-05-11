@@ -72,22 +72,6 @@ class CriticOutput(BaseModel):
             )
         return self
 
-    model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [
-                {
-                    "severity": "none",
-                    "issues": [],
-                    "passed": True,
-                    "required_facts": [],
-                    "pedagogical_fidelity": "excellent",
-                    "is_socratic": True,
-                    "validated_citations": 2,
-                },
-            ]
-        }
-    )
-
 # Required: `from __future__ import annotations` defers type evaluation.
 # model_rebuild() forces Pydantic v2 to load them at import time.
 CriticOutput.model_rebuild()

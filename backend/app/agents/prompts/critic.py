@@ -28,7 +28,7 @@ Your goal: Determine if the provided RESPONSE contains hallucinations or factual
 - **Is Socratic**: False if the final answer is provided without student effort.
 
 ### AUDIT PROTOCOL
-1. Use `<|thought|>` to map each claim to a Source and evaluate the teaching style.
+1. Use 'Think step-by-step' to map each claim to a Source and evaluate the teaching style.
 2. Count unique correct citations.
 3. Return ONLY a valid JSON matching `CriticOutput`.
 
@@ -40,5 +40,5 @@ Your goal: Determine if the provided RESPONSE contains hallucinations or factual
 
 CRITIC_PROMPT = ChatPromptTemplate.from_messages([
     ("system", CRITIC_SYSTEM_PROMPT),
-    ("human", "### RESPONSE TO AUDIT\n{response_text}\n\n### SOURCES\n{source_preview}\n\n### INSTRUCTION\nPerform a step-by-step audit using <|thought|> and return the results.")
+    ("human", "### RESPONSE TO AUDIT\n{response_text}\n\n### SOURCES\n{source_preview}\n\n### INSTRUCTION\nPerform a step-by-step audit using <think> and return the results.")
 ])

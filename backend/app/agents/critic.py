@@ -18,7 +18,6 @@ from app.agents.prompts.critic import CRITIC_PROMPT
 from app.agents.schemas.critic import CriticOutput
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 
 # ── Node ─────────────────────────────────────────────────────────────────────
@@ -26,6 +25,7 @@ settings = get_settings()
 @traceable(name="critic_agent")
 async def critic_agent_node(state: AgentState, config: RunnableConfig) -> dict:
     """Quality-gate the Synthesizer's answer."""
+    settings = get_settings()
     llm = RoundRobinLLM.for_role(
         "critic", 
         temperature=0.0, 
