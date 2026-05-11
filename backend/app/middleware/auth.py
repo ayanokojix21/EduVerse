@@ -16,8 +16,10 @@ PUBLIC_PATH_PREFIXES = (
     "/docs",
     "/openapi.json",
     "/redoc",
-    "/auth/login/guest",
-    "/auth/store-tokens",
+    "/api/v1/auth/login/guest",
+    "/api/v1/auth/store-tokens",
+    "/api/v1/auth/login/google",
+    "/api/v1/auth/callback/google",
     "/favicon.ico",
 )
 
