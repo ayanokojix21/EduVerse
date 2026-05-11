@@ -21,6 +21,15 @@ async def get_rl_stats(service: RLService = Depends(get_rl_service)):
     return await service.get_stats_overview()
 
 
+@router.get("/models", summary="List all registered models in the registry")
+async def list_models(
+    limit: int = 50,
+    service: RLService = Depends(get_rl_service)
+):
+    """Returns a list of all fine-tuned models, versions, and their statuses."""
+    return await service.list_models(limit=limit)
+
+
 @router.get("/episodes", summary="List recent RL trajectories")
 async def list_rl_episodes(
     limit: int = 50, 
