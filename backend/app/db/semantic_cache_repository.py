@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -7,6 +8,8 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.config import Settings, get_settings
 from app.db.mongodb import get_db
+
+logger = logging.getLogger(__name__)
 
 
 class SemanticCacheRepository:
@@ -60,7 +63,8 @@ class SemanticCacheRepository:
                     return doc.get("payload")
                 
             return None
-        except Exception:
+        except Exception as exc:
+            logger.warning("Semantic cache read failed (non-critical): %s", exc)
             return None
 
     async def save_context(
@@ -81,8 +85,8 @@ class SemanticCacheRepository:
                 "created_at": datetime.now(timezone.utc)
             }
             await self.collection.insert_one(cache_entry)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Semantic cache write failed (non-critical): %s", exc)
 
 
 def get_semantic_cache_repository(

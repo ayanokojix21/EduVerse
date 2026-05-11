@@ -57,6 +57,13 @@ class ModelRegistryRepository:
         ).sort("version", -1)
         return await cursor.to_list(length=10)
 
+    async def list_all_models(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        Returns all registered models across all roles.
+        """
+        cursor = self.collection.find({}, {"_id": 0}).sort("registered_at", -1)
+        return await cursor.to_list(length=limit)
+
     async def register_new_version(
         self,
         role: str,
