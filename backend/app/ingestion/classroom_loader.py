@@ -13,8 +13,9 @@ from app.services.auth.classroom_service import ClassroomService
 
 
 class MarkdownPyMuPDFParser(BaseBlobParser):
-    def __init__(self, vision_model: Any | None = None):
+    def __init__(self, vision_model: Any | None = None, settings: Settings | None = None):
         self.vision_model = vision_model
+        self._settings = settings or get_settings()
 
     def lazy_parse(self, blob: Blob) -> Iterator[Document]:
         import fitz
@@ -23,53 +24,76 @@ class MarkdownPyMuPDFParser(BaseBlobParser):
         import base64
         import anyio
         logger = logging.getLogger(__name__)
+        logger.info(f"--- Parsing Document: {blob.source} ---")
         
         try:
-            doc = fitz.open(stream=blob.as_bytes(), filetype=blob.source.split('.')[-1] if '.' in blob.source else None)
-            
-            if doc.is_pdf:
-                chunks = pymupdf4llm.to_markdown(doc, page_chunks=True)
-            else:
-                chunks = [{"text": "", "metadata": {"page_number": 1}}]
+            # We strictly expect PDFs since the loader routes via MIME type
+            doc = fitz.open(stream=blob.as_bytes(), filetype="pdf")
+            chunks = pymupdf4llm.to_markdown(doc, page_chunks=True)
 
             img_count = 0
+            seen_pages = set()
             
             for chunk in chunks:
                 page_idx = chunk.get("metadata", {}).get("page_number", 1) - 1
                 page_text = chunk.get("text", "")
                 
-                page_img_count = 0
-                if self.vision_model and img_count < 10:
+                if self.vision_model and img_count < self._settings.max_vision_images_per_doc and page_idx not in seen_pages:
+                    seen_pages.add(page_idx)
                     page = doc[page_idx]
+                    logger.debug(f"Scanning page {page_idx + 1} for qualified images...")
                     
-                    if not doc.is_pdf:
-                        image_bytes = blob.as_bytes()
-                        is_qualified = True
-                    else:
-                        image_list = page.get_images()
-                        image_bytes = None
-                        is_qualified = False
-                        
-                        if image_list:
-                            xref = image_list[0][0]
-                            base_image = doc.extract_image(xref)
-                            if base_image.get("width", 0) >= 120 and base_image.get("height", 0) >= 120:
-                                image_bytes = base_image["image"]
-                                is_qualified = True
+                    image_list = page.get_images()
+                    image_bytes = None
+                    is_qualified = False
+                    
+                    if image_list:
+                        xref = image_list[0][0]
+                        base_image = doc.extract_image(xref)
+                        if base_image.get("width", 0) >= 120 and base_image.get("height", 0) >= 120:
+                            image_bytes = base_image["image"]
+                            is_qualified = True
 
                     if is_qualified and image_bytes:
-                        b64 = base64.b64encode(image_bytes).decode("utf-8")
+                        import io
+                        from PIL import Image
                         try:
-                            desc = anyio.from_thread.run(
-                                self.vision_model.describe_image, 
-                                b64, 
-                                f"Analyze this image/document from {blob.source} for educational context. "
-                                "Identify key text, diagrams, or events. Be concise."
-                            )
+                            with Image.open(io.BytesIO(image_bytes)) as img:
+                                if img.mode != "RGB":
+                                    img = img.convert("RGB")
+                                img.thumbnail((1024, 1024))
+                                buffer = io.BytesIO()
+                                img.save(buffer, format="JPEG", quality=85)
+                                sanitized_bytes = buffer.getvalue()
+                            mime_type = "image/jpeg"
+                            b64 = base64.b64encode(sanitized_bytes).decode("utf-8")
+                        except Exception as e:
+                            logger.warning(f"Image sanitization failed: {e}")
+                            continue
+                        from langchain_core.messages import HumanMessage
+                        try:
+                            mm_msg = HumanMessage(content=[
+                                {"type": "text", "text": "Analyze this image/document from " + str(blob.source or "unknown") + " for educational context. Identify key text, diagrams, or events. Be concise."},
+                                {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64}"}}
+                            ])
+                            
+                            # NOTE: invoke() is called synchronously here — this is intentional.
+                            # lazy_parse() is already running in a worker thread (via anyio.to_thread),
+                            # so we must NOT await here. Using sync invoke is correct.
+                            res = self.vision_model.invoke([mm_msg])
+                            desc = res.content
+                            
+                            # Handle multimodal list responses from Gemma 4
+                            if isinstance(desc, list):
+                                desc = "\n".join([
+                                    part.get("text") or part.get("thinking") or str(part) 
+                                    for part in desc if isinstance(part, dict)
+                                ])
+                            
                             page_text += f"\n\n> [Visual Analysis]: {desc}\n"
                             img_count += 1
                         except Exception as vision_exc:
-                            logger.warning(f"Vision analysis failed for {blob.source}: {vision_exc}")
+                            logger.warning(f"Vision analysis failed for {blob.source or 'unknown'}: {vision_exc}")
 
                 doc_metadata = dict(blob.metadata or {})
                 doc_metadata.update({
@@ -80,7 +104,16 @@ class MarkdownPyMuPDFParser(BaseBlobParser):
                 yield Document(page_content=page_text, metadata=doc_metadata)
 
         except Exception as exc:
-            logger.error(f"Failed to parse document from {blob.source}: {exc}")
+            logger.error(f"Failed to parse document from {blob.source or 'unknown'}: {exc}")
+
+class EduVerseClassroomLoader(GoogleClassroomLoader):
+    """Custom loader that selectively applies PyMuPDF to PDFs, leaving native routing for other types."""
+    def _get_parser_for(self, mime_type: str) -> BaseBlobParser | None:
+        normalized_mime = mime_type.split(";")[0].strip().lower()
+        if normalized_mime == "application/pdf":
+            return MarkdownPyMuPDFParser(vision_model=self.vision_model)
+        return super()._get_parser_for(mime_type)
+
 
 class ClassroomLoadError(Exception):
     pass
@@ -101,7 +134,7 @@ def _load_documents_sync(
         from app.utils.llm_pool import RoundRobinLLM
         vision_llm = RoundRobinLLM.for_role("vision", temperature=0)
 
-        loader = GoogleClassroomLoader(
+        loader = EduVerseClassroomLoader(
             credentials=credentials,
             course_ids=[course_id],
             load_assignments=True,
@@ -109,8 +142,8 @@ def _load_documents_sync(
             load_materials=True,
             load_attachments=True,
             parse_attachments=True,
-            load_images=True,
-            file_parser_cls=lambda: MarkdownPyMuPDFParser(vision_model=vision_llm),
+            load_images=bool(vision_llm),
+            vision_model=vision_llm,
         )
 
         documents = []

@@ -63,9 +63,7 @@ def chunk_documents(
                 child_metadata["parent_id"] = parent_id
                 child_metadata["source_id"] = f"{parent_id}:child:{child_idx}"
                 child.metadata = child_metadata
-                
-                child.page_content = f"[From: {source_title}]\n\n{child.page_content}"
-                
+                child.page_content = f"[Source: {source_title} | Context: Educational Material]\n\n{child.page_content}"
                 child_chunks.append(child)
 
     return parent_chunks, child_chunks
