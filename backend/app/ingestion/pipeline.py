@@ -162,7 +162,7 @@ class CourseIngestionService:
     async def ingest_local_document(
         self, user_id: str, course_id: str, filename: str, file_bytes: bytes
     ) -> dict:
-        """Ingests a single local PDF document."""
+        """Ingests a single local document (PDF, Docx, Image, etc.)."""
         local_link = await self.storage_service.save_file(
             user_id, course_id, filename, file_bytes
         )
@@ -201,17 +201,17 @@ class CourseIngestionService:
         cursor = self.db[self.settings.mongo_parent_chunks_collection].aggregate([
             {"$match": {"user_id": user_id, "course_id": course_id}},
             {"$group": {
-                "_id": "$metadata.title", 
+                "_id": {"$ifNull": ["$metadata.source", "$metadata.title"]}, 
                 "total_chunks": {"$sum": 1},
-                "source": {"$first": "$metadata.source"}
+                "title": {"$first": "$metadata.title"}
             }}
         ])
         files = await cursor.to_list(length=None)
         return [
             {
-                "filename": f["_id"], 
+                "filename": f.get("title") or (f["_id"].split("/")[-1] if "/" in f["_id"] else f["_id"]), 
                 "chunk_count": f["total_chunks"],
-                "source": f.get("source", "unknown")
+                "source": f["_id"]
             } for f in files
         ]
 
@@ -223,15 +223,34 @@ class CourseIngestionService:
         file_bytes: bytes,
         local_link: str,
     ) -> tuple[list[Document], list[Document]]:
-        """Synchronous helper for parsing and chunking local files."""
+        """Synchronous helper for parsing and chunking local files of any supported format."""
         from app.utils.llm_pool import RoundRobinLLM
         from app.ingestion.classroom_loader import MarkdownPyMuPDFParser
         from langchain_core.documents.base import Blob
+        import mimetypes
+        from langchain_google_classroom.parsers import get_parser
 
         vision_llm = RoundRobinLLM.for_role("vision", temperature=0)
-        parser = MarkdownPyMuPDFParser(vision_model=vision_llm)
+        
+        mime_type, _ = mimetypes.guess_type(filename)
+        mime_type = mime_type or "application/octet-stream"
+        
+        if mime_type == "application/pdf":
+            parser = MarkdownPyMuPDFParser(vision_model=vision_llm)
+        else:
+            parser = get_parser(mime_type)
+            if not parser:
+                # Fallback to simple text parser
+                class FallbackTextParser:
+                    def lazy_parse(self, blob: Blob):
+                        from langchain_core.documents import Document
+                        text = blob.as_bytes().decode("utf-8", errors="replace")
+                        yield Document(page_content=text, metadata={"page_number": 1})
+                parser = FallbackTextParser()
+            elif hasattr(parser, "vision_model"):
+                setattr(parser, "vision_model", vision_llm)
 
-        blob = Blob(data=file_bytes, source=filename)
+        blob = Blob(data=file_bytes, source=filename, mimetype=mime_type)
         docs = list(parser.lazy_parse(blob))
 
         for doc in docs:
