@@ -12,7 +12,6 @@ warnings.filterwarnings(
 )
 
 import anyio
-from langchain_community.indexes._sql_record_manager import SQLRecordManager
 from langchain_core.indexing import index
 from langchain_core.documents import Document
 from pymongo import MongoClient, ReplaceOne
