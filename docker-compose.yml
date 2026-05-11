@@ -1,7 +1,3 @@
-# EduVerse Local-First "Beast Mode" Stack
-# Orchestrates: Backend (FastAPI) + Database (MongoDB) + Inference (Ollama)
-version: '3.8'
-
 services:
   # ── MongoDB: Local Data Persistence ──────────────────────────────────────────
   mongodb:
@@ -13,7 +9,7 @@ services:
       - mongodb_data:/data/db
     restart: always
 
-  # ── Backend: Agentic Core ────────────────────────────────────────────────────
+  # ── Backend: Agentic Core (Cloud Gemma 4 via Google AI Studio) ───────────────
   backend:
     build:
       context: ./backend
@@ -48,29 +44,5 @@ services:
       - mongodb
     restart: on-failure
 
-  # ── Ollama: Local Inference (Gemma 4) ────────────────────────────────────────
-  # NOTE: Requires Ollama to be installed on the host or run as a container
-  # For GPU acceleration, use 'ollama/ollama:latest' with nvidia-docker
-  ollama:
-    image: ollama/ollama:latest
-    container_name: eduverse-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    restart: always
-
-  # ── Automated Model Pull (Hackathon Requirement) ─────────────
-  ollama-init:
-    image: ollama/ollama:latest
-    container_name: eduverse-ollama-init
-    depends_on:
-      - ollama
-    environment:
-      - OLLAMA_HOST=ollama:11434
-    entrypoint: >
-      sh -c "echo 'Waiting for Ollama to boot...' && sleep 10 && echo 'Pulling Gemma 4 e4b for Hackathon...' && ollama pull gemma4:e4b && echo 'Model Pulled Successfully!'"
-
 volumes:
   mongodb_data:
-  ollama_data:

@@ -1,5 +1,5 @@
 # SOTA 2026 EduVerse Backend Dockerfile
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Prevent Python from writing .pyc files and enable real-time logging
 ENV PYTHONDONTWRITEBYTECODE 1
@@ -16,7 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install dependencies using requirements.txt
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+RUN uv pip install --system --no-cache -r requirements.txt
 
 # Copy application code
 COPY . .
