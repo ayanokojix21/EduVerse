@@ -5,8 +5,6 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from motor.motor_asyncio import AsyncIOMotorDatabase
-
 from app.config import Settings, get_settings
 from app.db.mongodb import get_db
 from app.db.oauth_repository import get_oauth_repository
@@ -60,55 +58,20 @@ async def delete_individual_file(
     return {"success": True, "file_id": file_id}
 
 
-@router.post("/{course_id}/ingest")
-async def ingest_course(
-    course_id: str,
-    request: Request,
-    db: AsyncIOMotorDatabase = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-):
-    """Triggers the ingestion pipeline for a specific course/folder."""
-    user_id = request.state.user_id
-    from app.ingestion.pipeline import get_course_ingestion_service
-    ingestion_service = get_course_ingestion_service(db, settings)
-    asyncio.create_task(ingestion_service.ingest_course(user_id, course_id))
-    return {"message": "Ingestion started", "course_id": course_id}
-
-
 @router.get("/{course_id}/coursework")
 async def get_coursework(
     course_id: str,
     request: Request,
     token_repo=Depends(get_oauth_repository),
 ):
-    from app.services import list_coursework
+    from app.services.auth.classroom_service import ClassroomService
     try:
         credentials = await token_repo.get_user_credentials(request.state.user_id)
+        if not credentials:
+            raise HTTPException(status_code=401, detail="Google Classroom integration not authorized.")
         from anyio import to_thread
-        return await to_thread.run_sync(list_coursework, credentials, course_id)
+        return await to_thread.run_sync(ClassroomService.list_coursework, credentials, course_id)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-
-
-@router.post("/{course_id}/context")
-async def get_chat_context(
-    course_id: str,
-    request: Request,
-    payload: dict,
-    db: AsyncIOMotorDatabase = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-):
-    """Fetches RAG context for a query (Browser-Native Mode)."""
-    from app.retrieval.retriever import get_retrieval_chain
-    from pymongo import MongoClient
-    from anyio import to_thread
-    
-    def run_retrieval():
-        with MongoClient(settings.mongo_uri) as sync_client:
-            chain = get_retrieval_chain(request.state.user_id, course_id, db, sync_client, settings)
-            return chain.invoke(payload.get("query", ""))
-
-    result = await to_thread.run_sync(run_retrieval)
-    return {
-        "documents": [{"content": d.page_content, "metadata": d.metadata} for d in result.get("documents", [])]
-    }
