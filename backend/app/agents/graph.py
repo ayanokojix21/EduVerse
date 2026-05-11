@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from langgraph.graph import END, START, StateGraph
-from langgraph.types import Command
 
 from app.agents.critic import critic_agent_node
 from app.agents.orchestrator import orchestrator_node
@@ -10,10 +9,9 @@ from app.agents.rag_subgraph import build_rag_subgraph
 from app.agents.state import AgentState
 from app.agents.quiz_subgraph import build_quiz_subgraph
 from app.agents.feedback_subgraph import build_feedback_subgraph
-from app.config import get_settings
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
+# NOTE: settings resolved lazily inside functions, not at module level.
 
 _compiled_graph = None
 
@@ -35,13 +33,16 @@ def build_graph() -> StateGraph:
 
     # ── Entry Path (Security First) ──────────────────────────────────────────
     g.add_edge(START, 'input_moderator')
+    # input_moderator  → Command(goto='integrity_guard' | END)   [Command-routed]
+    # integrity_guard  → Command(goto='orchestrator'  | END)     [Command-routed]
+    # orchestrator     → Command(goto='rag_swarm'|'quiz_swarm'|'feedback_swarm') [Command-routed]
 
-    
     # ── Completion & Safety Shield ───────────────────────────────────────────
     g.add_edge('feedback_swarm', 'critic_agent')
     g.add_edge('rag_swarm',      'critic_agent')
     g.add_edge('quiz_swarm',     'critic_agent')
-    g.add_edge('critic_agent',   'output_moderator')
+    # critic_agent_node returns Command(goto='output_moderator' | 'orchestrator')
+    # No static add_edge — would cause double-routing on the retry (orchestrator) path.
 
     # Final Exit
     g.add_edge('output_moderator', END)

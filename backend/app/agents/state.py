@@ -169,7 +169,7 @@ class AgentState(TypedDict):
     tutor_rejected_draft: str
     """Temporary storage for a rejected RAG generator draft (DPO mapping)."""
     tutor_raw_responses: Annotated[list[str], merge_or_reset]
-    """Raw AIMessage contents (including <|thought|>) for DPO trajectory extraction."""
+    """Raw AIMessage contents (including <think>) for DPO trajectory extraction."""
 
     # ── Quiz Swarm ────────────────────────────────────────────────────────────
     quiz_current_draft: Annotated[list[dict], merge_or_reset]
@@ -187,7 +187,7 @@ class AgentState(TypedDict):
     quiz_rejected_draft: list[dict]
     """Temporary storage for a rejected Quiz Review draft (DPO mapping)."""
     quiz_raw_responses: Annotated[list[str], merge_or_reset]
-    """Raw AIMessage contents (including <|thought|>) for DPO trajectory extraction."""
+    """Raw AIMessage contents (including <think>) for DPO trajectory extraction."""
 
     # ── Feedback Swarm ────────────────────────────────────────────────────────
     quiz_responses: list[dict]
@@ -207,7 +207,7 @@ class AgentState(TypedDict):
     feedback_rejected_draft: dict
     """Temporary storage for a rejected RCA Mentor evaluation (DPO mapping)."""
     feedback_raw_responses: Annotated[list[str], merge_or_reset]
-    """Raw AIMessage contents (including <|thought|>) for DPO trajectory extraction."""
+    """Raw AIMessage contents (including <think>) for DPO trajectory extraction."""
     safety_raw_responses: Annotated[list[str], merge_or_reset]
     """Raw reasoning traces from the Guardrails sentinel (Safety, Integrity, Output Shield)."""
 
