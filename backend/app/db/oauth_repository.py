@@ -47,7 +47,17 @@ class OAuthTokenRepository:
         self._refresh_locks: dict[str, asyncio.Lock] = {}
 
     def _get_user_lock(self, user_id: str) -> asyncio.Lock:
+        """Returns (and creates if needed) a per-user async lock.
+        
+        Evicts the oldest entries when the dict exceeds 1000 entries to
+        prevent unbounded memory growth in long-running production servers.
+        """
         if user_id not in self._refresh_locks:
+            # LRU-style eviction: drop oldest 200 entries when limit is hit
+            if len(self._refresh_locks) >= 1000:
+                evict_count = 200
+                for old_key in list(self._refresh_locks.keys())[:evict_count]:
+                    self._refresh_locks.pop(old_key, None)
             self._refresh_locks[user_id] = asyncio.Lock()
         return self._refresh_locks[user_id]
 

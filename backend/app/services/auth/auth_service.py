@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
-import shutil
 import uuid
 from fastapi import Depends
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -14,6 +12,7 @@ from app.utils.auth_utils import mint_app_jwt
 from app.schemas.api import WipeDataResponse, GuestLoginResponse
 
 logger = logging.getLogger(__name__)
+
 
 class AuthService:
     def __init__(
@@ -40,13 +39,13 @@ class AuthService:
         return GuestLoginResponse(
             user_id=guest_id,
             app_jwt=token,
-            is_guest=True
+            is_guest=True,
         )
 
     async def deep_wipe_user_data(self, user_id: str) -> WipeDataResponse:
         """Atomic deep-wipe of all user data across all persistent layers."""
         await self.token_service.disconnect_user(user_id)
-        
+
         collections_to_purge = [
             self.settings.mongo_parent_chunks_collection,
             self.settings.mongo_child_chunks_collection,
@@ -57,27 +56,30 @@ class AuthService:
             self.settings.mongo_cached_courses_collection,
             self.settings.mongo_local_courses_collection,
         ]
-        
+
         for coll_name in collections_to_purge:
             await self.db[coll_name].delete_many({"user_id": user_id})
-        
+
         checkpoint_filter = {"thread_id": {"$regex": f"^{user_id}:"}}
         await self.db["checkpoints"].delete_many(checkpoint_filter)
         await self.db["checkpoint_writes"].delete_many(checkpoint_filter)
         await self.db["checkpoint_blobs"].delete_many(checkpoint_filter)
-        
-        user_data_path = os.path.join(self.settings.data_dir, "uploads", user_id)
+
+        # ── Cloud Storage Wipe (Cloudinary) ───────────────────────────────────
         files_removed = False
-        if os.path.exists(user_data_path):
-            import anyio
-            await anyio.to_thread.run_sync(shutil.rmtree, user_data_path)
-            files_removed = True
-        
+        if self.settings.has_cloudinary:
+            try:
+                from app.services.core.storage_service import StorageService
+                storage = StorageService(self.settings)
+                files_removed = await storage.delete_user_data(user_id)
+            except Exception as exc:
+                logger.warning("Cloudinary user wipe failed (non-critical): %s", exc)
+
         logger.info("SecurityAudit: Deep wipe completed for user %s", user_id)
         return WipeDataResponse(
             success=True,
             purged_collections=collections_to_purge,
-            files_removed=files_removed
+            files_removed=files_removed,
         )
 
 
