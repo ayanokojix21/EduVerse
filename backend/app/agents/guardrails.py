@@ -39,11 +39,19 @@ class Guardrails:
         
         prompt_msgs = INPUT_MODERATOR_PROMPT.format_messages(query=last_message)
         if isinstance(prompt_msgs[-1].content, str):
-            prompt_msgs[-1].content += "\n\n### REASONING INSTRUCTION\nBegin with <|thought|> to analyze query safety."
+            prompt_msgs[-1].content += "\n\n### REASONING INSTRUCTION\nThink step-by-step to analyze query safety."
 
         res_raw = await llm.ainvoke(prompt_msgs)
         res: SafetyOutput = res_raw["parsed"]
+        
+        # Normalize raw content to string (handles Gemma 4 thinking lists)
         raw_text = res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"])
+        if isinstance(raw_text, list):
+            raw_text = "\n".join([
+                part.get("text") or part.get("thinking") or str(part) 
+                for part in raw_text if isinstance(part, dict)
+            ])
+
         update_state = {"safety_raw_responses": [raw_text]}
         
         if res.decision == "UNSAFE":
@@ -72,11 +80,19 @@ class Guardrails:
         from app.agents.prompts.guardrails import ACADEMIC_INTEGRITY_PROMPT
         prompt_msgs = ACADEMIC_INTEGRITY_PROMPT.format_messages(query=query)
         if isinstance(prompt_msgs[-1].content, str):
-            prompt_msgs[-1].content += "\n\n### REASONING INSTRUCTION\nBegin with <|thought|> to analyze student intent."
+            prompt_msgs[-1].content += "\n\n### REASONING INSTRUCTION\nThink step-by-step to analyze student intent."
 
         res_raw = await llm.ainvoke(prompt_msgs)
         res: IntegrityOutput = res_raw["parsed"]
+        
+        # Normalize raw content to string (handles Gemma 4 thinking lists)
         raw_text = res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"])
+        if isinstance(raw_text, list):
+            raw_text = "\n".join([
+                part.get("text") or part.get("thinking") or str(part) 
+                for part in raw_text if isinstance(part, dict)
+            ])
+
         update_state = {"safety_raw_responses": [raw_text]}
         
         if res.decision == "Refusal":
@@ -115,7 +131,7 @@ class Guardrails:
         
         prompt_msgs = OUTPUT_SHIELD_PROMPT.format_messages(response=response)
         if isinstance(prompt_msgs[-1].content, str):
-            prompt_msgs[-1].content += "\n\n### REASONING INSTRUCTION\nBegin with <|thought|> to verify output quality."
+            prompt_msgs[-1].content += "\n\n### REASONING INSTRUCTION\nThink step-by-step to verify output quality."
 
         try:
             res_raw = await llm.ainvoke(prompt_msgs)
