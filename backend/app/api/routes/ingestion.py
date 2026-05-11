@@ -11,6 +11,10 @@ from app.ingestion.pipeline import (
 )
 from app.schemas.api import IngestRequest, IngestedFile
 
+from app.db.mongodb import get_db, get_sync_client
+from app.config import get_settings, Settings
+from motor.motor_asyncio import AsyncIOMotorDatabase
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -50,13 +54,30 @@ async def get_ingest_status(
     course_id: str,
     request: Request,
     job_repo: IngestionJobRepository = Depends(get_ingestion_job_repository),
+    ingestion_service: CourseIngestionService = Depends(get_course_ingestion_service),
 ):
     """Checks the progress of a background ingestion job."""
     user_id = request.state.user_id
     job = await job_repo.get_job(user_id, course_id)
+    
+    # Get live count of successfully indexed files
+    try:
+        files = await ingestion_service.list_ingested_files(user_id, course_id)
+        file_count = len(files)
+    except Exception:
+        file_count = 0
+
     if not job:
-        return {"status": "none", "message": "No ingestion job found"}
-    return job
+        return {
+            "status": "none", 
+            "message": "No ingestion job found",
+            "file_count": file_count
+        }
+    
+    # Merge job status with live stats
+    response = job.model_dump() if hasattr(job, "model_dump") else dict(job)
+    response["current_file_count"] = file_count
+    return response
 
 
 @router.post("/sync")
@@ -172,3 +193,35 @@ async def upload_local_file(
     except Exception as exc:
         logger.error("Failed to ingest local file: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to parse binary document")
+
+
+@router.post("/{course_id}/context")
+async def get_chat_context(
+    course_id: str,
+    request: Request,
+    payload: dict,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+):
+    """Fetches RAG context for a query (Browser-Native Mode)."""
+    from app.retrieval.retriever import get_retrieval_chain
+    
+    sync_client = get_sync_client(request)
+    
+    query = payload.get("query", "").strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Search query cannot be empty.")
+        
+    chain = get_retrieval_chain(request.state.user_id, course_id, db, sync_client, settings)
+    result = await chain.ainvoke(query)
+
+    docs = result.get("documents", [])
+    return {
+        "documents": [
+            {
+                "content": getattr(d, "page_content", d.get("content", "")),
+                "metadata": getattr(d, "metadata", d.get("metadata", {})),
+            }
+            for d in docs
+        ]
+    }
