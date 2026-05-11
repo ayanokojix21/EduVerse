@@ -35,10 +35,6 @@ class PlannerOutput(BaseModel):
         min_length=5,
     )
 
-    model_config = ConfigDict(
-        json_schema_extra={"examples": [{"search_query": "Newton's second law force mass acceleration F=ma"}]}
-    )
-
 
 # ── Generator → Validator ─────────────────────────────────────────────────────
 
@@ -51,10 +47,6 @@ class TransferToValidator(BaseModel):
     draft_answer: str = Field(
         description="The complete Socratic, Feynman-scaffolded response to be fact-checked.",
         min_length=20,
-    )
-
-    model_config = ConfigDict(
-        json_schema_extra={"examples": [{"draft_answer": "Imagine gravity like... [Doc 1]"}]}
     )
 
 
@@ -74,10 +66,6 @@ class TransferToGenerator(BaseModel):
         min_length=10,
     )
 
-    model_config = ConfigDict(
-        json_schema_extra={"examples": [{"feedback": "Doc 2 states 1905, but draft says 1912."}]}
-    )
-
 
 # ── Validator → Formatter (Approval) ─────────────────────────────────────────
 
@@ -90,10 +78,6 @@ class TransferToFormatter(BaseModel):
     verified_answer: str = Field(
         description="The fully fact-checked and approved pedagogical response.",
         min_length=20,
-    )
-
-    model_config = ConfigDict(
-        json_schema_extra={"examples": [{"verified_answer": "Newton's 2nd Law states F=ma [Doc 1]..."}]}
     )
 
 
@@ -109,11 +93,31 @@ class RAGInputState(TypedDict, total=False):
     quiz_topic_source: str
 
 class RAGOutputState(TypedDict, total=False):
-    """Strict output boundaries for the swarm."""
-    messages: Annotated[list[AnyMessage], add_messages]
-    response_text: str
-    citations: list[Citation]
-    context_docs: list[dict]
+    """
+    Strict output boundary for the RAG swarm.
+    
+    Every field here is consumed by either:
+      - chat_service.py  (SSE retrieval_label event, explainability panel)
+      - parent AgentState (HITL flag, critic grounding check)
+    
+    Fields NOT listed here are silently dropped by LangGraph at the
+    subgraph boundary, even if nodes wrote them to state.
+    """
+    # Core response
+    messages:               Annotated[list[AnyMessage], add_messages]
+    response_text:          str
+    citations:              list[Citation]
+    context_docs:           list[dict]
+    # Retrieval observability — read by chat_service SSE 'retrieval_label' event
+    retrieval_label:        str
+    top_reranker_score:     float
+    explainability:         dict
+    retrieval_ms:           int
+    # HITL flag — set by hitl_node, read by generator_node and validator_node
+    tutor_web_search_approved: bool
+    # DPO training data
+    dpo_pairs:              list[dict]
+    tutor_raw_responses:    list[str]
 
 # Required: `from __future__ import annotations` defers type evaluation.
 # model_rebuild() forces Pydantic v2 to load them at import time.
