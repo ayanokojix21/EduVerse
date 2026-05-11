@@ -32,6 +32,9 @@ class RLService:
     async def list_episodes(self, limit: int = 50) -> list:
         return await self.store.list_recent_episodes(limit=limit)
 
+    async def list_models(self, limit: int = 50) -> list:
+        return await self.registry.list_all_models(limit=limit)
+
     async def get_dashboard_metrics(self) -> dict:
         metrics = await self.store.get_dashboard_metrics()
         

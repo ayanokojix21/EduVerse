@@ -145,11 +145,51 @@ class TrainingOrchestrator:
                 report = await self.eval_engine.score_responses(eval_prompts, res_base, res_new, role)
 
                 if report["passed_gate"] and self.settings.auto_promote_models:
-                    new_model_id = f"eduverse-{role}:v_auto_{int(asyncio.get_event_loop().time())}"
+                    import time
+                    timestamp = int(time.time())
+                    new_model_id = f"eduverse-{role}:v_auto_{timestamp}"
                     delta = report.get("improvement_pct", 0.0)
                     eval_score = report.get("avg_new", 0.0)
-                    await registry.register_new_version(role, new_model_id, eval_score, delta)
+                    
+                    await registry.register_new_version(
+                        role=role, 
+                        version=timestamp, 
+                        model_id=new_model_id, 
+                        eval_score=eval_score, 
+                        improvement_delta=delta, 
+                        metadata={}
+                    )
                     await registry.promote_to_stable(role, new_model_id)
+                    
+                    import os
+                    hf_token = os.environ.get("HF_TOKEN")
+                    
+                    agent_map = {"tutor": "rag_tutor", "quiz": "quiz_drafter", "feedback": "feedback_mentor"}
+                    agent_name = agent_map.get(role, role)
+                    gguf_path = tmp_weights / "gguf" / agent_name / "unsloth.Q4_K_M.gguf"
+                    
+                    if hf_token and gguf_path.exists():
+                        try:
+                            logger.info(f"Uploading passed model {role} to Global Hub (Hugging Face)...")
+                            from huggingface_hub import HfApi
+                            api = HfApi(token=hf_token)
+                            
+                            repo_id = "ayanokojix21/eduverse-gemma-4-4b"
+                            
+                            api.create_repo(repo_id=repo_id, exist_ok=True)
+                            
+                            await anyio.to_thread.run_sync(
+                                api.upload_file,
+                                path_or_fileobj=str(gguf_path),
+                                path_in_repo=f"{role}.gguf",
+                                repo_id=repo_id
+                            )
+                            logger.info(f"Global deployment successful for {role}")
+                        except Exception as e:
+                            logger.error(f"Failed to push {role} to Hugging Face: {e}")
+                    else:
+                        logger.warning(f"Skipping Hugging Face push for {role}. HF_TOKEN missing or GGUF not found.")
+                    
                     results["promoted"].append(role)
                 else:
                     results["failed"].append(role)
