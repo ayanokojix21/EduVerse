@@ -79,6 +79,28 @@ class ChatRequest(BaseModel):
     image_mimetype: str | None = Field(default="image/png")
 
 
+class ChatFeedbackRequest(BaseModel):
+    is_positive: bool
+    comment: str | None = Field(default=None, max_length=1000)
+
+
+class HITLResumeRequest(BaseModel):
+    """
+    Payload for resuming a paused HITL graph execution.
+    
+    Sent by the frontend when the student makes their Socratic choice
+    after the RAG pipeline paused due to insufficient classroom materials.
+    """
+    session_id: str = Field(
+        min_length=1,
+        description="The session_id that identifies the paused LangGraph thread."
+    )
+    decision: str = Field(
+        description="Student's choice: 'search_web' to approve web search, 'socratic_only' for course-only response.",
+        pattern="^(search_web|socratic_only)$"
+    )
+
+
 # ── Profile & Mastery Schemas ───────────────────────────────────────────────
 
 class ProfileResponse(BaseModel):
