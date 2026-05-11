@@ -7,11 +7,13 @@ from langchain_core.messages import ToolMessage, AnyMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
+from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 from langsmith import traceable
 from typing_extensions import TypedDict
 
 from app.agents.state import AgentState
+from app.agents.swarm_engine import SwarmLoop          # top-level import
 from app.utils.llm_pool import RoundRobinLLM
 from app.utils.agent_tools import python_repl_tool, web_search_tool
 from app.agents.prompts.feedback import DIAGNOSTICIAN_PROMPT, MENTOR_PROMPT
@@ -35,11 +37,13 @@ async def diagnostician_node(
     config: RunnableConfig,
 ) -> Command[Literal["diagnostician", "mentor"]]:
     """RCA via tool-calling loop; hands structured analysis to Mentor."""
+    is_multi = state.get("image_data") is not None
     llm = RoundRobinLLM.for_role(
         "feedback", 
         temperature=0.3, 
         top_p=0.95, 
-        top_k=64
+        top_k=64,
+        vision=is_multi
     ).bind_tools([TransferToMentor, web_search_tool, python_repl_tool])
     
     context_lines = [f"[{i+1}] {d.get('metadata', {}).get('title', 'Doc')}: {d.get('content', '')}" for i, d in enumerate(state.get("context_docs", []))]
@@ -51,38 +55,80 @@ async def diagnostician_node(
         m=state["messages"][-50:]
     )
     
-    # Reasoning Injection for Gemma 4
-    if isinstance(prompt[-1].content, str):
-        prompt[-1].content += "\n\n### REASONING INSTRUCTION\nBegin with <|thought|> to perform Root Cause Analysis (RCA)."
+    # Reasoning Trigger & Multimodal Vision Injection for Gemma 4
+    reasoning_instr = "\n\n### REASONING INSTRUCTION\nThink step-by-step to perform Root Cause Analysis (RCA)."
     
-    res_raw = await llm.ainvoke(prompt, config=config)
+    if is_multi:
+        from langchain_core.messages import HumanMessage
+        last_msg = prompt[-1]
+        text_content = (last_msg.content if isinstance(last_msg.content, str) else "") + reasoning_instr
+        
+        mm_content = [
+            {"type": "text", "text": text_content},
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:{state.get('image_mimetype', 'image/png')};base64,{state['image_data']}"}
+            }
+        ]
+        prompt[-1] = HumanMessage(content=mm_content)
+        final_prompt = prompt
+    else:
+        if isinstance(prompt[-1].content, str):
+            prompt[-1].content += reasoning_instr
+        final_prompt = prompt
+    
+    res_raw = await llm.ainvoke(final_prompt, config=config)
     res = res_raw
     
     if not res.tool_calls:
-        return Command(goto="diagnostician", update={"messages": [res]})
+        logger.warning("Diagnostician failed to call tools; falling back to Mentor.")
+        return Command(
+            goto="mentor", 
+            update={
+                "messages": [res],
+                "feedback_raw_responses": [res.content],
+                "current_feedback_draft": {
+                    "root_cause": str(res.content), 
+                    "knowledge_gap": "Automated analysis (tool-call fallback)"
+                }
+            }
+        )
 
     tc = res.tool_calls[0]
 
     # ── Agentic Execution Loop (RCA Verification) ────────────────────────────
     if tc["name"] in ["web_search_tool", "python_repl_tool"]:
+        import asyncio
         logger.info("Feedback Diagnostician executing: %s", tc["name"])
-        output = web_search_tool.invoke(tc["args"]) if tc["name"] == "web_search_tool" else python_repl_tool.invoke(tc["args"])
+        # Tools are synchronous — run in thread pool to avoid blocking the async event loop
+        if tc["name"] == "web_search_tool":
+            output = await asyncio.to_thread(web_search_tool.invoke, tc["args"])
+        else:
+            output = await asyncio.to_thread(python_repl_tool.invoke, tc["args"])
         return Command(
             goto="diagnostician", 
             update={"messages": [res, ToolMessage(content=output, tool_call_id=tc["id"])]}
         )
 
     draft = tc["args"]
+    
+    # Normalize content to string (handles Gemma 4 thinking/multimodal list format)
+    raw_content = res.content
+    if isinstance(raw_content, list):
+        raw_content = "\n".join([
+            part.get("text") or part.get("thinking") or str(part) 
+            for part in raw_content if isinstance(part, dict)
+        ])
+
     return Command(
         goto="mentor", 
         update={
             "messages": [res, ToolMessage(content="Analyzing student gaps...", tool_call_id=res.tool_calls[0]["id"])],
-            "feedback_raw_responses": [res.content],
+            "feedback_raw_responses": [raw_content],
             "current_feedback_draft": draft
         }
     )
 
-from app.agents.swarm_engine import SwarmLoop
 
 
 @traceable(name="feedback_mentor")
@@ -92,8 +138,27 @@ async def mentor_node(
 ) -> Command[Literal["formatter", "diagnostician"]]:
     """Quality-gates feedback with Growth Mindset scoring; loops or finalises."""
     revisions = state.get("feedback_revisions", 0)
-    if revisions >= 3:
-        return Command(goto="formatter")
+    
+    # ── Record DPO Pair (if this is a revision) ─────────────────────────────
+    raw_chosen = "\n---\n".join(state.get("feedback_raw_responses", []))
+    raw_rejected = str(state.get("feedback_rejected_draft", ""))
+    
+    dpo_update = SwarmLoop.extract_dpo_pairs(
+        agent_name="feedback_mentor",
+        original_query=state["original_query"],
+        chosen_content=raw_chosen,
+        rejected_content=raw_rejected,
+        revision_count=revisions
+    )
+
+    if revisions >= 2:
+        return Command(
+            goto="formatter", 
+            update={
+                "dpo_pairs": dpo_update,
+                "final_feedback": state.get("current_feedback_draft", {})
+            }
+        )
 
     llm = RoundRobinLLM.for_role(
         "critic", 
@@ -175,8 +240,8 @@ async def formatter_node(state: AgentState) -> dict:
 
 # ── Subgraph Builder ─────────────────────────────────────────────────────────
 
-def build_feedback_subgraph() -> StateGraph:
-    g = StateGraph(AgentState, input=FeedbackInputState, output=FeedbackOutputState)
+def build_feedback_subgraph() -> CompiledStateGraph:
+    g = StateGraph(AgentState, input_schema=FeedbackInputState, output_schema=FeedbackOutputState)
     g.add_node("diagnostician", diagnostician_node)
     g.add_node("mentor",        mentor_node)
     g.add_node("formatter",     formatter_node)

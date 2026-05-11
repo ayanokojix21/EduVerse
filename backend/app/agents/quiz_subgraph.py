@@ -8,11 +8,13 @@ from langchain_core.messages import ToolMessage, AnyMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START
 from langgraph.graph.message import add_messages
+from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command, interrupt, Send
 from langsmith import traceable
 from typing_extensions import TypedDict
 
 from app.agents.state import AgentState, merge_or_reset
+from app.agents.swarm_engine import SwarmLoop          # top-level import
 from app.config import get_settings
 from app.utils.llm_pool import RoundRobinLLM
 from app.retrieval.retriever import get_retrieval_chain
@@ -29,7 +31,7 @@ from app.agents.schemas.quiz import (
 )
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
+# NOTE: settings is NOT loaded at module level to support test mocking.
 
 
 # ── Nodes ────────────────────────────────────────────────────────────────────
@@ -55,6 +57,7 @@ async def retriever_node(
     config: RunnableConfig,
 ) -> Command[Literal["distributor"]]:
     """Fetches retrieval context based on selected topic source."""
+    settings = get_settings()  # resolved lazily for testability
     db = config["configurable"]["db"]
     sync_client = config["configurable"]["mongo_client_sync"]
     source = state.get("quiz_topic_source", "course_material")
@@ -102,33 +105,43 @@ async def drafter_worker_node(state: QuestionDrafterState, config: RunnableConfi
         m=state["messages"][-50:]
     )
     
-    # Multimodal Vision Injection for Gemma 4
+    # Reasoning Trigger & Multimodal Vision Injection for Gemma 4
+    reasoning_instr = "\n\n### REASONING INSTRUCTION\nThink step-by-step to map distractors to misconceptions."
+    
     if state.get("image_data"):
         from langchain_core.messages import HumanMessage
+        last_msg = prompt[-1]
+        text_content = (last_msg.content if isinstance(last_msg.content, str) else "") + reasoning_instr
+        
         mm_content = [
-            {"type": "text", "text": prompt[-1].content},
+            {"type": "text", "text": text_content},
             {
                 "type": "image_url",
                 "image_url": {"url": f"data:{state.get('image_mimetype', 'image/png')};base64,{state['image_data']}"}
             }
         ]
         prompt[-1] = HumanMessage(content=mm_content)
-
-    # Reasoning Trigger
-    if isinstance(prompt[-1].content, str):
-        prompt[-1].content += "\n\n### REASONING INSTRUCTION\nBegin with <|thought|> to map distractors to misconceptions."
+    else:
+        if isinstance(prompt[-1].content, str):
+            prompt[-1].content += reasoning_instr
     
     res_raw = await llm.ainvoke(prompt, config=config)
     res: QuizQuestion = res_raw["parsed"]
-    raw_text: str = res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"])
-
     dump = res.model_dump() if hasattr(res, "model_dump") else res
+    
+    # Normalize raw content to string for DPO extraction (handles Gemma 4 thinking lists)
+    raw_res = res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"])
+    if isinstance(raw_res, list):
+        raw_res = "\n".join([
+            part.get("text") or part.get("thinking") or str(part) 
+            for part in raw_res if isinstance(part, dict)
+        ])
+
     return {
         "quiz_current_draft": [dump],
-        "quiz_raw_responses": [raw_text]
+        "quiz_raw_responses": [raw_res]
     }
 
-from app.agents.swarm_engine import SwarmLoop
 
 
 @traceable(name="quiz_reviewer")
@@ -138,8 +151,27 @@ async def reviewer_node(
 ) -> Command[Literal["formatter", "reviewer", "distributor"]]:
     """Reduce: evaluates all parallel candidates and approves or rejects the set."""
     revisions = state.get("quiz_revisions", 0)
-    if revisions >= 3:
-        return Command(goto="formatter")
+    
+    # ── Record DPO Pair (if this is a revision) ─────────────────────────────
+    raw_chosen = "\n---\n".join(state.get("quiz_raw_responses", []))
+    raw_rejected = str(state.get("quiz_rejected_draft", ""))
+    
+    dpo_update = SwarmLoop.extract_dpo_pairs(
+        agent_name="quiz_drafter",
+        original_query=state["original_query"],
+        chosen_content=raw_chosen,
+        rejected_content=raw_rejected,
+        revision_count=revisions
+    )
+
+    if revisions >= 2:
+        return Command(
+            goto="formatter", 
+            update={
+                "dpo_pairs": dpo_update,
+                "quiz_best_draft": state.get("quiz_current_draft", [])
+            }
+        )
 
     llm = RoundRobinLLM.for_role(
         "critic", 
@@ -156,7 +188,12 @@ async def reviewer_node(
     tc = res.tool_calls[0]
     
     if tc["name"] in ["web_search_tool", "python_repl_tool"]:
-        output = web_search_tool.invoke(tc["args"]) if tc["name"] == "web_search_tool" else python_repl_tool.invoke(tc["args"])
+        import asyncio
+        # Tools are synchronous — run in thread pool to avoid blocking the async event loop
+        if tc["name"] == "web_search_tool":
+            output = await asyncio.to_thread(web_search_tool.invoke, tc["args"])
+        else:
+            output = await asyncio.to_thread(python_repl_tool.invoke, tc["args"])
         return Command(
             goto="reviewer", 
             update={"messages": [res, ToolMessage(content=output, tool_call_id=tc["id"])]}
@@ -177,19 +214,9 @@ async def reviewer_node(
             }
         )
 
-    raw_chosen = "\n---\n".join(state.get("quiz_raw_responses", []))
-    raw_rejected = str(state.get("quiz_rejected_draft", "")) 
-    
-    dpo_update = SwarmLoop.extract_dpo_pairs(
-        agent_name="quiz_drafter",
-        original_query="Generate 3 parallel MCQs against context",
-        chosen_content=raw_chosen,
-        rejected_content=raw_rejected,
-        revision_count=revisions
-    )
-
     return Command(goto="formatter", update={
-        "messages": [res, ToolMessage(content="Verified.", tool_call_id=tc["id"])],
+        "messages": [res, ToolMessage(content="Quiz set approved.", tool_call_id=tc["id"])],
+        "quiz_best_draft": state["quiz_current_draft"],
         "dpo_pairs": dpo_update
     })
 
@@ -210,8 +237,8 @@ async def formatter_node(state: QuizState) -> dict:
 
 # ── Subgraph Builder ─────────────────────────────────────────────────────────
 
-def build_quiz_subgraph() -> StateGraph:
-    g = StateGraph(QuizState, input=QuizInputState, output=QuizOutputState)
+def build_quiz_subgraph() -> CompiledStateGraph:
+    g = StateGraph(QuizState, input_schema=QuizInputState, output_schema=QuizOutputState)
     g.add_node("topic_selector", topic_selector_node)
     g.add_node("retriever",      retriever_node)
     g.add_node("distributor",    distributor_node)

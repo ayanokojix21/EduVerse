@@ -45,21 +45,7 @@ class QuestionFeedback(BaseModel):
         description="A concrete, actionable next step for the student to address the root cause.",
     )
 
-    model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [
-                {
-                    "question_text": "What is F=ma?",
-                    "is_correct": False,
-                    "user_answer": "Force = mass + acceleration",
-                    "correct_answer": "Force = mass × acceleration",
-                    "explanation": "Newton's Second Law states force equals mass multiplied by acceleration.",
-                    "root_cause": "Conceptual Gap",
-                    "improvement_tip": "Review Chapter 3 on Newton's Laws and re-attempt the practice problems.",
-                }
-            ]
-        }
-    )
+    model_config = ConfigDict()
 
 
 # ── Sub-schema: Mentor Quality Score ─────────────────────────────────────────
@@ -168,10 +154,25 @@ class FeedbackInputState(TypedDict, total=False):
     course_id: str
 
 class FeedbackOutputState(TypedDict, total=False):
-    """Standardized output for the Feedback Swarm."""
-    messages: Annotated[list[AnyMessage], add_messages]
-    response_text: str
+    """
+    Standardized output boundary for the Feedback Swarm.
+
+    Every field here is consumed by either:
+      - critic_agent (needs response_text, dpo_pairs)
+      - parent AgentState (identified_weak_topics for adaptive learning)
+
+    Fields NOT listed here are silently dropped by LangGraph at the
+    subgraph boundary, even if nodes wrote them to state.
+    """
+    # Core response
+    messages:               Annotated[list[AnyMessage], add_messages]
+    response_text:          str
     identified_weak_topics: list[str]
+    # DPO training data — written by mentor_node
+    dpo_pairs:              list[dict]
+    feedback_raw_responses: list[str]
+    # Observability
+    feedback_revisions:     int
 
 # Required: `from __future__ import annotations` defers type evaluation.
 # model_rebuild() forces Pydantic v2 to load them at import time.

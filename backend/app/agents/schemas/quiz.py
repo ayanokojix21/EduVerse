@@ -62,19 +62,7 @@ class QuizQuestion(BaseModel):
             raise ValueError(f"correct_answer '{v}' must be one of the provided options.")
         return v
 
-    model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [
-                {
-                    "question": "What does F=ma represent?",
-                    "options": ["Force = mass × acceleration", "Force = mass + acceleration", "Force = mass ÷ area", "Force = momentum × time"],
-                    "correct_answer": "Force = mass × acceleration",
-                    "distractor_reasoning": "Option B uses addition (inverse logic). Option C confuses with pressure formula (keyword trap). Option D confuses impulse with force (almost correct).",
-                    "bloom_level": "Understand",
-                }
-            ]
-        }
-    )
+    model_config = ConfigDict()
 
 
 # ── Reviewer: Rejection ───────────────────────────────────────────────────────
@@ -93,9 +81,7 @@ class TransferToDrafter(BaseModel):
         min_length=15,
     )
 
-    model_config = ConfigDict(
-        json_schema_extra={"examples": [{"critique": "Q1: distractor B is factually correct for relativistic scenarios. Needs a more specific qualifier."}]}
-    )
+    model_config = ConfigDict()
 
 
 # ── Reviewer: Approval ────────────────────────────────────────────────────────
@@ -110,26 +96,49 @@ class FinalizeQuiz(BaseModel):
         description="Brief approval note confirming psychometric quality (e.g., 'All 3 questions passed unambiguity and distractor checks.').",
     )
 
-    model_config = ConfigDict(
-        json_schema_extra={"examples": [{"note": "All 3 questions passed unambiguity and distractor checks."}]}
-    )
+    model_config = ConfigDict()
 
 
 # ── Swarm Boundaries (LangGraph) ──────────────────────────────────────────────
 
 class QuizInputState(TypedDict, total=False):
-    """Input boundary for the Quiz Swarm."""
-    messages: Annotated[list[AnyMessage], add_messages]
-    original_query: str
-    difficulty: str
-    user_id: str
-    course_id: str
+    """Input boundary for the Quiz Swarm.
+    
+    All fields listed here are passed from the parent AgentState into the
+    quiz_swarm subgraph. Fields NOT listed are invisible inside the subgraph.
+    """
+    messages:           Annotated[list[AnyMessage], add_messages]
+    original_query:     str
+    difficulty:         str
+    user_id:            str
+    course_id:          str
+    # CRITICAL: must be declared here for orchestrator's selection to cross the boundary.
+    # topic_selector_node checks this; if missing it always fires the HITL interrupt.
+    quiz_topic_source:  str
+    image_data:         str | None
+    image_mimetype:     str | None
 
 class QuizOutputState(TypedDict, total=False):
-    """Standardized output for the Quiz Swarm."""
-    messages: Annotated[list[AnyMessage], add_messages]
-    response_text: str
+    """
+    Standardized output boundary for the Quiz Swarm.
+
+    Every field here is consumed by either:
+      - critic_agent (needs response_text, dpo_pairs)
+      - parent AgentState (quiz_topic_source, quiz_revisions for observability)
+
+    Fields NOT listed here are silently dropped by LangGraph at the
+    subgraph boundary, even if nodes wrote them to state.
+    """
+    # Core response
+    messages:           Annotated[list[AnyMessage], add_messages]
+    response_text:      str
     quiz_current_draft: list[dict]
+    # DPO training data — written by reviewer_node
+    dpo_pairs:          list[dict]
+    quiz_raw_responses: list[str]
+    # Observability — read by chat_service and parent graph
+    quiz_topic_source:  str
+    quiz_revisions:     int
 
 class QuestionDrafterState(TypedDict):
     """Internal parallel payload for high-fidelity MCQ generation."""

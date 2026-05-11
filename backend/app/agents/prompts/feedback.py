@@ -24,7 +24,7 @@ DIAGNOSTICIAN_SYSTEM = (
     "{q}\n"
     "</responses>\n\n"
     "### INSTRUCTIONAL CONSTRAINTS\n"
-    "1. **Thinking Protocol**: Use `<|thought|>` tags to perform a step-by-step RCA before calling any tool.\n"
+    "1. **Thinking Protocol**: Use 'Think step-by-step' tags to perform a step-by-step RCA before calling any tool.\n"
     "2. **Cross-Referencing**: Compare student errors against the correct definitions in the SOURCE MATERIAL.\n"
     "3. **Classification**: Identify if the error is a 'Calculation Error', 'Conceptual Gap', or 'Reading Misinterpretation'.\n"
     "4. **Routing**: Call `TransferToMentor` with the structured RCA."
