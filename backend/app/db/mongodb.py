@@ -1,9 +1,10 @@
 """
 app/db/mongodb.py
-────────────────
-MongoDB Infrastructure — Local-First.
+──────────────────
+MongoDB Atlas Infrastructure.
 
-Connects to local MongoDB, creates indexes, and initializes
+Connects to MongoDB Atlas, creates indexes, and initializes
+the LangGraph checkpointer and semantic cache on startup.
 """
 from __future__ import annotations
 
@@ -73,13 +74,16 @@ async def mongo_lifespan(app: FastAPI) -> AsyncIterator[None]:
         try:
             from langchain_core.globals import set_llm_cache
             from langchain_mongodb.cache import MongoDBAtlasSemanticCache
-            from app.retrieval.retriever import build_embeddings
+            from app.db.vector_repository import get_vector_repository
 
             cache_collection = sync_client[settings.mongo_db_name][settings.mongo_semantic_cache_collection]
+            repo = get_vector_repository()
 
             set_llm_cache(MongoDBAtlasSemanticCache(
-                embedding=build_embeddings(settings),
-                collection=cache_collection,
+                connection_string=settings.mongo_uri,
+                embedding=repo.get_embeddings(),
+                database_name=settings.mongo_db_name,
+                collection_name=settings.mongo_semantic_cache_collection,
                 index_name=settings.mongo_semantic_cache_vector_index_name,
             ))
             logger.info("Semantic Cache initialized on index: %s", settings.mongo_semantic_cache_vector_index_name)
