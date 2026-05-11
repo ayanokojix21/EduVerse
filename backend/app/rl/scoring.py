@@ -34,7 +34,7 @@ def calculate_rl_reward(review: Dict[str, Any], response_text: str) -> float:
     validated_citations = review.get("validated_citations", 0)
     g_score = min(1.3, g_base + (validated_citations * 0.1))
 
-    has_thoughts = "<|thought|>" in response_text or "<thought>" in response_text
+    has_thoughts = "<think>" in response_text or "<thought>" in response_text
     p_score = 1.0 if has_thoughts else 0.0
     
     quality_signal = 1.0 if passed else 0.4
