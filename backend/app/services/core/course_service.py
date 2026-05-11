@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
-import shutil
 import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
@@ -15,13 +13,13 @@ from app.config import Settings, get_settings
 from app.db.mongodb import get_db
 from app.db.oauth_repository import OAuthTokenRepository, get_oauth_repository
 from app.services.auth.classroom_service import ClassroomService
-
 from app.schemas.api import UnifiedCourse
 
 if TYPE_CHECKING:
     from motor.motor_asyncio import AsyncIOMotorDatabase
 
 logger = logging.getLogger(__name__)
+
 
 class CourseService:
     def __init__(
@@ -36,35 +34,34 @@ class CourseService:
 
     async def get_all_courses(self, user_id: str) -> list[UnifiedCourse]:
         is_guest = user_id.startswith("guest_")
-        
+
         local_coll = self.db[self.settings.mongo_local_courses_collection]
         local_raw = await local_coll.find({"user_id": user_id}).to_list(length=None)
-        
+
         google_raw = []
         if not is_guest:
             cache_coll = self.db[self.settings.mongo_cached_courses_collection]
             try:
                 credentials = await self.token_service.get_user_credentials(user_id)
                 from googleapiclient.discovery import build
-                service = await anyio.to_thread.run_sync(
-                    lambda: build("classroom", "v1", credentials=credentials, cache_discovery=False)
-                )
                 google_raw = await anyio.to_thread.run_sync(ClassroomService.list_courses, credentials)
-                
+
                 async def enrich(c):
                     c["source"] = "google_classroom"
                     def get_count():
                         try:
-                            res = service.courses().courseWork().list(courseId=c["id"]).execute()
+                            local_service = build("classroom", "v1", credentials=credentials, cache_discovery=False)
+                            res = local_service.courses().courseWork().list(courseId=c["id"]).execute()
                             return len(res.get("courseWork", []))
-                        except Exception: return 0
+                        except Exception:
+                            return 0
                     c["assignment_count"] = await anyio.to_thread.run_sync(get_count)
-                
+
                 await asyncio.gather(*(enrich(c) for c in google_raw))
                 await cache_coll.update_one(
                     {"user_id": user_id},
                     {"$set": {"user_id": user_id, "courses": google_raw, "updated_at": datetime.now(timezone.utc)}},
-                    upsert=True
+                    upsert=True,
                 )
             except Exception as exc:
                 logger.warning("Course cache fallback for %s: %s", user_id, exc)
@@ -118,11 +115,16 @@ class CourseService:
         await self.db[self.settings.mongo_parent_chunks_collection].delete_many({"user_id": user_id, "course_id": course_id})
         await self.db[self.settings.mongo_child_chunks_collection].delete_many({"user_id": user_id, "course_id": course_id})
         await self.db[self.settings.mongo_ingestion_jobs_collection].delete_many({"user_id": user_id, "course_id": course_id})
-        
+
         if course_id.startswith("local_"):
-            path = os.path.join(self.settings.data_dir, "uploads", user_id, course_id)
-            if os.path.exists(path):
-                await anyio.to_thread.run_sync(shutil.rmtree, path)
+            # ── Cloud Storage Wipe (Cloudinary) ───────────────────────────────
+            if self.settings.has_cloudinary:
+                try:
+                    from app.services.core.storage_service import StorageService
+                    storage = StorageService(self.settings)
+                    await storage.delete_course_data(user_id, course_id)
+                except Exception as exc:
+                    logger.warning("Cloudinary course wipe non-critical failure: %s", exc)
             await self.db[self.settings.mongo_local_courses_collection].delete_one({"user_id": user_id, "course_id": course_id})
 
         from app.ingestion.embedder import wipe_course_vectors
