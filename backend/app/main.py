@@ -26,16 +26,15 @@ async def global_lifespan(app: FastAPI):
     """
     settings = get_settings()
     
-    # ── Phase 1: DB Infrastructure ──────────────────────────────────────────
     async with mongo_lifespan(app):
-        # ── Phase 2: Agent MAS Compilation ─────────────────────────────────
         try:
             from app.agents.graph import compile_graph
-            from langgraph.checkpoint.mongodb.aio import AsyncMongoDBSaver
-            from app.db.mongodb import MONGO_CLIENT_STATE_KEY
+            from langgraph.checkpoint.mongodb import MongoDBSaver
             
-            client = getattr(app.state, MONGO_CLIENT_STATE_KEY)
-            checkpointer = AsyncMongoDBSaver(client, db_name=settings.mongo_db_name)
+            from app.db.mongodb import MONGO_CLIENT_SYNC_STATE_KEY
+            
+            sync_client = getattr(app.state, MONGO_CLIENT_SYNC_STATE_KEY)
+            checkpointer = MongoDBSaver(sync_client, db_name=settings.mongo_db_name)
             
             await compile_graph(checkpointer)
             logger.info("EduVerse MAS compiled with shared persistent checkpointer.")
@@ -56,9 +55,19 @@ def create_app() -> FastAPI:
     app.add_middleware(JWTAuthMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=1000)
 
+    # ── CORS Setup ─────────────────────────────────────────────────────────────
+    # Allow production frontend + local development origins
+    origins = [
+        settings.frontend_origin,
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://127.0.0.1:3000",
+    ]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.frontend_origin],
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

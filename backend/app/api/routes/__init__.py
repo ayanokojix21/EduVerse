@@ -1,3 +1,3 @@
-from app.api.routes import auth, courses, health, ingestion, profile, sessions, tokens, proxy, rl, semantic_cache
+from app.api.routes import auth, chat, courses, health, ingestion, profile, sessions, proxy, rl, semantic_cache
 
-__all__ = ["auth", "courses", "health", "ingestion", "profile", "sessions", "tokens", "proxy", "rl", "semantic_cache"]
+__all__ = ["auth", "chat", "courses", "health", "ingestion", "profile", "sessions", "proxy", "rl", "semantic_cache"]

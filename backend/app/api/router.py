@@ -1,12 +1,11 @@
 from fastapi import APIRouter
 
-from app.api.routes import auth, chat, courses, health, ingestion, profile, sessions, tokens, proxy, rl, semantic_cache
+from app.api.routes import auth, chat, courses, health, ingestion, profile, sessions, proxy, rl, semantic_cache
 
-api_router = APIRouter()
+api_router = APIRouter(prefix="/api/v1")
 
 # Authentication & Identity
 api_router.include_router(auth.router,    prefix="/auth", tags=["auth"])
-api_router.include_router(tokens.router,  prefix="/auth", tags=["auth"])
 
 # Core Features
 api_router.include_router(courses.router, prefix="/courses", tags=["courses"])
