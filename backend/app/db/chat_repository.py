@@ -120,5 +120,31 @@ class ChatRepository:
         result = await self.collection.delete_one({"session_id": session_id, "user_id": user_id})
         return result.deleted_count > 0
 
+    async def save_feedback(
+        self, 
+        session_id: str, 
+        user_id: str, 
+        message_id: str, 
+        is_positive: bool,
+        comment: str | None = None
+    ) -> bool:
+        """
+        Attaches human feedback to a specific message in the session history.
+        """
+        result = await self.collection.update_one(
+            {"session_id": session_id, "user_id": user_id},
+            {
+                "$set": {
+                    "messages.$[msg].feedback": {
+                        "is_positive": is_positive,
+                        "comment": comment,
+                        "timestamp": _utc_now().isoformat()
+                    }
+                }
+            },
+            array_filters=[{"msg.id": message_id}]
+        )
+        return result.modified_count > 0
+
 def get_chat_repository(db=Depends(get_db)) -> ChatRepository:
     return ChatRepository(db)
