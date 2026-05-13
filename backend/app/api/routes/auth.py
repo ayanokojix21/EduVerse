@@ -205,12 +205,9 @@ async def auth_callback(
     app_jwt = mint_app_jwt(user_id, settings, role=user_role)
     logger.info("Auth: Tokens stored for %s with role %s", user_id, user_role)
 
-    response = JSONResponse({
-        "status": "success",
-        "user_id": user_id,
-        "app_jwt": app_jwt,
-        "tip": "Copy app_jwt → go to /docs → click Authorize → paste as Bearer token.",
-    })
+    # Redirect to frontend callback page with the JWT token
+    frontend_callback = f"{settings.frontend_origin}/auth/callback?token={urllib.parse.quote(app_jwt)}"
+    response = RedirectResponse(url=frontend_callback, status_code=302)
     response.delete_cookie("oauth_state")
     return response
 
