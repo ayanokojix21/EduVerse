@@ -2,11 +2,11 @@
 fastapi[standard]==0.135.3
 pydantic-settings==2.13.1
 python-dotenv==1.2.2
-python-multipart>=0.0.9
+python-multipart==0.0.26
 
 # ── Database (MongoDB Atlas) ───────────────────────────────────────────────────
 motor==3.7.1
-pymongo>=4.10,<4.16
+pymongo==4.15.5
 
 # ── Auth ───────────────────────────────────────────────────────────────────────
 python-jose[cryptography]==3.5.0
@@ -15,58 +15,58 @@ cryptography==46.0.7
 # ── Resilience + async ──────────────────────────────────────────────────────────
 tenacity==9.1.4
 httpx==0.28.1
-anyio>=4.0
+anyio==4.13.0
 
 # ── Google APIs (OAuth + Classroom sync) ───────────────────────────────────────
 google-auth==2.49.1
 google-api-python-client==2.194.0
 
 # ── LangChain ecosystem ────────────────────────────────────────────────────────
-langchain>=0.3.0
-langchain-core>=0.3.0
-langchain-text-splitters>=0.3.0
-langchain-community>=0.3.0
-langchain-mongodb>=0.11.0
-langsmith>=0.1.0
+langchain==0.3.28
+langchain-core==0.3.84
+langchain-text-splitters==0.3.11
+langchain-community==0.3.31
+langchain-mongodb==0.7.2
+langsmith==0.7.30
 
 # ── LangGraph ──────────────────────────────────────────────────────────────────
-langgraph>=0.1.0
-langgraph-checkpoint-mongodb==0.3.1
+langgraph==1.0.1
+langgraph-checkpoint-mongodb==0.2.2
 
 # ── Google Classroom Loader ────────────────────────────────────────────────────
-langchain-google-classroom>=0.1.0
+langchain-google-classroom==0.1.2
 
 # ── Cloud Inference (Gemma 4 via Google AI Studio) ─────────────────────────────
-langchain-google-genai>=4.2.2
+langchain-google-genai==2.1.12
 
 # ── Cloud Storage (Cloudinary) ─────────────────────────────────────────────────
-cloudinary>=1.36.0
+cloudinary==1.44.2
 
 # ── Cloud Embeddings (Nomic) ───────────────────────────────────────────────────
-langchain-nomic>=0.1.0
-nomic>=3.0.0
+langchain-nomic==0.1.5
+nomic==3.9.0
 
 # ── Cloud Reranker (Cohere) ────────────────────────────────────────────────────
-langchain-cohere>=0.1.0
-cohere>=5.0.0
+langchain-cohere==0.4.6
+cohere==5.21.1
 
 # ── Cloud Code Sandbox (E2B) ───────────────────────────────────────────────────
-e2b-code-interpreter>=0.0.10
+e2b-code-interpreter==2.6.2
 
 # ── PDF processing & Vision ──────────────────────────────────────────────────
-pymupdf>=1.23.0
-pymupdf4llm>=0.0.17
+pymupdf==1.27.2.2
+pymupdf4llm==1.27.2.2
 
 # ── Reinforcement Learning & Kaggle Orchestration ─────────────────────────────
 gymnasium==1.1.1
-numpy>=1.24.0
-kaggle>=1.6.14
-huggingface_hub>=0.24.0
+numpy==2.4.4
+kaggle==2.1.0
+huggingface_hub==1.10.1
 
 # ── Utilities ──────────────────────────────────────────────────────────────────
-tiktoken>=0.7.0
+tiktoken==0.12.0
 
 # ── Testing ────────────────────────────────────────────────────────────────────
-pytest>=8.0.0
-pytest-asyncio>=0.23.0
-pytest-cov>=4.0.0
+pytest==9.0.3
+pytest-asyncio==1.3.0
+pytest-cov==7.1.0
