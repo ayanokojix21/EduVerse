@@ -274,6 +274,8 @@ function CriticReview({ critic }: { critic: Record<string, unknown> }) {
   );
 }
 
+import { Drawer } from "@/components/ui/Drawer";
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function ObservabilityDrawer({
@@ -298,40 +300,13 @@ export function ObservabilityDrawer({
     traceUrl;
 
   return (
-    <div
-      className="
-        h-full border-l border-[var(--color-border)]
-        bg-[var(--color-bg)]
-        animate-[slide-in-right_0.3s_ease-out_both]
-        flex flex-col
-        overflow-hidden
-      "
+    <Drawer
+      open={isOpen}
+      onClose={onClose}
+      title="Observability"
+      inline={true}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)] flex-shrink-0">
-        <h3 className="text-[14px] font-semibold text-[var(--color-text-main)]">
-          Observability
-        </h3>
-        <button
-          onClick={onClose}
-          className="
-            w-7 h-7 rounded-full
-            flex items-center justify-center
-            text-[var(--color-text-dim)]
-            hover:bg-[rgba(239,243,244,0.08)]
-            hover:text-[var(--color-text-muted)]
-            transition-colors duration-150
-          "
-          aria-label="Close observability panel"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M18 6 6 18M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div className="px-4 py-4 space-y-4">
         {!hasContent ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <p className="text-[13px] text-[var(--color-text-dim)]">
@@ -387,6 +362,6 @@ export function ObservabilityDrawer({
           </>
         )}
       </div>
-    </div>
+    </Drawer>
   );
 }

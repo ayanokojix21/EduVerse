@@ -10,13 +10,14 @@ import { X } from "lucide-react";
 interface DrawerProps {
   open: boolean;
   onClose: () => void;
-  title?: string;
+  title?: React.ReactNode;
   width?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  inline?: boolean;
 }
 
-export function Drawer({ open, onClose, title, width = "420px", children, footer }: DrawerProps) {
+export function Drawer({ open, onClose, title, width = "420px", children, footer, inline = false }: DrawerProps) {
   // Close on Escape
   useEffect(() => {
     if (!open) return;
@@ -27,48 +28,52 @@ export function Drawer({ open, onClose, title, width = "420px", children, footer
     return () => document.removeEventListener("keydown", handleKey);
   }, [open, onClose]);
 
-  // Lock body scroll
+  // Lock body scroll (only for overlay)
   useEffect(() => {
+    if (inline) return;
     document.body.style.overflow = open ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
-  }, [open]);
+  }, [open, inline]);
+
+  if (inline && !open) return null;
 
   return (
     <>
-      {/* Backdrop */}
-      <div
-        className={[
-          "fixed inset-0 z-40 bg-black/50 backdrop-blur-sm",
-          "transition-opacity duration-300",
-          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
-        ].join(" ")}
-        onClick={onClose}
-        aria-hidden="true"
-      />
+      {/* Backdrop (overlay only) */}
+      {!inline && (
+        <div
+          className={[
+            "fixed inset-0 z-40 bg-black/50 backdrop-blur-sm",
+            "transition-opacity duration-300",
+            open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+          ].join(" ")}
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
 
       {/* Panel */}
       <div
         role="dialog"
-        aria-modal="true"
-        aria-label={title ?? "Panel"}
+        aria-modal={!inline ? "true" : undefined}
+        aria-label={typeof title === "string" ? title : "Panel"}
         className={[
-          "fixed top-0 right-0 bottom-0 z-50",
+          inline ? "h-full relative" : "fixed top-0 right-0 bottom-0 z-50 shadow-[-24px_0_48px_rgba(0,0,0,0.4)] transition-transform duration-300 ease-out",
           "flex flex-col",
           "bg-[#16181C]",
           "border-l border-[#2F3336]",
-          "shadow-[-24px_0_48px_rgba(0,0,0,0.4)]",
-          "transition-transform duration-300 ease-out",
-          open ? "translate-x-0" : "translate-x-full",
-        ].join(" ")}
-        style={{ width }}
+          !inline && (open ? "translate-x-0" : "translate-x-full"),
+          inline && "animate-[slide-in-right_0.3s_ease-out_both]"
+        ].filter(Boolean).join(" ")}
+        style={{ width: inline ? "100%" : width }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#2F3336] flex-shrink-0">
-          <h2 className="text-[15px] font-semibold text-[#E7E9EA]">{title ?? ""}</h2>
+          <div className="text-[15px] font-semibold text-[#E7E9EA] min-w-0 flex-1">{title ?? ""}</div>
           <button
             onClick={onClose}
             className={[
-              "p-1.5 rounded-full",
+              "p-1.5 rounded-full flex-shrink-0 ml-2",
               "text-[#71767B] hover:text-[#E7E9EA]",
               "hover:bg-[rgba(239,243,244,0.1)]",
               "transition-colors duration-150",
