@@ -108,6 +108,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  const logout = useCallback(() => {
+    localStorage.removeItem(JWT_KEY);
+    clearTokenCookie();
+    setToken(null);
+    setUser(null);
+  }, []);
+
+  // Periodic token expiration check
+  useEffect(() => {
+    if (!token) return;
+    const interval = setInterval(() => {
+      const decoded = decodeJWT(token);
+      if (!decoded || isTokenExpired(decoded)) {
+        logout();
+      }
+    }, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, [token, logout]);
+
   const saveToken = useCallback((jwt: string) => {
     localStorage.setItem(JWT_KEY, jwt);
     setToken(jwt);
@@ -133,12 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.href = authApi.loginGoogleUrl();
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(JWT_KEY);
-    clearTokenCookie();
-    setToken(null);
-    setUser(null);
-  }, []);
+
 
   const value = useMemo<AuthContextValue>(
     () => ({
