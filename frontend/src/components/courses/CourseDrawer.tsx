@@ -15,6 +15,9 @@ import { ingestionApi, coursesApi } from "@/lib/api";
 import type { UnifiedCourse, Coursework } from "@/lib/types";
 import { FileList } from "./FileList";
 import { IngestionBar } from "./IngestionBar";
+import { Drawer } from "@/components/ui/Drawer";
+import { Button } from "@/components/ui/Button";
+import { SourceBadge } from "@/components/ui/Badge";
 
 interface CourseDrawerProps {
   course: UnifiedCourse;
@@ -120,64 +123,48 @@ export function CourseDrawer({ course, isOpen, onClose, onDeleted }: CourseDrawe
 
   // ── Render ──────────────────────────────────────────────────────────────
 
+  const headerTitle = (
+    <div className="flex flex-col gap-1">
+      <span className="truncate">{course.name}</span>
+      <div className="-ml-1">
+        <SourceBadge source={course.source as any} />
+      </div>
+    </div>
+  );
+
+  const footerContent = (
+    <Button
+      variant="danger"
+      fullWidth
+      onClick={handleDeleteCourse}
+      loading={isDeleting}
+      leftIcon={
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 6h18" />
+          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+        </svg>
+      }
+    >
+      Delete Course
+    </Button>
+  );
+
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/60 z-40"
-        onClick={onClose}
-      />
-
-      {/* Drawer */}
-      <div
-        className="
-          fixed right-0 top-0 bottom-0
-          w-full max-w-[420px] z-50
-          bg-[var(--color-bg)]
-          border-l border-[var(--color-border)]
-          flex flex-col
-          animate-[slide-in-right_0.3s_ease-out_both]
-        "
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)] flex-shrink-0">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-[16px] font-semibold text-[var(--color-text-main)] truncate">
-              {course.name}
-            </h2>
-            <span
-              className={`
-                text-[10px] font-semibold uppercase tracking-wider
-                ${course.source === "classroom" ? "text-[#1d9bf0]" : "text-[var(--color-text-dim)]"}
-              `}
-            >
-              {course.source}
-            </span>
-          </div>
-          <button
-            onClick={onClose}
-            className="
-              w-8 h-8 rounded-full flex-shrink-0
-              flex items-center justify-center
-              text-[var(--color-text-dim)]
-              hover:bg-[rgba(239,243,244,0.08)]
-              transition-colors duration-150
-            "
-            aria-label="Close drawer"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
+    <Drawer
+      open={isOpen}
+      onClose={onClose}
+      title={headerTitle}
+      footer={footerContent}
+    >
+      <div className="flex flex-col h-full">
         {/* Ingestion bar */}
-        <div className="px-5 pt-3">
+        <div className="px-5 pt-3 flex-shrink-0">
           <IngestionBar courseId={course.id} />
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-[var(--color-border)] px-5 mt-2">
+        <div className="flex border-b border-[var(--color-border)] px-5 mt-2 flex-shrink-0">
           {(["files", "assignments"] as const).map((tab) => (
             <button
               key={tab}
@@ -200,66 +187,44 @@ export function CourseDrawer({ course, isOpen, onClose, onDeleted }: CourseDrawe
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="flex-1 px-5 py-4 min-h-0">
           {activeTab === "files" ? (
             <div className="space-y-4">
               {/* Upload + Sync buttons */}
               <div className="flex gap-2">
-                <button
+                <Button
+                  variant="ghost"
+                  className="flex-1"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="
-                    flex-1 flex items-center justify-center gap-2
-                    px-3 py-2.5
-                    rounded-[var(--radius-lg)]
-                    text-[12px] font-medium
-                    border border-[var(--color-border)]
-                    text-[var(--color-text-main)]
-                    hover:bg-[rgba(239,243,244,0.06)]
-                    disabled:opacity-40
-                    transition-colors duration-150
-                  "
-                >
-                  {isUploading ? (
-                    <div className="w-3.5 h-3.5 border-2 border-[var(--color-text-dim)] border-t-transparent rounded-full animate-spin" />
-                  ) : (
+                  loading={isUploading}
+                  leftIcon={
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                       <polyline points="17 8 12 3 7 8" />
                       <line x1="12" y1="3" x2="12" y2="15" />
                     </svg>
-                  )}
-                  {isUploading ? "Uploading…" : "Upload File"}
-                </button>
+                  }
+                >
+                  Upload File
+                </Button>
 
                 {course.source === "classroom" && (
-                  <button
+                  <Button
+                    variant="ghost"
                     onClick={handleSync}
-                    disabled={isSyncing}
-                    className="
-                      flex items-center justify-center gap-2
-                      px-3 py-2.5
-                      rounded-[var(--radius-lg)]
-                      text-[12px] font-medium
-                      border border-[var(--color-border)]
-                      text-[#1d9bf0]
-                      hover:bg-[rgba(29,155,240,0.08)]
-                      disabled:opacity-40
-                      transition-colors duration-150
-                    "
-                  >
-                    {isSyncing ? (
-                      <div className="w-3.5 h-3.5 border-2 border-[#1d9bf0] border-t-transparent rounded-full animate-spin" />
-                    ) : (
+                    loading={isSyncing}
+                    className="text-[#1d9bf0] border-[#1d9bf0]/20 hover:bg-[#1d9bf0]/10"
+                    leftIcon={
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21.5 2v6h-6" />
                         <path d="M2.5 22v-6h6" />
                         <path d="M2 11.5a10 10 0 0 1 18.8-4.3" />
                         <path d="M22 12.5a10 10 0 0 1-18.8 4.2" />
                       </svg>
-                    )}
+                    }
+                  >
                     Sync
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -364,36 +329,7 @@ export function CourseDrawer({ course, isOpen, onClose, onDeleted }: CourseDrawe
             </div>
           )}
         </div>
-
-        {/* Footer: Delete course */}
-        <div className="border-t border-[var(--color-border)] px-5 py-3 flex-shrink-0">
-          <button
-            onClick={handleDeleteCourse}
-            disabled={isDeleting}
-            className="
-              w-full flex items-center justify-center gap-2
-              px-3 py-2
-              rounded-[var(--radius-lg)]
-              text-[12px] font-medium
-              text-[var(--color-danger)]
-              hover:bg-[var(--color-danger-dim)]
-              disabled:opacity-40
-              transition-colors duration-150
-            "
-          >
-            {isDeleting ? (
-              <div className="w-3.5 h-3.5 border-2 border-[var(--color-danger)] border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 6h18" />
-                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-              </svg>
-            )}
-            {isDeleting ? "Deleting…" : "Delete Course"}
-          </button>
-        </div>
       </div>
-    </>
+    </Drawer>
   );
 }

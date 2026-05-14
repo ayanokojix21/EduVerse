@@ -14,6 +14,7 @@
 
 import Link from "next/link";
 import type { UnifiedCourse } from "@/lib/types";
+import { IngestionDot, SourceBadge } from "@/components/ui/Badge";
 
 interface CourseCardProps {
   course: UnifiedCourse;
@@ -50,29 +51,8 @@ export function CourseCard({ course, ingestionStatus = "none", onClick }: Course
     >
       {/* Top row: Source badge + Status dot */}
       <div className="flex items-center justify-between mb-3">
-        <span
-          className={`
-            text-[10px] font-semibold uppercase tracking-wider
-            px-2 py-0.5 rounded-full
-            ${
-              course.source === "classroom"
-                ? "bg-[rgba(29,155,240,0.12)] text-[#1d9bf0]"
-                : "bg-[rgba(239,243,244,0.06)] text-[var(--color-text-dim)]"
-            }
-          `}
-        >
-          {course.source === "classroom" ? "Classroom" : "Local"}
-        </span>
-
-        <div className="flex items-center gap-1.5" title={status.label}>
-          <span
-            className="w-2 h-2 rounded-full flex-shrink-0"
-            style={{ backgroundColor: status.color }}
-          />
-          <span className="text-[10px] text-[var(--color-text-dim)]">
-            {status.label}
-          </span>
-        </div>
+        <SourceBadge source={course.source as "classroom" | "local"} />
+        <IngestionDot status={ingestionStatus} />
       </div>
 
       {/* Course name */}
