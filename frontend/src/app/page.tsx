@@ -1,9 +1,11 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { ArrowUpRight, BookOpen, Brain, Shield, Zap, Network, MessageSquare, BarChart3 } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 
 const CampusJourney = dynamic(
   () => import("@/components/three/CampusJourney").then(m => ({ default: m.CampusJourney })),
@@ -27,8 +29,6 @@ const FEATURES = [
   { icon: BarChart3,     title: "RLAIF Training",      desc: "Your feedback trains a shadow model via reinforcement learning. EduVerse gets smarter every session." },
 ];
 
-const mono: React.CSSProperties = { fontFamily: "'Courier New',monospace", letterSpacing: "0.1em" };
-
 export default function Page() {
   const router = useRouter();
   const { loginWithGoogle, loginAsGuest, isAuthenticated, isLoading } = useAuth();
@@ -36,7 +36,11 @@ export default function Page() {
   const [guest,    setGuest]    = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  useEffect(() => { if (!isLoading && isAuthenticated) router.replace("/dashboard"); }, [isAuthenticated, isLoading, router]);
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.replace("/dashboard");
+    }
+  }, [isAuthenticated, isLoading, router]);
 
   useEffect(() => {
     const fn = () => {
@@ -50,35 +54,25 @@ export default function Page() {
 
   const doGuest = async () => {
     setGuest(true);
-    try { await loginAsGuest(); router.push("/dashboard"); } catch { setGuest(false); }
+    try {
+      await loginAsGuest();
+      router.push("/dashboard");
+    } catch {
+      setGuest(false);
+    }
   };
 
-  const glass: React.CSSProperties = {
-    background: "rgba(3,7,18,0.75)",
-    backdropFilter: "blur(24px)",
-    border: "1px solid rgba(0,212,255,0.2)",
-    borderRadius: 12,
-  };
-
-  const cyanText: React.CSSProperties = {
-    background: "linear-gradient(90deg,#00d4ff,#8b5cf6)",
-    WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-  };
+  const GoogleIcon = () => (
+    <svg width="15" height="15" viewBox="0 0 24 24">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+  );
 
   return (
     <>
-      {/* Google Font */}
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&display=swap');
-        *{box-sizing:border-box;margin:0;padding:0}
-        html{scroll-behavior:auto}
-        body{font-family:'Space Grotesk',sans-serif;background:#030712;color:#f0f6ff;overflow-x:hidden}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-        ::-webkit-scrollbar{width:3px}
-        ::-webkit-scrollbar-thumb{background:rgba(0,212,255,.3);border-radius:2px}
-      `}</style>
-
       {/* ── 3D Journey canvas (fixed, behind everything) ──────────────── */}
       <CampusJourney />
 
@@ -86,28 +80,27 @@ export default function Page() {
       <div style={{ height: "700vh", position: "relative", zIndex: 1, pointerEvents: "none" }} />
 
       {/* ── NAV (always fixed) ───────────────────────────────────────────── */}
-      <nav style={{
-        position: "fixed", top: 0, left: 0, right: 0, zIndex: 200,
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "16px 40px",
-        background: scrolled ? "rgba(3,7,18,0.85)" : "transparent",
-        backdropFilter: scrolled ? "blur(20px)" : "none",
-        borderBottom: scrolled ? "1px solid rgba(0,212,255,0.1)" : "none",
-        transition: "all .35s", pointerEvents: "auto",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#00d4ff,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <BookOpen size={15} color="#fff" />
+      <nav
+        className={`
+          fixed top-0 left-0 right-0 z-[200]
+          flex items-center justify-between
+          px-10 py-4
+          transition-all duration-300
+          pointer-events-auto
+          ${scrolled ? "bg-[var(--color-bg)]/80 backdrop-blur-xl border-b border-[var(--color-border)]" : "bg-transparent border-transparent"}
+        `}
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-[var(--color-primary)] flex items-center justify-center">
+            <BookOpen size={16} className="text-[var(--color-bg)]" />
           </div>
-          <span style={{ fontWeight: 800, fontSize: 17, ...cyanText }}>EduVerse</span>
+          <span className="font-extrabold text-[17px] tracking-tight text-[var(--color-text-main)]">
+            EduVerse
+          </span>
         </div>
-        <button onClick={() => loginWithGoogle()} style={{
-          padding: "9px 24px", borderRadius: 999,
-          background: "linear-gradient(135deg,#00d4ff,#8b5cf6)", border: "none",
-          color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
-          fontFamily: "'Space Grotesk',sans-serif",
-          boxShadow: "0 0 20px rgba(0,212,255,0.35)",
-        }}>Enter Metaverse</button>
+        <Button onClick={() => loginWithGoogle()} variant="primary">
+          Enter Metaverse
+        </Button>
       </nav>
 
       {/* ═══════════════════════════════════════════════════════════════════
@@ -115,88 +108,89 @@ export default function Page() {
       ═══════════════════════════════════════════════════════════════════ */}
 
       {/* ── HERO (p 0 → 0.22) ────────────────────────────────────────────── */}
-      <div style={{
-        position: "fixed", bottom: "8vh", left: "6vw", zIndex: 100,
-        maxWidth: 640,
-        opacity: op(progress, 0, 0.22),
-        transform: `translateY(${(1 - op(progress, 0, 0.22)) * 30}px)`,
-        transition: "none", pointerEvents: op(progress, 0, 0.22) > 0.1 ? "auto" : "none",
-      }}>
-        <div style={{ ...mono, fontSize: 11, color: "rgba(0,212,255,0.8)", textTransform: "uppercase", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#00d4ff", display: "inline-block", animation: "blink 2s ease-in-out infinite" }} />
+      <div
+        className="fixed bottom-[8vh] left-[6vw] z-[100] max-w-[640px]"
+        style={{
+          opacity: op(progress, 0, 0.22),
+          transform: `translateY(${(1 - op(progress, 0, 0.22)) * 30}px)`,
+          pointerEvents: op(progress, 0, 0.22) > 0.1 ? "auto" : "none",
+        }}
+      >
+        <div className="font-mono text-[11px] text-[var(--color-text-muted)] tracking-widest uppercase mb-4 flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-text-main)] animate-pulse" />
           Next-Gen Learning Metaverse
         </div>
-        <h1 style={{ fontSize: "clamp(2.5rem,6vw,4.5rem)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", marginBottom: 20 }}>
-          Step Into The{" "}
-          <span style={cyanText}>Future of Learning.</span>
+        <h1 className="text-[clamp(2.5rem,6vw,4.5rem)] font-extrabold leading-[1.06] tracking-tight mb-5 text-[var(--color-text-main)]">
+          Step Into The <span className="text-[var(--color-text-dim)]">Future of Learning.</span>
         </h1>
-        <p style={{ fontSize: 16, color: "rgba(200,220,255,0.6)", lineHeight: 1.75, marginBottom: 36, maxWidth: 500 }}>
+        <p className="text-base text-[var(--color-text-muted)] leading-[1.75] mb-9 max-w-[500px]">
           Immersive 3D worlds, AI tutors, and gamified courses. EduVerse grounds every answer in your real curriculum — zero hallucinations.
         </p>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <button id="cta-google" onClick={() => loginWithGoogle()} style={{
-            display: "inline-flex", alignItems: "center", gap: 10, padding: "14px 30px", borderRadius: 999,
-            background: "linear-gradient(135deg,#00d4ff,#8b5cf6)", border: "none", color: "#fff",
-            fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Space Grotesk',sans-serif",
-            boxShadow: "0 0 40px rgba(0,212,255,0.45)",
-          }}>
-            <svg width="15" height="15" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+        <div className="flex gap-3 flex-wrap">
+          <Button
+            id="cta-google"
+            onClick={() => loginWithGoogle()}
+            variant="primary"
+            leftIcon={<GoogleIcon />}
+          >
             Sign in with Google
-          </button>
-          <button id="cta-guest" onClick={doGuest} disabled={guest} style={{
-            display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 30px", borderRadius: 999,
-            background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.18)",
-            backdropFilter: "blur(10px)", color: "rgba(200,220,255,0.85)",
-            fontSize: 14, fontWeight: 600, cursor: guest ? "not-allowed" : "pointer", fontFamily: "'Space Grotesk',sans-serif",
-          }}>
-            {guest ? <span style={{ width: 13, height: 13, border: "2px solid rgba(200,220,255,0.4)", borderTopColor: "#00d4ff", borderRadius: "50%", display: "inline-block", animation: "spin .8s linear infinite" }} /> : <ArrowUpRight size={15} />}
+          </Button>
+          <Button
+            id="cta-guest"
+            onClick={doGuest}
+            variant="ghost"
+            loading={guest}
+            leftIcon={!guest && <ArrowUpRight size={15} />}
+          >
             Continue as Guest
-          </button>
+          </Button>
         </div>
-        <div style={{ marginTop: 24, display: "flex", alignItems: "center", gap: 8, opacity: 0.4 }}>
-          <div style={{ width: 1, height: 36, background: "linear-gradient(to bottom,#00d4ff,transparent)" }} />
-          <span style={{ ...mono, fontSize: 10, color: "#00d4ff", textTransform: "uppercase" }}>Scroll to enter</span>
+        <div className="mt-6 flex items-center gap-2 opacity-40">
+          <div className="w-[1px] h-9 bg-gradient-to-b from-[var(--color-text-main)] to-transparent" />
+          <span className="font-mono text-[10px] text-[var(--color-text-main)] uppercase tracking-wider">Scroll to enter</span>
         </div>
       </div>
 
       {/* ── ENTERING caption (p 0.22 → 0.38) ───────────────────────────── */}
-      <div style={{
-        position: "fixed", top: "50%", left: "50%", zIndex: 100,
-        transform: `translate(-50%, -50%) scale(${.85 + op(progress, .22, .38) * .15})`,
-        opacity: op(progress, .22, .38),
-        textAlign: "center", pointerEvents: "none",
-      }}>
-        <div style={{ ...mono, fontSize: 12, color: "#00d4ff", textTransform: "uppercase", marginBottom: 12, letterSpacing: "0.25em" }}>
+      <div
+        className="fixed top-1/2 left-1/2 z-[100] text-center pointer-events-none"
+        style={{
+          transform: `translate(-50%, -50%) scale(${.85 + op(progress, .22, .38) * .15})`,
+          opacity: op(progress, .22, .38),
+        }}
+      >
+        <div className="font-mono text-[12px] text-[var(--color-text-dim)] uppercase mb-3 tracking-[0.25em]">
           // ENTERING KNOWLEDGE CORE
         </div>
-        <div style={{ fontSize: "clamp(1.6rem,4vw,3rem)", fontWeight: 800, letterSpacing: "-0.03em", ...cyanText }}>
+        <div className="text-[clamp(1.6rem,4vw,3rem)] font-extrabold tracking-tight text-[var(--color-text-main)]">
           The Library Awaits.
         </div>
       </div>
 
-      {/* ── LIBRARY FEATURES: holographic panels (p 0.38 → 0.72) ─────── */}
+      {/* ── LIBRARY FEATURES (p 0.38 → 0.72) ─────── */}
       {/* Left panel */}
-      <div style={{
-        position: "fixed", top: "50%", left: "5vw", zIndex: 100,
-        transform: `translateY(-50%) translateX(${(1 - op(progress, .38, .72)) * -40}px)`,
-        opacity: op(progress, .38, .72),
-        maxWidth: 340, pointerEvents: "none",
-      }}>
-        <div style={{ ...glass, padding: "28px 24px", marginBottom: 16 }}>
-          <div style={{ ...mono, fontSize: 10, color: "rgba(0,212,255,0.6)", marginBottom: 10 }}>// 01 · 02 · 03</div>
-          <h2 style={{ fontSize: "1.5rem", fontWeight: 800, letterSpacing: "-0.025em", marginBottom: 16 }}>
-            Core <span style={cyanText}>Capabilities.</span>
+      <div
+        className="fixed top-1/2 left-[5vw] z-[100] max-w-[340px] pointer-events-none"
+        style={{
+          transform: `translateY(-50%) translateX(${(1 - op(progress, .38, .72)) * -40}px)`,
+          opacity: op(progress, .38, .72),
+        }}
+      >
+        <div className="bg-[var(--color-panel)]/80 backdrop-blur-xl border border-[var(--color-border)] rounded-xl p-7 mb-4">
+          <div className="font-mono text-[10px] text-[var(--color-text-dim)] mb-2.5">// 01 · 02 · 03</div>
+          <h2 className="text-[1.5rem] font-extrabold tracking-tight mb-4 text-[var(--color-text-main)]">
+            Core Capabilities.
           </h2>
           {FEATURES.slice(0, 3).map(f => {
             const Icon = f.icon;
             return (
-              <div key={f.title} style={{ display: "flex", gap: 12, marginBottom: 14 }}>
-                <div style={{ width: 32, height: 32, flexShrink: 0, border: "1px solid rgba(0,212,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6 }}>
-                  <Icon size={14} color="#00d4ff" />
+              <div key={f.title} className="flex gap-3 mb-3.5">
+                <div className="w-8 h-8 shrink-0 border border-[var(--color-border)] bg-[var(--color-bg)] flex items-center justify-center rounded-md">
+                  <Icon size={14} className="text-[var(--color-text-main)]" />
                 </div>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 3 }}>{f.title}</div>
-                  <div style={{ fontSize: 11, color: "rgba(200,220,255,0.45)", lineHeight: 1.6 }}>{f.desc}</div>
+                  <div className="text-[13px] font-bold text-[var(--color-text-main)] mb-1">{f.title}</div>
+                  <div className="text-[11px] text-[var(--color-text-muted)] leading-[1.6]">{f.desc}</div>
                 </div>
               </div>
             );
@@ -205,27 +199,28 @@ export default function Page() {
       </div>
 
       {/* Right panel */}
-      <div style={{
-        position: "fixed", top: "50%", right: "5vw", zIndex: 100,
-        transform: `translateY(-50%) translateX(${(1 - op(progress, .45, .75)) * 40}px)`,
-        opacity: op(progress, .45, .75),
-        maxWidth: 340, pointerEvents: "none",
-      }}>
-        <div style={{ ...glass, padding: "28px 24px" }}>
-          <div style={{ ...mono, fontSize: 10, color: "rgba(139,92,246,0.6)", marginBottom: 10 }}>// 04 · 05 · 06</div>
-          <h2 style={{ fontSize: "1.5rem", fontWeight: 800, letterSpacing: "-0.025em", marginBottom: 16 }}>
-            Intelligence <span style={{ background: "linear-gradient(90deg,#8b5cf6,#ec4899)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Layer.</span>
+      <div
+        className="fixed top-1/2 right-[5vw] z-[100] max-w-[340px] pointer-events-none"
+        style={{
+          transform: `translateY(-50%) translateX(${(1 - op(progress, .45, .75)) * 40}px)`,
+          opacity: op(progress, .45, .75),
+        }}
+      >
+        <div className="bg-[var(--color-panel)]/80 backdrop-blur-xl border border-[var(--color-border)] rounded-xl p-7">
+          <div className="font-mono text-[10px] text-[var(--color-text-dim)] mb-2.5">// 04 · 05 · 06</div>
+          <h2 className="text-[1.5rem] font-extrabold tracking-tight mb-4 text-[var(--color-text-main)]">
+            Intelligence Layer.
           </h2>
           {FEATURES.slice(3).map(f => {
             const Icon = f.icon;
             return (
-              <div key={f.title} style={{ display: "flex", gap: 12, marginBottom: 14 }}>
-                <div style={{ width: 32, height: 32, flexShrink: 0, border: "1px solid rgba(139,92,246,0.25)", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6 }}>
-                  <Icon size={14} color="#8b5cf6" />
+              <div key={f.title} className="flex gap-3 mb-3.5">
+                <div className="w-8 h-8 shrink-0 border border-[var(--color-border)] bg-[var(--color-bg)] flex items-center justify-center rounded-md">
+                  <Icon size={14} className="text-[var(--color-text-main)]" />
                 </div>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 3 }}>{f.title}</div>
-                  <div style={{ fontSize: 11, color: "rgba(200,220,255,0.45)", lineHeight: 1.6 }}>{f.desc}</div>
+                  <div className="text-[13px] font-bold text-[var(--color-text-main)] mb-1">{f.title}</div>
+                  <div className="text-[11px] text-[var(--color-text-muted)] leading-[1.6]">{f.desc}</div>
                 </div>
               </div>
             );
@@ -234,78 +229,73 @@ export default function Page() {
       </div>
 
       {/* ── MISSION statement (p 0.62 → 0.80) ──────────────────────────── */}
-      <div style={{
-        position: "fixed", bottom: "10vh", left: "50%", zIndex: 100,
-        transform: `translateX(-50%) translateY(${(1 - op(progress, .62, .80)) * 30}px)`,
-        opacity: op(progress, .62, .80),
-        textAlign: "center", maxWidth: 620, pointerEvents: "none",
-      }}>
-        <div style={{ ...mono, fontSize: 11, color: "rgba(0,212,255,0.5)", textTransform: "uppercase", marginBottom: 12 }}>// Our Mission</div>
-        <p style={{ fontSize: "clamp(1.1rem,2.5vw,1.5rem)", fontWeight: 700, lineHeight: 1.5, letterSpacing: "-0.02em", color: "rgba(200,220,255,0.85)" }}>
+      <div
+        className="fixed bottom-[10vh] left-1/2 z-[100] text-center max-w-[620px] pointer-events-none"
+        style={{
+          transform: `translateX(-50%) translateY(${(1 - op(progress, .62, .80)) * 30}px)`,
+          opacity: op(progress, .62, .80),
+        }}
+      >
+        <div className="font-mono text-[11px] text-[var(--color-text-dim)] uppercase tracking-widest mb-3">// Our Mission</div>
+        <p className="text-[clamp(1.1rem,2.5vw,1.5rem)] font-bold leading-[1.5] tracking-tight text-[var(--color-text-main)]">
           Learning should feel like exploring a world — not sitting in a lecture.{" "}
-          <span style={cyanText}>EduVerse makes it so.</span>
+          <span className="text-[var(--color-text-dim)]">EduVerse makes it so.</span>
         </p>
       </div>
 
       {/* ── HUB / CTA terminal (p 0.80 → 1.0) ──────────────────────────── */}
-      <div style={{
-        position: "fixed", top: "50%", left: "50%", zIndex: 100,
-        transform: `translate(-50%, -50%) scale(${.88 + op(progress, .80, 1) * .12})`,
-        opacity: op(progress, .80, 1),
-        textAlign: "center", maxWidth: 680,
-        pointerEvents: op(progress, .80, 1) > 0.1 ? "auto" : "none",
-      }}>
-        <div style={{ ...glass, padding: "48px 44px", border: "1px solid rgba(0,212,255,0.3)" }}>
-          <div style={{ ...mono, fontSize: 11, color: "rgba(0,212,255,0.6)", textTransform: "uppercase", marginBottom: 16, letterSpacing: "0.2em" }}>// DIGITAL HUB · CENTRAL TERMINAL</div>
-          <h2 style={{ fontSize: "clamp(2rem,4.5vw,3.2rem)", fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1.1, marginBottom: 18 }}>
-            Ready to enter the{" "}
-            <span style={cyanText}>metaverse?</span>
+      <div
+        className="fixed top-1/2 left-1/2 z-[100] text-center max-w-[680px]"
+        style={{
+          transform: `translate(-50%, -50%) scale(${.88 + op(progress, .80, 1) * .12})`,
+          opacity: op(progress, .80, 1),
+          pointerEvents: op(progress, .80, 1) > 0.1 ? "auto" : "none",
+        }}
+      >
+        <div className="bg-[var(--color-panel)]/80 backdrop-blur-xl border border-[var(--color-border)] rounded-xl px-11 py-12">
+          <div className="font-mono text-[11px] text-[var(--color-text-dim)] uppercase mb-4 tracking-[0.2em]">// DIGITAL HUB · CENTRAL TERMINAL</div>
+          <h2 className="text-[clamp(2rem,4.5vw,3.2rem)] font-extrabold tracking-tight leading-[1.1] mb-5 text-[var(--color-text-main)]">
+            Ready to enter the <span className="text-[var(--color-text-dim)]">metaverse?</span>
           </h2>
-          <p style={{ fontSize: 15, color: "rgba(200,220,255,0.55)", lineHeight: 1.7, marginBottom: 36, maxWidth: 480, margin: "0 auto 36px" }}>
+          <p className="text-[15px] text-[var(--color-text-muted)] leading-[1.7] mb-9 max-w-[480px] mx-auto">
             Connect Google Classroom in 30 seconds. Zero-hallucination AI. Curriculum-grounded. Always.
           </p>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginBottom: 32 }}>
-            <button onClick={() => loginWithGoogle()} style={{
-              display: "inline-flex", alignItems: "center", gap: 10, padding: "15px 34px", borderRadius: 999,
-              background: "linear-gradient(135deg,#00d4ff,#8b5cf6)", border: "none", color: "#fff",
-              fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'Space Grotesk',sans-serif",
-              boxShadow: "0 0 50px rgba(0,212,255,0.5)",
-            }}>
-              <svg width="15" height="15" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          <div className="flex gap-3 justify-center flex-wrap mb-8">
+            <Button
+              onClick={() => loginWithGoogle()}
+              variant="primary"
+              leftIcon={<GoogleIcon />}
+            >
               Start Learning Free
-            </button>
-            <button onClick={doGuest} style={{
-              display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 34px", borderRadius: 999,
-              background: "transparent", border: "1px solid rgba(0,212,255,0.35)", color: "#00d4ff",
-              fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "'Space Grotesk',sans-serif",
-            }}>
-              <ArrowUpRight size={16} /> Guest Access
-            </button>
+            </Button>
+            <Button
+              onClick={doGuest}
+              variant="ghost"
+              loading={guest}
+              leftIcon={!guest && <ArrowUpRight size={16} />}
+            >
+              Guest Access
+            </Button>
           </div>
           {/* Footer links row */}
-          <div style={{ borderTop: "1px solid rgba(0,212,255,0.1)", paddingTop: 22, display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "8px 24px" }}>
+          <div className="border-t border-[var(--color-border)] pt-6 flex justify-center flex-wrap gap-x-6 gap-y-2">
             {["Discord", "Twitter", "GitHub", "Privacy", "Terms", "About"].map(l => (
-              <span key={l} style={{ ...mono, fontSize: 11, color: "rgba(200,220,255,0.3)", cursor: "pointer" }}
-                onMouseEnter={e => ((e.target as HTMLElement).style.color = "#00d4ff")}
-                onMouseLeave={e => ((e.target as HTMLElement).style.color = "rgba(200,220,255,0.3)")}>
+              <span key={l} className="font-mono text-[11px] text-[var(--color-text-dim)] hover:text-[var(--color-text-main)] transition-colors cursor-pointer">
                 {l}
               </span>
             ))}
           </div>
-          <div style={{ marginTop: 12, ...mono, fontSize: 10, color: "rgba(200,220,255,0.18)" }}>
+          <div className="mt-3 font-mono text-[10px] text-[var(--color-text-dim)]/50">
             © 2026 EduVerse · LangGraph · Gemma 4 · Next.js 15
           </div>
         </div>
       </div>
 
       {/* Progress bar */}
-      <div style={{
-        position: "fixed", bottom: 0, left: 0, zIndex: 300, pointerEvents: "none",
-        width: `${progress * 100}%`, height: 2,
-        background: "linear-gradient(90deg,#00d4ff,#8b5cf6)",
-        boxShadow: "0 0 8px rgba(0,212,255,0.8)",
-        transition: "width .1s",
-      }} />
+      <div
+        className="fixed bottom-0 left-0 z-[300] pointer-events-none h-0.5 bg-[var(--color-text-main)] transition-all duration-100"
+        style={{ width: `${progress * 100}%` }}
+      />
     </>
   );
 }
