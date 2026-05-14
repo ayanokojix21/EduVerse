@@ -16,6 +16,8 @@ import type { UnifiedCourse, IngestionStatusValue } from "@/lib/types";
 import { CourseCard } from "@/components/courses/CourseCard";
 import { CourseDrawer } from "@/components/courses/CourseDrawer";
 import { CreateCourseModal } from "@/components/courses/CreateCourseModal";
+import { Skeleton, SkeletonCard } from "@/components/ui/Loader";
+import { Button } from "@/components/ui/Button";
 
 export default function DashboardPage() {
   const [courses, setCourses] = useState<UnifiedCourse[]>([]);
@@ -84,15 +86,12 @@ export default function DashboardPage() {
     return (
       <div className="max-w-[1100px] mx-auto px-6 py-10">
         <div className="flex items-center justify-between mb-8">
-          <div className="w-40 h-6 bg-[rgba(239,243,244,0.06)] rounded animate-pulse" />
-          <div className="w-32 h-9 bg-[rgba(239,243,244,0.06)] rounded-full animate-pulse" />
+          <Skeleton width="10rem" height="1.5rem" />
+          <Skeleton width="8rem" height="2.25rem" rounded="full" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[...Array(6)].map((_, i) => (
-            <div
-              key={i}
-              className="h-[160px] rounded-[var(--radius-xl)] bg-[rgba(239,243,244,0.04)] animate-pulse"
-            />
+            <SkeletonCard key={i} />
           ))}
         </div>
       </div>
@@ -132,23 +131,17 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <button
+        <Button
+          variant="primary"
           onClick={() => setShowCreateModal(true)}
-          className="
-            flex items-center gap-2
-            px-4 py-2.5
-            rounded-full
-            text-[13px] font-semibold
-            bg-[var(--color-text-main)] text-black
-            hover:bg-[rgba(239,243,244,0.85)]
-            transition-all duration-150
-          "
+          leftIcon={
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          }
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
           New Workspace
-        </button>
+        </Button>
       </div>
 
       {/* Course grid */}
@@ -163,24 +156,17 @@ export default function DashboardPage() {
           <p className="text-[13px] text-[var(--color-text-dim)] mb-6">
             Create a local workspace or connect Google Classroom
           </p>
-          <button
+          <Button
+            variant="ghost"
             onClick={() => setShowCreateModal(true)}
-            className="
-              flex items-center gap-2
-              px-5 py-2.5
-              rounded-full
-              text-[13px] font-semibold
-              border border-[var(--color-border)]
-              text-[var(--color-text-main)]
-              hover:bg-[rgba(239,243,244,0.06)]
-              transition-all duration-150
-            "
+            leftIcon={
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            }
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
             Create your first workspace
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
