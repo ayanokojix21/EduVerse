@@ -17,6 +17,19 @@ import { Suspense } from "react";
 
 // ─── Inner component (uses useSearchParams inside Suspense) ──────────────────
 
+// Sync JWT to cookie for middleware route protection
+function syncJwtCookie(token: string) {
+  try {
+    const [, payload] = token.split(".");
+    const decoded = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+    const maxAge = Math.max(0, (decoded.exp ?? 0) - Math.floor(Date.now() / 1000));
+    document.cookie = `eduverse_jwt=${token}; path=/; max-age=${maxAge}; SameSite=Lax`;
+  } catch {
+    // Best-effort — set a 24h fallback
+    document.cookie = `eduverse_jwt=${token}; path=/; max-age=86400; SameSite=Lax`;
+  }
+}
+
 function CallbackInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -32,6 +45,7 @@ function CallbackInner() {
 
         if (tokenFromParam) {
           localStorage.setItem("eduverse_jwt", tokenFromParam);
+          syncJwtCookie(tokenFromParam);
           setStatus("success");
           router.replace("/dashboard");
           return;
@@ -52,6 +66,7 @@ function CallbackInner() {
         if (!jwt) throw new Error("No JWT found in OAuth response");
 
         localStorage.setItem("eduverse_jwt", jwt);
+        syncJwtCookie(jwt);
         setStatus("success");
         router.replace("/dashboard");
       } catch (err) {

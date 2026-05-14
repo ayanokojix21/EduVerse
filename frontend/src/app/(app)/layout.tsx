@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/AppShell";
+import { AuthGuard } from "@/components/layout/AuthGuard";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Authenticated App Shell Layout
-// Wraps all routes under (app)/ with the sidebar + main content layout.
-// Auth guard is intentionally lightweight here — redirect logic lives in
-// each page or a middleware.ts if needed later.
+// Wraps all routes under (app)/ with:
+//   1. AuthGuard — redirects unauthenticated users to /
+//   2. AppShell  — sidebar + main content layout
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const metadata: Metadata = {
@@ -20,5 +21,9 @@ export default function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <AppShell>{children}</AppShell>;
+  return (
+    <AuthGuard>
+      <AppShell>{children}</AppShell>
+    </AuthGuard>
+  );
 }

@@ -17,8 +17,17 @@ import type { RLStats, RLModel, RLEpisode } from "@/lib/types";
 import { StatsCard } from "@/components/admin/StatsCard";
 import { ModelTable } from "@/components/admin/ModelTable";
 import { TrainingControls } from "@/components/admin/TrainingControls";
+import { AuthGuard } from "@/components/layout/AuthGuard";
 
 export default function RLAdminPage() {
+  return (
+    <AuthGuard requireAdmin>
+      <RLAdminContent />
+    </AuthGuard>
+  );
+}
+
+function RLAdminContent() {
   const [stats, setStats] = useState<RLStats | null>(null);
   const [models, setModels] = useState<RLModel[]>([]);
   const [episodes, setEpisodes] = useState<RLEpisode[]>([]);

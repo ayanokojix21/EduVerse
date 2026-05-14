@@ -41,6 +41,19 @@ interface AuthContextValue {
 
 const JWT_KEY = "eduverse_jwt";
 
+// ─── Cookie Sync ──────────────────────────────────────────────────────────────
+// Mirror JWT to a cookie so Next.js middleware (edge runtime, no localStorage)
+// can perform route protection checks.
+
+function syncTokenToCookie(token: string, decoded: DecodedJWT) {
+  const maxAge = Math.max(0, decoded.exp - Math.floor(Date.now() / 1000));
+  document.cookie = `${JWT_KEY}=${token}; path=/; max-age=${maxAge}; SameSite=Lax`;
+}
+
+function clearTokenCookie() {
+  document.cookie = `${JWT_KEY}=; path=/; max-age=0; SameSite=Lax`;
+}
+
 function decodeJWT(token: string): DecodedJWT | null {
   try {
     const [, payload] = token.split(".");
@@ -77,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Hydrate from localStorage on mount
+  // Hydrate from localStorage on mount + sync cookie
   useEffect(() => {
     const stored = localStorage.getItem(JWT_KEY);
     if (stored) {
@@ -85,9 +98,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (decoded && !isTokenExpired(decoded)) {
         setToken(stored);
         setUser(jwtToUser(decoded));
+        syncTokenToCookie(stored, decoded);
       } else {
         // Expired — clear it
         localStorage.removeItem(JWT_KEY);
+        clearTokenCookie();
       }
     }
     setIsLoading(false);
@@ -97,7 +112,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(JWT_KEY, jwt);
     setToken(jwt);
     const decoded = decodeJWT(jwt);
-    if (decoded) setUser(jwtToUser(decoded));
+    if (decoded) {
+      setUser(jwtToUser(decoded));
+      syncTokenToCookie(jwt, decoded);
+    }
   }, []);
 
   const loginAsGuest = useCallback(async () => {
@@ -117,6 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem(JWT_KEY);
+    clearTokenCookie();
     setToken(null);
     setUser(null);
   }, []);
