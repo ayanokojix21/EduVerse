@@ -28,20 +28,27 @@ class ClassroomService:
         ]
 
     @staticmethod
-    def list_coursework(credentials: Credentials, course_id: str) -> dict:
+    def list_coursework(credentials: Credentials, course_id: str) -> list[dict]:
         service = build("classroom", "v1", credentials=credentials, cache_discovery=False)
         
         def parse_item(item, kind):
+            # Extract date if available (format: {"year": YYYY, "month": MM, "day": DD})
+            due_date = None
+            if "dueDate" in item:
+                d = item["dueDate"]
+                if "year" in d and "month" in d and "day" in d:
+                    due_date = f"{d['year']}-{d['month']:02d}-{d['day']:02d}"
+                    
             return {
                 "id": item.get("id", ""),
                 "title": item.get("title") or "Announcement",
                 "description": item.get("description") or item.get("text", ""),
                 "state": item.get("state", "PUBLISHED"),
-                "dueDate": item.get("dueDate", None),
-                "creationTime": item.get("creationTime", ""),
-                "alternateLink": item.get("alternateLink", ""),
+                "due_date": due_date,
+                "creation_time": item.get("creationTime", ""),
+                "alternate_link": item.get("alternateLink", ""),
                 "materials": item.get("materials", []),
-                "type": kind
+                "work_type": kind
             }
 
         # 1. Fetch CourseWork (Assignments)
