@@ -39,7 +39,8 @@ langgraph-checkpoint-mongodb>=0.4
 langchain-google-classroom>=0.1
 
 # ── Cloud Inference (Gemma 4 via Google AI Studio) ─────────────────────────────
-langchain-google-genai>=2.1
+langchain-google-genai==2.0.1
+google-generativeai==0.8.4
 
 # ── Cloud Storage (Cloudinary) ─────────────────────────────────────────────────
 cloudinary>=1.44

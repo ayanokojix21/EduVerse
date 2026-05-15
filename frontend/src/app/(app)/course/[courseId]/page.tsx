@@ -183,9 +183,8 @@ export default function CourseDetailPage() {
       fd.append("file", file);
       fd.append("course_id", courseId);
       await ingestionApi.upload(fd);
-      await ingestionApi.trigger(courseId);
-      pollRef.current = setInterval(pollIngestion, 3000);
       fetchFiles();
+      pollIngestion(); // Refresh the file count immediately
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed");
     } finally { setIsUploading(false); }

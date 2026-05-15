@@ -201,9 +201,10 @@ class CourseIngestionService:
         cursor = self.db[self.settings.mongo_parent_chunks_collection].aggregate([
             {"$match": {"user_id": user_id, "course_id": course_id}},
             {"$group": {
-                "_id": {"$ifNull": ["$metadata.source", "$metadata.title"]}, 
+                "_id": {"$ifNull": ["$metadata.title", "$metadata.source"]}, 
                 "total_chunks": {"$sum": 1},
-                "title": {"$first": "$metadata.title"}
+                "title": {"$first": "$metadata.title"},
+                "source": {"$first": "$metadata.source"}
             }}
         ])
         files = await cursor.to_list(length=None)
@@ -211,7 +212,7 @@ class CourseIngestionService:
             {
                 "filename": f.get("title") or (f["_id"].split("/")[-1] if "/" in f["_id"] else f["_id"]), 
                 "chunk_count": f["total_chunks"],
-                "source": f["_id"]
+                "source": f.get("source", "unknown")
             } for f in files
         ]
 

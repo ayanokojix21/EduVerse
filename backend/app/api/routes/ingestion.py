@@ -71,12 +71,16 @@ async def get_ingest_status(
         return {
             "status": "none", 
             "message": "No ingestion job found",
-            "file_count": file_count
+            "current_file_count": file_count
         }
     
     # Merge job status with live stats
     response = job.model_dump() if hasattr(job, "model_dump") else dict(job)
     response["current_file_count"] = file_count
+    
+    if file_count == 0 and response.get("status") == "completed":
+        response["status"] = "none"
+        
     return response
 
 
