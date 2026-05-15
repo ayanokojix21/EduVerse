@@ -25,7 +25,7 @@ const roundedMap = {
 export function Skeleton({ width = "100%", height = "1em", className = "", rounded = "md" }: SkeletonProps) {
   return (
     <div
-      className={["bg-[#16181C] animate-pulse", roundedMap[rounded], className].join(" ")}
+      className={["skeleton-shimmer", roundedMap[rounded], className].join(" ")}
       style={{ width, height }}
       aria-hidden="true"
     />

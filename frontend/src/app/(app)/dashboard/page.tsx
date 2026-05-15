@@ -104,10 +104,16 @@ export default function DashboardPage() {
     return (
       <div className="flex items-center justify-center h-full min-h-[60vh]">
         <div className="text-center">
+          <div className="w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: 'var(--color-danger-dim)' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" strokeWidth="2" strokeLinecap="round">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 8v4M12 16h.01" />
+            </svg>
+          </div>
           <p className="text-[var(--color-danger)] text-[14px] mb-2">{error}</p>
           <button
             onClick={fetchCourses}
-            className="text-[13px] text-[var(--color-text-muted)] underline underline-offset-2 hover:text-[var(--color-text-main)]"
+            className="text-[13px] text-[var(--color-text-muted)] underline underline-offset-2 hover:text-[var(--color-text-main)] transition-colors"
           >
             Try again
           </button>
@@ -147,14 +153,20 @@ export default function DashboardPage() {
       {/* Course grid */}
       {courses.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center animate-[fade-up_0.4s_ease-out_both]">
-          <div className="w-16 h-16 rounded-full bg-[rgba(239,243,244,0.04)] flex items-center justify-center text-[28px] mb-4">
+          <div
+            className="w-20 h-20 rounded-2xl flex items-center justify-center text-[32px] mb-5"
+            style={{
+              background: 'linear-gradient(135deg, rgba(239,243,244,0.06) 0%, rgba(239,243,244,0.02) 100%)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
             📚
           </div>
-          <p className="text-[15px] text-[var(--color-text-muted)] mb-1">
+          <p className="text-[16px] font-semibold text-[var(--color-text-main)] mb-1">
             No workspaces yet
           </p>
-          <p className="text-[13px] text-[var(--color-text-dim)] mb-6">
-            Create a local workspace or connect Google Classroom
+          <p className="text-[13px] text-[var(--color-text-dim)] mb-6 max-w-[280px]">
+            Create a local workspace or connect Google Classroom to get started
           </p>
           <Button
             variant="ghost"
@@ -173,7 +185,8 @@ export default function DashboardPage() {
           {courses.map((course, i) => (
             <div
               key={course.id}
-              style={{ animationDelay: `${i * 50}ms` }}
+              className="animate-[fade-up_0.3s_ease-out_both]"
+              style={{ animationDelay: `${i * 60}ms` }}
             >
               <CourseCard
                 course={course}

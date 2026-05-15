@@ -87,7 +87,7 @@ export default function Page() {
           px-10 py-4
           transition-all duration-300
           pointer-events-auto
-          ${scrolled ? "bg-[var(--color-bg)]/80 backdrop-blur-xl border-b border-[var(--color-border)]" : "bg-transparent border-transparent"}
+          ${scrolled ? "nav-glass" : "nav-transparent"}
         `}
       >
         <div className="flex items-center gap-2.5">
@@ -109,7 +109,7 @@ export default function Page() {
 
       {/* ── HERO (p 0 → 0.22) ────────────────────────────────────────────── */}
       <div
-        className="fixed bottom-[8vh] left-[6vw] z-[100] max-w-[640px]"
+        className="fixed bottom-[15vh] left-[15%] z-[100] max-w-[480px] lg:max-w-[540px]"
         style={{
           opacity: op(progress, 0, 0.22),
           transform: `translateY(${(1 - op(progress, 0, 0.22)) * 30}px)`,
@@ -170,13 +170,13 @@ export default function Page() {
       {/* ── LIBRARY FEATURES (p 0.38 → 0.72) ─────── */}
       {/* Left panel */}
       <div
-        className="fixed top-1/2 left-[5vw] z-[100] max-w-[340px] pointer-events-none"
+        className="fixed top-1/2 left-[15%] z-[100] max-w-[320px] lg:max-w-[380px] pointer-events-none"
         style={{
           transform: `translateY(-50%) translateX(${(1 - op(progress, .38, .72)) * -40}px)`,
           opacity: op(progress, .38, .72),
         }}
       >
-        <div className="bg-[var(--color-panel)]/80 backdrop-blur-xl border border-[var(--color-border)] rounded-xl p-7 mb-4">
+        <div className="glass-panel rounded-xl p-7 mb-4">
           <div className="font-mono text-[10px] text-[var(--color-text-dim)] mb-2.5">// 01 · 02 · 03</div>
           <h2 className="text-[1.5rem] font-extrabold tracking-tight mb-4 text-[var(--color-text-main)]">
             Core Capabilities.
@@ -200,13 +200,13 @@ export default function Page() {
 
       {/* Right panel */}
       <div
-        className="fixed top-1/2 right-[5vw] z-[100] max-w-[340px] pointer-events-none"
+        className="fixed top-1/2 right-[15%] z-[100] max-w-[320px] lg:max-w-[380px] pointer-events-none"
         style={{
           transform: `translateY(-50%) translateX(${(1 - op(progress, .45, .75)) * 40}px)`,
           opacity: op(progress, .45, .75),
         }}
       >
-        <div className="bg-[var(--color-panel)]/80 backdrop-blur-xl border border-[var(--color-border)] rounded-xl p-7">
+        <div className="glass-panel rounded-xl p-7">
           <div className="font-mono text-[10px] text-[var(--color-text-dim)] mb-2.5">// 04 · 05 · 06</div>
           <h2 className="text-[1.5rem] font-extrabold tracking-tight mb-4 text-[var(--color-text-main)]">
             Intelligence Layer.
@@ -252,7 +252,7 @@ export default function Page() {
           pointerEvents: op(progress, .80, 1) > 0.1 ? "auto" : "none",
         }}
       >
-        <div className="bg-[var(--color-panel)]/80 backdrop-blur-xl border border-[var(--color-border)] rounded-xl px-11 py-12">
+        <div className="glass-panel rounded-xl px-11 py-12">
           <div className="font-mono text-[11px] text-[var(--color-text-dim)] uppercase mb-4 tracking-[0.2em]">// DIGITAL HUB · CENTRAL TERMINAL</div>
           <h2 className="text-[clamp(2rem,4.5vw,3.2rem)] font-extrabold tracking-tight leading-[1.1] mb-5 text-[var(--color-text-main)]">
             Ready to enter the <span className="text-[var(--color-text-dim)]">metaverse?</span>
@@ -285,8 +285,8 @@ export default function Page() {
               </span>
             ))}
           </div>
-          <div className="mt-3 font-mono text-[10px] text-[var(--color-text-dim)]/50">
-            © 2026 EduVerse · LangGraph · Gemma 4 · Next.js 15
+          <div className="mt-3 font-mono text-[10px]" style={{ color: 'rgba(83,100,113,0.5)' }}>
+            © 2026 EduVerse · LangGraph · Gemma 4 · Next.js 16
           </div>
         </div>
       </div>

@@ -18,7 +18,7 @@ interface AppShellProps {
 
 export function AppShell({ children, rightPanel, showRightPanel = false }: AppShellProps) {
   return (
-    <div className="flex min-h-dvh bg-black">
+    <div className="flex w-full min-h-dvh bg-[var(--color-bg)]">
       {/* Left: Sidebar */}
       <Sidebar />
 
@@ -26,7 +26,7 @@ export function AppShell({ children, rightPanel, showRightPanel = false }: AppSh
       <main
         className={[
           "flex-1 min-w-0",
-          "border-r border-[#2F3336]",
+          showRightPanel && rightPanel ? "border-r border-[var(--color-border)]" : "",
           "overflow-y-auto",
         ].join(" ")}
         id="main-content"
@@ -40,8 +40,8 @@ export function AppShell({ children, rightPanel, showRightPanel = false }: AppSh
           className={[
             "hidden 2xl:flex flex-col",
             "w-[340px] flex-shrink-0",
-            "border-l border-[#2F3336]",
-            "bg-black",
+            "border-l border-[var(--color-border)]",
+            "bg-[var(--color-sidebar)]",
             "overflow-y-auto",
           ].join(" ")}
           aria-label="Details panel"

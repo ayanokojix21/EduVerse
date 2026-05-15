@@ -1,298 +1,162 @@
 @import "tailwindcss";
 
-/* ─────────────────────────────────────────────
-   EduVerse Design System — Tailwind v4 @theme
-   Twitter-inspired hyper-minimalist dark mode
-───────────────────────────────────────────── */
 @theme {
-  /* ── Colors ─────────────────────────────── */
-  --color-bg:           #000000;
-  --color-panel:        #16181C;
-  --color-panel-hover:  rgba(239, 243, 244, 0.03);
-  --color-border:       #2F3336;
+  /* Colors */
+  --color-bg: #0f0f0f;
+  --color-sidebar: #111827;
+  --color-panel: #16181C;
+  --color-panel-hover: rgba(239, 243, 244, 0.03);
+  --color-border: rgba(255, 255, 255, 0.08);
   --color-border-focus: #536471;
 
-  --color-text-main:    #E7E9EA;
-  --color-text-muted:   #71767B;
-  --color-text-dim:     #536471;
+  --color-text-main: #E7E9EA;
+  --color-text-muted: #71767B;
+  --color-text-dim: #536471;
 
-  --color-primary:      #EFF3F4;
-  --color-primary-hover:#D7DBDC;
-  --color-primary-dim:  rgba(239, 243, 244, 0.1);
+  --color-primary: #EFF3F4;
+  --color-primary-hover: #D7DBDC;
+  --color-primary-dim: rgba(239, 243, 244, 0.1);
 
-  --color-danger:       #F4212E;
-  --color-danger-dim:   rgba(244, 33, 46, 0.1);
-  --color-warning:      #FFD400;
-  --color-warning-dim:  rgba(255, 212, 0, 0.1);
-  --color-success:      #00BA7C;
-  --color-success-dim:  rgba(0, 186, 124, 0.1);
+  --color-accent: #1D9BF0;
+  --color-accent-hover: #1A8CD8;
+  --color-accent-dim: rgba(29, 155, 240, 0.1);
 
-  /* Semantic aliases */
-  --color-background:   var(--color-bg);
-  --color-foreground:   var(--color-text-main);
+  --color-danger: #F4212E;
+  --color-danger-dim: rgba(244, 33, 46, 0.1);
+  --color-warning: #FFD400;
+  --color-warning-dim: rgba(255, 212, 0, 0.1);
+  --color-success: #00BA7C;
+  --color-success-dim: rgba(0, 186, 124, 0.1);
 
-  /* ── Typography ──────────────────────────── */
-  --font-sans:          'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono:          'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  /* Semantic Colors */
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-text-main);
 
-  --text-xs:            0.75rem;
-  --text-sm:            0.8125rem;   /* 13px — Twitter's default */
-  --text-base:          0.9375rem;   /* 15px */
-  --text-lg:            1.0625rem;
-  --text-xl:            1.25rem;
-  --text-2xl:           1.5rem;
-  --text-3xl:           2rem;
-  --text-4xl:           2.5rem;
-  --text-5xl:           3.5rem;
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
 
-  /* ── Spacing ─────────────────────────────── */
-  --spacing-px:         1px;
-  --spacing-0:          0;
-  --spacing-1:          0.25rem;
-  --spacing-2:          0.5rem;
-  --spacing-3:          0.75rem;
-  --spacing-4:          1rem;
-  --spacing-5:          1.25rem;
-  --spacing-6:          1.5rem;
-  --spacing-8:          2rem;
-  --spacing-10:         2.5rem;
-  --spacing-12:         3rem;
-  --spacing-16:         4rem;
-  --spacing-20:         5rem;
-  --spacing-24:         6rem;
+  /* Shadows */
+  --shadow-panel: 0 0 0 1px #2F3336;
+  --shadow-focus: 0 0 0 2px #536471;
+  --shadow-glow: 0 0 40px rgba(239, 243, 244, 0.06);
+  --shadow-danger: 0 0 0 2px rgba(244, 33, 46, 0.4);
 
-  /* ── Border Radius ───────────────────────── */
-  --radius-none:        0;
-  --radius-sm:          0.25rem;
-  --radius-md:          0.5rem;
-  --radius-lg:          0.75rem;
-  --radius-xl:          1rem;
-  --radius-full:        9999px;
-
-  /* ── Shadows ─────────────────────────────── */
-  --shadow-panel:       0 0 0 1px #2F3336;
-  --shadow-focus:       0 0 0 2px #536471;
-  --shadow-glow:        0 0 40px rgba(239, 243, 244, 0.06);
-  --shadow-danger:      0 0 0 2px rgba(244, 33, 46, 0.4);
-
-  /* ── Animations ──────────────────────────── */
-  --animate-pulse-fast:     pulse-fast 0.8s ease-in-out infinite;
-  --animate-fade-up:        fade-up 0.5s ease-out both;
+  /* Custom Animations */
+  --animate-pulse-fast: pulse-fast 0.8s ease-in-out infinite;
+  --animate-fade-up: fade-up 0.5s ease-out both;
   --animate-slide-in-right: slide-in-right 0.3s ease-out both;
-  --animate-slide-in-left:  slide-in-left 0.3s ease-out both;
-  --animate-fade-in:        fade-in 0.3s ease-out both;
-  --animate-spin-slow:      spin 3s linear infinite;
+  --animate-slide-in-left: slide-in-left 0.3s ease-out both;
+  --animate-fade-in: fade-in 0.3s ease-out both;
+  --animate-spin-slow: spin 3s linear infinite;
 
-  /* ── Breakpoints ─────────────────────────── */
-  --breakpoint-sm:      640px;
-  --breakpoint-md:      768px;
-  --breakpoint-lg:      1024px;
-  --breakpoint-xl:      1280px;
-  --breakpoint-2xl:     1536px;
-}
+  @keyframes pulse-fast {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+  }
 
-/* ─────────────────────────────────────────────
-   Keyframes
-───────────────────────────────────────────── */
-@keyframes pulse-fast {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.3; }
-}
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
 
-@keyframes fade-up {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+  @keyframes slide-in-right {
+    from { opacity: 0; transform: translateX(24px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
 
-@keyframes slide-in-right {
-  from { opacity: 0; transform: translateX(24px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
+  @keyframes slide-in-left {
+    from { opacity: 0; transform: translateX(-24px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
 
-@keyframes slide-in-left {
-  from { opacity: 0; transform: translateX(-24px); }
-  to   { opacity: 1; transform: translateX(0); }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
 }
 
-@keyframes fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+/* Base tailwind layers */
+@layer base {
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text-main);
+    font-family: var(--font-sans);
+    @apply antialiased min-h-screen;
+  }
 }
 
-@keyframes cursor-blink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0; }
-}
-@keyframes progress-indeterminate {
-  0%   { transform: translateX(-100%); }
-  50%  { transform: translateX(0%); }
-  100% { transform: translateX(100%); }
-}
+/* Custom utility components translated properly for Tailwind v4 */
+@layer utilities {
+  .glass-panel {
+    @apply bg-[#16181C]/80 backdrop-blur-xl border border-white/10;
+  }
+  
+  .glass-panel-light {
+    @apply bg-[#16181C]/60 backdrop-blur-md border border-[#2F3336]/50;
+  }
 
-/* ─────────────────────────────────────────────
-   Base / Reset
-───────────────────────────────────────────── */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+  .nav-glass {
+    @apply bg-black/80 backdrop-blur-xl border-b border-white/10;
+  }
 
-html {
-  font-size: 16px;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  scroll-behavior: smooth;
-}
+  /* Custom scrollbar utility */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 9999px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border-focus);
+  }
 
-body {
-  background-color: var(--color-bg);
-  color: var(--color-text-main);
-  font-family: var(--font-sans);
-  font-size: var(--text-base);
-  line-height: 1.5;
-  min-height: 100dvh;
-}
-
-/* ─────────────────────────────────────────────
-   Scrollbar Styling
-───────────────────────────────────────────── */
-::-webkit-scrollbar {
-  width: 2px;
-  height: 2px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: var(--radius-full);
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-border-focus);
-}
-
-/* ─────────────────────────────────────────────
-   Selection
-───────────────────────────────────────────── */
-::selection {
-  background: var(--color-primary-dim);
-  color: var(--color-text-main);
-}
-
-/* ─────────────────────────────────────────────
-   Focus Ring
-───────────────────────────────────────────── */
-:focus-visible {
-  outline: 2px solid var(--color-border-focus);
-  outline-offset: 2px;
-}
-
-/* ─────────────────────────────────────────────
-   Typography Utilities
-───────────────────────────────────────────── */
-.text-main   { color: var(--color-text-main); }
-.text-muted  { color: var(--color-text-muted); }
-.text-dim    { color: var(--color-text-dim); }
-.font-mono   { font-family: var(--font-mono); }
-
-/* ─────────────────────────────────────────────
-   Layout Utilities
-───────────────────────────────────────────── */
-.border-panel {
-  border: 1px solid var(--color-border);
-}
-.border-b-panel {
-  border-bottom: 1px solid var(--color-border);
-}
-.border-r-panel {
-  border-right: 1px solid var(--color-border);
-}
-
-/* ─────────────────────────────────────────────
-   Streaming Cursor
-───────────────────────────────────────────── */
-.streaming-cursor::after {
-  content: '█';
-  display: inline-block;
-  color: var(--color-text-muted);
-  animation: cursor-blink 0.9s step-end infinite;
-  margin-left: 1px;
-  font-size: 0.85em;
-}
-
-/* ─────────────────────────────────────────────
-   Markdown Prose Overrides (for AI responses)
-───────────────────────────────────────────── */
-.prose-eduverse {
-  color: var(--color-text-main);
-  font-size: var(--text-base);
-  line-height: 1.7;
-  max-width: 65ch;
-}
-.prose-eduverse h1, .prose-eduverse h2, .prose-eduverse h3 {
-  color: var(--color-text-main);
-  font-weight: 700;
-  margin: 1.25em 0 0.5em;
-  line-height: 1.3;
-}
-.prose-eduverse p { margin: 0.75em 0; }
-.prose-eduverse code {
-  font-family: var(--font-mono);
-  font-size: 0.875em;
-  background: var(--color-panel);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 0.15em 0.4em;
-}
-.prose-eduverse pre {
-  background: var(--color-panel);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 1em;
-  overflow-x: auto;
-  margin: 1em 0;
-}
-.prose-eduverse pre code {
-  background: none;
-  border: none;
-  padding: 0;
-  font-size: 0.8125rem;
-}
-.prose-eduverse ul, .prose-eduverse ol {
-  padding-left: 1.5em;
-  margin: 0.75em 0;
-}
-.prose-eduverse li { margin: 0.25em 0; }
-.prose-eduverse blockquote {
-  border-left: 3px solid var(--color-border);
-  padding-left: 1em;
-  color: var(--color-text-muted);
-  margin: 1em 0;
-}
-.prose-eduverse a {
-  color: var(--color-primary);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.prose-eduverse hr {
-  border: none;
-  border-top: 1px solid var(--color-border);
-  margin: 1.5em 0;
-}
-.prose-eduverse table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--text-sm);
-}
-.prose-eduverse th, .prose-eduverse td {
-  border: 1px solid var(--color-border);
-  padding: 0.5em 0.75em;
-  text-align: left;
-}
-.prose-eduverse th {
-  background: var(--color-panel);
-  color: var(--color-text-muted);
-  font-weight: 600;
+  .prose-eduverse {
+    @apply text-text-main text-base leading-relaxed max-w-[65ch];
+  }
+  
+  .prose-eduverse h1, .prose-eduverse h2, .prose-eduverse h3 {
+    @apply font-bold mt-5 mb-2 leading-snug;
+  }
+  
+  .prose-eduverse p {
+    @apply my-3;
+  }
+  
+  .prose-eduverse pre {
+    @apply bg-panel border border-border rounded-md p-4 overflow-x-auto my-4;
+  }
+  
+  .prose-eduverse code {
+    @apply font-mono text-sm bg-panel border border-border rounded px-1.5 py-0.5;
+  }
+  
+  .prose-eduverse pre code {
+    @apply bg-transparent border-none p-0 text-[0.8125rem];
+  }
+  
+  .prose-eduverse ul, .prose-eduverse ol {
+    @apply pl-6 my-3 list-disc;
+  }
+  
+  .prose-eduverse li {
+    @apply my-1;
+  }
+  
+  .prose-eduverse a {
+    @apply text-accent underline underline-offset-4 hover:text-accent-hover;
+  }
 }

@@ -126,7 +126,7 @@ export function Modal({
 
         {/* Footer */}
         {footer && (
-          <div className="p-5 pt-0 flex-shrink-0 border-t border-[#2F3336] mt-0 pt-4">
+          <div className="px-5 pb-5 flex-shrink-0 border-t border-[#2F3336] pt-4">
             {footer}
           </div>
         )}

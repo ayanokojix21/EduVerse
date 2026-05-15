@@ -164,12 +164,11 @@ function AIBubble({
         {/* Avatar + name */}
         <div className="flex items-center gap-2 mb-1.5">
           <div
-            className="
-              w-6 h-6 rounded-full
-              bg-gradient-to-br from-[rgba(239,243,244,0.15)] to-[rgba(239,243,244,0.05)]
-              flex items-center justify-center
-              text-[12px]
-            "
+            className="w-7 h-7 rounded-full flex items-center justify-center text-[12px] flex-shrink-0"
+            style={{
+              background: 'linear-gradient(135deg, rgba(29,155,240,0.2) 0%, rgba(239,243,244,0.08) 100%)',
+              border: '1px solid rgba(29,155,240,0.15)',
+            }}
           >
             ✦
           </div>

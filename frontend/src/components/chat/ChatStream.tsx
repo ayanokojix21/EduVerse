@@ -41,21 +41,22 @@ function StatusIndicator({
 
   return (
     <div
-      className={`
-        flex items-center gap-2 px-4 py-2 mx-auto
-        text-[12px] rounded-full w-fit
-        animate-[fade-in_0.2s_ease-out]
-        ${
-          isError
-            ? "bg-[var(--color-danger-dim)] text-[var(--color-danger)]"
-            : isActive
-            ? "bg-[rgba(239,243,244,0.04)] text-[var(--color-text-muted)]"
-            : "bg-[var(--color-warning-dim)] text-[var(--color-warning)]"
-        }
-      `}
+      className="flex items-center gap-2.5 px-4 py-2 mx-auto text-[12px] rounded-full w-fit animate-[fade-in_0.2s_ease-out]"
+      style={{
+        background: isError
+          ? 'var(--color-danger-dim)'
+          : isActive
+          ? 'rgba(239,243,244,0.04)'
+          : 'var(--color-warning-dim)',
+        color: isError
+          ? 'var(--color-danger)'
+          : isActive
+          ? 'var(--color-text-muted)'
+          : 'var(--color-warning)',
+      }}
     >
       {isActive && (
-        <span className="w-1.5 h-1.5 rounded-full bg-current animate-[pulse-fast_0.8s_ease-in-out_infinite]" />
+        <span className="w-1.5 h-1.5 rounded-full animate-[pulse-fast_0.8s_ease-in-out_infinite]" style={{ backgroundColor: 'currentColor' }} />
       )}
       {statusMessage ?? (
         status === "connecting"
@@ -76,28 +77,28 @@ function StatusIndicator({
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center flex-1 gap-4 text-center px-6 animate-[fade-in_0.5s_ease-out]">
+    <div className="flex flex-col items-center justify-center flex-1 gap-5 text-center px-6 animate-[fade-in_0.5s_ease-out]">
       <div
-        className="
-          w-16 h-16 rounded-full
-          bg-gradient-to-br from-[rgba(239,243,244,0.08)] to-[rgba(239,243,244,0.02)]
-          flex items-center justify-center
-          text-[28px]
-        "
+        className="w-20 h-20 rounded-2xl flex items-center justify-center text-[32px]"
+        style={{
+          background: 'linear-gradient(135deg, rgba(29,155,240,0.1) 0%, rgba(239,243,244,0.04) 100%)',
+          border: '1px solid var(--color-border)',
+          animation: 'float 3s ease-in-out infinite',
+        }}
       >
         ✦
       </div>
-      <div className="flex flex-col gap-1">
-        <h3 className="text-[17px] font-semibold text-[var(--color-text-main)]">
+      <div className="flex flex-col gap-1.5">
+        <h3 className="text-[18px] font-semibold text-[var(--color-text-main)]">
           Ask anything about your course
         </h3>
-        <p className="text-[13px] text-[var(--color-text-muted)] max-w-[320px]">
+        <p className="text-[13px] text-[var(--color-text-muted)] max-w-[340px] leading-relaxed">
           EduVerse will search your course materials, reason through the answer, and cite its sources.
         </p>
       </div>
 
       {/* Suggestion chips */}
-      <div className="flex flex-wrap justify-center gap-2 mt-2 max-w-[420px]">
+      <div className="flex flex-wrap justify-center gap-2 mt-2 max-w-[440px]">
         {[
           "Summarize the key concepts",
           "Help me with the assignment",
@@ -105,15 +106,21 @@ function EmptyState() {
         ].map((s) => (
           <span
             key={s}
-            className="
-              text-[12px] text-[var(--color-text-muted)]
-              px-3 py-1.5 rounded-full
-              border border-[var(--color-border)]
-              hover:bg-[rgba(239,243,244,0.04)]
-              hover:text-[var(--color-text-main)]
-              transition-colors duration-150
-              cursor-default
-            "
+            className="text-[12px] text-[var(--color-text-muted)] px-3.5 py-2 rounded-full cursor-default"
+            style={{
+              border: '1px solid var(--color-border)',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(239,243,244,0.04)';
+              e.currentTarget.style.color = 'var(--color-text-main)';
+              e.currentTarget.style.borderColor = 'var(--color-border-focus)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.color = 'var(--color-text-muted)';
+              e.currentTarget.style.borderColor = 'var(--color-border)';
+            }}
           >
             {s}
           </span>
