@@ -168,6 +168,17 @@ class ChatService:
                 persisted = await graph.aget_state(run_config)
                 if persisted and persisted.values:
                     final_state = persisted.values
+                
+                # ── Handle HITL Interruption ─────────────────────────────────
+                if persisted and persisted.next:
+                    if persisted.tasks and persisted.tasks[0].interrupts:
+                        interrupt_data = persisted.tasks[0].interrupts[0].value
+                        yield sse_event("hitl", jsonable_encoder({
+                            "session_id": session_id,
+                            "interrupt_data": interrupt_data,
+                            "trace_url": self._get_langsmith_url(run_config)
+                        }))
+                        return  # Halt streaming; wait for /resume API call
             except Exception as exc:
                 logger.warning("aget_state failed: %s", exc)
 
@@ -179,7 +190,10 @@ class ChatService:
                 next_node = t.get("node", "step").replace("_", " ")
                 mermaid_def += f'  {current_node.replace(" ", "_")}["{current_node}"] --> {next_node.replace(" ", "_")}["{next_node}"]\n'
                 current_node = next_node
-            mermaid_def += f'  {current_node.replace(" ", "_")} --> END["END"]'
+            if all_thoughts:
+                mermaid_def += f'  {current_node.replace(" ", "_")} --> END["END"]'
+            else:
+                mermaid_def = ""
 
             done_payload = {
                 "response":        final_state.get("response_text", ""),

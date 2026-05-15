@@ -56,8 +56,21 @@ async def planner_node(
     
     try:
         res_raw = await llm.ainvoke(prompt, config=config)
-        result: PlannerOutput = res_raw["parsed"]
-        rewritten = result.search_query
+        # Handle structured output dictionary format
+        if isinstance(res_raw, dict) and res_raw.get("parsed"):
+            rewritten = res_raw["parsed"].search_query
+        else:
+            # Fallback for Gemma models which return raw text instead of structured tools
+            raw_text = res_raw.get("raw").content if isinstance(res_raw, dict) else res_raw.content
+            if isinstance(raw_text, list):
+                raw_text = "\n".join([str(part.get("text") or part.get("thinking") or part) for part in raw_text if isinstance(part, dict)])
+            import json
+            import re
+            json_match = re.search(r"\{.*\}", str(raw_text), re.DOTALL)
+            if json_match:
+                rewritten = json.loads(json_match.group(0)).get("search_query", state["original_query"])
+            else:
+                rewritten = state.get("original_query", "")
     except Exception as exc:
         logger.warning("Planner LLM failed, using raw query: %s", exc)
         rewritten = state.get("original_query", "")  # safe .get() instead of KeyError

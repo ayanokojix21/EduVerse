@@ -93,7 +93,7 @@ class LLMFactory:
         else:
             model_name = settings.gemma_heavy_reasoning_model
 
-        llm = ChatGoogleGenerativeAI(
+        primary_llm = ChatGoogleGenerativeAI(
             model=model_name,
             google_api_key=settings.google_api_key,
             temperature=temperature,
@@ -102,7 +102,23 @@ class LLMFactory:
             streaming=streaming,
         )
 
-        return llm.with_structured_output(schema, include_raw=True) if schema else llm
+        # ── Fallback to stable Gemini models if Gemma 500s ────────────────────
+        fallback_model = "gemini-1.5-flash" if role not in ["orchestrator", "guardrails", "quiz", "critic"] or vision else "gemini-1.5-flash"
+        fallback_llm = ChatGoogleGenerativeAI(
+            model=fallback_model,
+            google_api_key=settings.google_api_key,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            streaming=streaming,
+        )
+
+        if schema:
+            primary_chain = primary_llm.with_structured_output(schema, include_raw=True)
+            fallback_chain = fallback_llm.with_structured_output(schema, include_raw=True)
+            return primary_chain.with_fallbacks([fallback_chain])
+        
+        return primary_llm.with_fallbacks([fallback_llm])
 
 
 # Backward compatibility alias
