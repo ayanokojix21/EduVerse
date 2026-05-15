@@ -6,20 +6,21 @@
 // Bento grid of course cards with:
 // - Fetch from GET /api/v1/courses/
 // - "+ New Workspace" button → CreateCourseModal
-// - Card click → CourseDrawer
+// - Card click → /course/[courseId] detail page
 // - Ingestion status polling per course
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { coursesApi, ingestionApi } from "@/lib/api";
 import type { UnifiedCourse, IngestionStatusValue } from "@/lib/types";
 import { CourseCard } from "@/components/courses/CourseCard";
-import { CourseDrawer } from "@/components/courses/CourseDrawer";
 import { CreateCourseModal } from "@/components/courses/CreateCourseModal";
 import { Skeleton, SkeletonCard } from "@/components/ui/Loader";
 import { Button } from "@/components/ui/Button";
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [courses, setCourses] = useState<UnifiedCourse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +30,6 @@ export default function DashboardPage() {
 
   // UI state
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedCourse, setSelectedCourse] = useState<UnifiedCourse | null>(null);
 
   // ── Fetch courses ───────────────────────────────────────────────────────
 
@@ -73,11 +73,8 @@ export default function DashboardPage() {
     setStatuses((prev) => ({ ...prev, [course.id]: "none" }));
   };
 
-  const handleCourseDeleted = () => {
-    if (selectedCourse) {
-      setCourses((prev) => prev.filter((c) => c.id !== selectedCourse.id));
-      setSelectedCourse(null);
-    }
+  const handleCourseDeleted = (courseId: string) => {
+    setCourses((prev) => prev.filter((c) => c.id !== courseId));
   };
 
   // ── Loading skeleton ────────────────────────────────────────────────────
@@ -191,7 +188,7 @@ export default function DashboardPage() {
               <CourseCard
                 course={course}
                 ingestionStatus={statuses[course.id]}
-                onClick={() => setSelectedCourse(course)}
+                onClick={() => router.push(`/course/${course.id}`)}
               />
             </div>
           ))}
@@ -205,15 +202,7 @@ export default function DashboardPage() {
         onCreated={handleCourseCreated}
       />
 
-      {/* Course Drawer */}
-      {selectedCourse && (
-        <CourseDrawer
-          course={selectedCourse}
-          isOpen={!!selectedCourse}
-          onClose={() => setSelectedCourse(null)}
-          onDeleted={handleCourseDeleted}
-        />
-      )}
+
     </div>
   );
 }

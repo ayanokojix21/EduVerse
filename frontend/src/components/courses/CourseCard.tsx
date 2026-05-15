@@ -19,7 +19,7 @@ import { IngestionDot, SourceBadge } from "@/components/ui/Badge";
 interface CourseCardProps {
   course: UnifiedCourse;
   ingestionStatus?: "none" | "pending" | "processing" | "completed" | "failed";
-  onClick: () => void;
+  onClick?: () => void;
 }
 
 const COURSE_GRADIENTS = [

@@ -54,14 +54,23 @@ export interface CreateCourseRequest {
   description?: string;
 }
 
+export interface CourseworkMaterial {
+  driveFile?: { driveFile?: { id?: string; title?: string; alternateLink?: string } };
+  youtubeVideo?: { id?: string; title?: string; alternateLink?: string };
+  link?: { url?: string; title?: string };
+  form?: { formUrl?: string; title?: string };
+}
+
 export interface Coursework {
   id: string;
   title: string;
   description?: string;
-  due_date?: string;
   state?: string;
-  alternate_link?: string;
-  work_type?: string;
+  type?: "assignment" | "material" | "announcement";
+  dueDate?: { year?: number; month?: number; day?: number } | null;
+  creationTime?: string;
+  alternateLink?: string;
+  materials?: CourseworkMaterial[];
 }
 
 // ─── Ingestion (P2) ──────────────────────────────────────────────────────────

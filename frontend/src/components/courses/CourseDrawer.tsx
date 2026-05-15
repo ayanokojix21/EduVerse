@@ -32,6 +32,7 @@ const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
 export function CourseDrawer({ course, isOpen, onClose, onDeleted }: CourseDrawerProps) {
   const [activeTab, setActiveTab] = useState<"files" | "assignments">("files");
   const [isUploading, setIsUploading] = useState(false);
+  const [isIndexing, setIsIndexing] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -68,6 +69,19 @@ export function CourseDrawer({ course, isOpen, onClose, onDeleted }: CourseDrawe
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  // ── Index / Ingest ─────────────────────────────────────────────────────
+
+  const handleIndex = async () => {
+    try {
+      setIsIndexing(true);
+      await ingestionApi.trigger(course.id);
+    } catch (err) {
+      console.error("Indexing failed:", err);
+    } finally {
+      setIsIndexing(false);
     }
   };
 
@@ -190,7 +204,7 @@ export function CourseDrawer({ course, isOpen, onClose, onDeleted }: CourseDrawe
         <div className="flex-1 px-5 py-4 min-h-0">
           {activeTab === "files" ? (
             <div className="space-y-4">
-              {/* Upload + Sync buttons */}
+              {/* Upload + Index + Sync buttons */}
               <div className="flex gap-2">
                 <Button
                   variant="ghost"
@@ -206,6 +220,21 @@ export function CourseDrawer({ course, isOpen, onClose, onDeleted }: CourseDrawe
                   }
                 >
                   Upload File
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  onClick={handleIndex}
+                  loading={isIndexing}
+                  leftIcon={
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+                      <path d="M12 12v9" />
+                      <path d="m8 17 4-4 4 4" />
+                    </svg>
+                  }
+                >
+                  Index
                 </Button>
 
                 {course.source === "classroom" && (
