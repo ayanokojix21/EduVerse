@@ -56,8 +56,4 @@ class ClassroomService:
         ann_res = service.courses().announcements().list(courseId=course_id).execute()
         announcements = [parse_item(i, "announcement") for i in ann_res.get("announcements", [])]
 
-        return {
-            "assignments": assignments,
-            "materials": materials,
-            "announcements": announcements
-        }
+        return assignments + materials + announcements
