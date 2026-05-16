@@ -44,56 +44,52 @@ class MarkdownPyMuPDFParser(BaseBlobParser):
                     logger.debug(f"Scanning page {page_idx + 1} for qualified images...")
                     
                     image_list = page.get_images()
-                    image_bytes = None
-                    is_qualified = False
                     
-                    if image_list:
-                        xref = image_list[0][0]
+                    for img_info in image_list:
+                        if img_count >= self._settings.max_vision_images_per_doc:
+                            break
+                            
+                        xref = img_info[0]
                         base_image = doc.extract_image(xref)
                         if base_image.get("width", 0) >= 120 and base_image.get("height", 0) >= 120:
                             image_bytes = base_image["image"]
-                            is_qualified = True
-
-                    if is_qualified and image_bytes:
-                        import io
-                        from PIL import Image
-                        try:
-                            with Image.open(io.BytesIO(image_bytes)) as img:
-                                if img.mode != "RGB":
-                                    img = img.convert("RGB")
-                                img.thumbnail((1024, 1024))
-                                buffer = io.BytesIO()
-                                img.save(buffer, format="JPEG", quality=85)
-                                sanitized_bytes = buffer.getvalue()
-                            mime_type = "image/jpeg"
-                            b64 = base64.b64encode(sanitized_bytes).decode("utf-8")
-                        except Exception as e:
-                            logger.warning(f"Image sanitization failed: {e}")
-                            continue
-                        from langchain_core.messages import HumanMessage
-                        try:
-                            mm_msg = HumanMessage(content=[
-                                {"type": "text", "text": "Analyze this image/document from " + str(blob.source or "unknown") + " for educational context. Identify key text, diagrams, or events. Be concise."},
-                                {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64}"}}
-                            ])
                             
-                            # NOTE: invoke() is called synchronously here — this is intentional.
-                            # lazy_parse() is already running in a worker thread (via anyio.to_thread),
-                            # so we must NOT await here. Using sync invoke is correct.
-                            res = self.vision_model.invoke([mm_msg])
-                            desc = res.content
-                            
-                            # Handle multimodal list responses from Gemma 4
-                            if isinstance(desc, list):
-                                desc = "\n".join([
-                                    part.get("text") or part.get("thinking") or str(part) 
-                                    for part in desc if isinstance(part, dict)
+                            import io
+                            from PIL import Image
+                            try:
+                                with Image.open(io.BytesIO(image_bytes)) as img:
+                                    if img.mode != "RGB":
+                                        img = img.convert("RGB")
+                                    img.thumbnail((1024, 1024))
+                                    buffer = io.BytesIO()
+                                    img.save(buffer, format="JPEG", quality=85)
+                                    sanitized_bytes = buffer.getvalue()
+                                mime_type = "image/jpeg"
+                                b64 = base64.b64encode(sanitized_bytes).decode("utf-8")
+                            except Exception as e:
+                                logger.warning(f"Image sanitization failed: {e}")
+                                continue
+                                
+                            from langchain_core.messages import HumanMessage
+                            try:
+                                mm_msg = HumanMessage(content=[
+                                    {"type": "text", "text": "Analyze this image/document from " + str(blob.source or "unknown") + " for educational context. Identify key text, diagrams, or events. Be concise."},
+                                    {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64}"}}
                                 ])
-                            
-                            page_text += f"\n\n> [Visual Analysis]: {desc}\n"
-                            img_count += 1
-                        except Exception as vision_exc:
-                            logger.warning(f"Vision analysis failed for {blob.source or 'unknown'}: {vision_exc}")
+                                
+                                res = self.vision_model.invoke([mm_msg])
+                                desc = res.content
+                                
+                                if isinstance(desc, list):
+                                    desc = "\n".join([
+                                        part.get("text") or part.get("thinking") or str(part) 
+                                        for part in desc if isinstance(part, dict)
+                                    ])
+                                
+                                page_text += f"\n\n> [Visual Analysis]: {desc}\n"
+                                img_count += 1
+                            except Exception as vision_exc:
+                                logger.warning(f"Vision analysis failed for {blob.source or 'unknown'}: {vision_exc}")
 
                 doc_metadata = dict(blob.metadata or {})
                 doc_metadata.update({
@@ -132,7 +128,7 @@ def _load_documents_sync(
         ClassroomService.get_course(credentials, course_id)
 
         from app.utils.llm_pool import RoundRobinLLM
-        vision_llm = RoundRobinLLM.for_role("vision", temperature=0)
+        vision_llm = RoundRobinLLM.for_role("vision", temperature=0, vision=True)
 
         loader = EduVerseClassroomLoader(
             credentials=credentials,

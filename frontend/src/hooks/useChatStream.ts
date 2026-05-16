@@ -206,12 +206,9 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
         feedback: null,
       };
 
-      const needsHITL =
-        action.payload.retrieval_label === "CLASSROOM_INSUFFICIENT";
-
       return {
         ...state,
-        status: needsHITL ? "hitl_paused" : "done",
+        status: "done",
         messages: [...state.messages, assistantMessage],
         streamingText: "",
         sessionId: action.payload.session_id || state.sessionId,

@@ -103,7 +103,7 @@ class LLMFactory:
         )
 
         # ── Fallback to stable Gemini models if Gemma 500s ────────────────────
-        fallback_model = "gemini-1.5-flash" if role not in ["orchestrator", "guardrails", "quiz", "critic"] or vision else "gemini-1.5-flash"
+        fallback_model = "gemini-1.5-flash" if role not in ["orchestrator", "guardrails", "quiz", "critic"] or vision else "gemini-flash-latest"
         fallback_llm = ChatGoogleGenerativeAI(
             model=fallback_model,
             google_api_key=settings.google_api_key,

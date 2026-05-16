@@ -158,6 +158,18 @@ function AIBubble({
   message: ChatMessage;
   onFeedback?: (messageId: string, rating: "up" | "down") => void;
 }) {
+  let displayContent = message.content;
+  
+  // Convert <think> tags to an HTML details accordion
+  displayContent = displayContent.replace(
+    /<think>/g, 
+    '<details className="mb-4 text-[13px] text-[var(--color-text-dim)] border-l-2 border-[var(--color-border)] pl-3" open><summary className="cursor-pointer mb-2 font-medium">Thought Process</summary>\n\n'
+  );
+  displayContent = displayContent.replace(
+    /<\/think>/g, 
+    '\n\n</details>\n\n'
+  );
+
   return (
     <div className="flex justify-start animate-[fade-up_0.3s_ease-out_both] group/bubble">
       <div className="max-w-[85%] md:max-w-[75%]">
@@ -201,7 +213,7 @@ function AIBubble({
             remarkPlugins={[remarkGfm]}
             rehypePlugins={[rehypeRaw]}
           >
-            {message.content}
+            {displayContent}
           </ReactMarkdown>
 
           {/* Streaming cursor */}
