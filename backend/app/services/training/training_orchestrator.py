@@ -178,11 +178,14 @@ class TrainingOrchestrator:
                             
                             api.create_repo(repo_id=repo_id, exist_ok=True)
                             
+                            import functools
                             await anyio.to_thread.run_sync(
-                                api.upload_file,
-                                path_or_fileobj=str(gguf_path),
-                                path_in_repo=f"{role}.gguf",
-                                repo_id=repo_id
+                                functools.partial(
+                                    api.upload_file,
+                                    path_or_fileobj=str(gguf_path),
+                                    path_in_repo=f"{role}.gguf",
+                                    repo_id=repo_id
+                                )
                             )
                             logger.info(f"Global deployment successful for {role}")
                         except Exception as e:

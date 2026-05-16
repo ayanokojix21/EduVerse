@@ -30,7 +30,7 @@ def python_repl_tool(code: str) -> str:
     try:
         from e2b_code_interpreter import Sandbox
 
-        sbx = Sandbox(api_key=settings.e2b_api_key, timeout=30)
+        sbx = Sandbox.create(api_key=settings.e2b_api_key, timeout=30)
         try:
             execution = sbx.run_code(code)
         finally:
