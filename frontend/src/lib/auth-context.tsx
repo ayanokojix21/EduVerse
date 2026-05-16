@@ -35,6 +35,7 @@ interface AuthContextValue {
   loginAsGuest: () => Promise<void>;
   loginWithGoogle: () => void;
   logout: () => void;
+  saveToken: (jwt: string) => void;
 }
 
 // ─── JWT Helpers ──────────────────────────────────────────────────────────────
@@ -163,8 +164,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loginAsGuest,
       loginWithGoogle,
       logout,
+      saveToken,
     }),
-    [user, token, isLoading, loginAsGuest, loginWithGoogle, logout]
+    [user, token, isLoading, loginAsGuest, loginWithGoogle, logout, saveToken]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

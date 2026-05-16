@@ -14,25 +14,12 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-
-// ─── Inner component (uses useSearchParams inside Suspense) ──────────────────
-
-// Sync JWT to cookie for middleware route protection
-function syncJwtCookie(token: string) {
-  try {
-    const [, payload] = token.split(".");
-    const decoded = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-    const maxAge = Math.max(0, (decoded.exp ?? 0) - Math.floor(Date.now() / 1000));
-    document.cookie = `eduverse_jwt=${token}; path=/; max-age=${maxAge}; SameSite=Lax`;
-  } catch {
-    // Best-effort — set a 24h fallback
-    document.cookie = `eduverse_jwt=${token}; path=/; max-age=86400; SameSite=Lax`;
-  }
-}
+import { useAuth } from "@/lib/auth-context";
 
 function CallbackInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { saveToken } = useAuth();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -44,8 +31,7 @@ function CallbackInner() {
           searchParams.get("token") ?? searchParams.get("app_jwt");
 
         if (tokenFromParam) {
-          localStorage.setItem("eduverse_jwt", tokenFromParam);
-          syncJwtCookie(tokenFromParam);
+          saveToken(tokenFromParam);
           setStatus("success");
           router.replace("/dashboard");
           return;
@@ -65,8 +51,7 @@ function CallbackInner() {
 
         if (!jwt) throw new Error("No JWT found in OAuth response");
 
-        localStorage.setItem("eduverse_jwt", jwt);
-        syncJwtCookie(jwt);
+        saveToken(jwt);
         setStatus("success");
         router.replace("/dashboard");
       } catch (err) {
@@ -77,7 +62,7 @@ function CallbackInner() {
     }
 
     handleCallback();
-  }, [router, searchParams]);
+  }, [router, searchParams, saveToken]);
 
   return (
     <div className="flex items-center justify-center min-h-dvh bg-black">
