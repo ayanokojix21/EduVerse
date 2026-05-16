@@ -130,7 +130,9 @@ export interface Citation {
 
 export interface AgentThought {
   node: string;
-  reasoning: string;
+  summary: string;           // Bold header: "Optimizing Search Query"
+  reasoning?: string;        // Italic body: model's chain-of-thought reasoning
+  data?: Record<string, unknown>;
   [key: string]: unknown;
 }
 

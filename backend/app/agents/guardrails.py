@@ -11,6 +11,7 @@ from langgraph.graph import END
 from langgraph.types import Command
 from app.agents.state import AgentState
 from app.utils.llm_pool import RoundRobinLLM
+from app.utils.thinking_utils import build_thought, extract_thinking, normalize_content
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +46,19 @@ class Guardrails:
         res: SafetyOutput = res_raw["parsed"]
         
         # Normalize raw content to string (handles Gemma 4 thinking lists)
-        raw_text = res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"])
-        if isinstance(raw_text, list):
-            raw_text = "\n".join([
-                part.get("text") or part.get("thinking") or str(part) 
-                for part in raw_text if isinstance(part, dict)
-            ])
+        raw_text = normalize_content(
+            res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"])
+        )
+        thinking_text = extract_thinking(raw_text)
 
-        update_state = {"safety_raw_responses": [raw_text]}
+        update_state = {
+            "safety_raw_responses": [raw_text],
+            "agent_thoughts": [build_thought(
+                node="input_moderator",
+                summary="Scanning Input Safety",
+                reasoning=thinking_text or f"Decision: {res.decision}. {res.reason or 'Content appears safe.'}" if hasattr(res, 'reason') else f"Decision: {res.decision}.",
+            )],
+        }
         
         if res.decision == "UNSAFE":
             logger.warning(f"Native Safeguard Triggered: {res.reason}")
@@ -86,14 +92,19 @@ class Guardrails:
         res: IntegrityOutput = res_raw["parsed"]
         
         # Normalize raw content to string (handles Gemma 4 thinking lists)
-        raw_text = res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"])
-        if isinstance(raw_text, list):
-            raw_text = "\n".join([
-                part.get("text") or part.get("thinking") or str(part) 
-                for part in raw_text if isinstance(part, dict)
-            ])
+        raw_text = normalize_content(
+            res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"])
+        )
+        thinking_text = extract_thinking(raw_text)
 
-        update_state = {"safety_raw_responses": [raw_text]}
+        update_state = {
+            "safety_raw_responses": [raw_text],
+            "agent_thoughts": [build_thought(
+                node="integrity_guard",
+                summary="Checking Academic Integrity",
+                reasoning=thinking_text or f"Decision: {res.decision}. Student intent analysis complete.",
+            )],
+        }
         
         if res.decision == "Refusal":
             from app.agents.prompts.guardrails import REFUSAL_PROMPT

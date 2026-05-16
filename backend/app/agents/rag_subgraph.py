@@ -21,6 +21,7 @@ from app.retrieval.retriever import get_retrieval_chain
 from app.utils.llm_pool import RoundRobinLLM
 from app.utils.prompt_helpers import build_context_text
 from app.utils.token_utils import truncate_context_docs
+from app.utils.thinking_utils import build_thought, extract_thinking, normalize_content
 from app.agents.schemas.rag import (
     PlannerOutput,
     TransferToValidator,
@@ -75,7 +76,14 @@ async def planner_node(
         logger.warning("Planner LLM failed, using raw query: %s", exc)
         rewritten = state.get("original_query", "")  # safe .get() instead of KeyError
         
-    return Command(goto="executor", update={"rewritten_queries": [rewritten]})
+    return Command(goto="executor", update={
+        "rewritten_queries": [rewritten],
+        "agent_thoughts": [build_thought(
+            node="planner",
+            summary="Optimizing Search Query",
+            reasoning=f"Rewrote student query for hybrid retrieval: '{rewritten}'",
+        )],
+    })
 
 @traceable(name="rag_executor")
 async def executor_node(
@@ -124,7 +132,17 @@ async def executor_node(
         "retrieval_label": label,
         "top_reranker_score": top_score,
         "retrieval_ms": retrieval_ms,
-        "explainability": explain_payload
+        "explainability": explain_payload,
+        "agent_thoughts": [build_thought(
+            node="executor",
+            summary="Searching Course Materials",
+            reasoning=(
+                f"Retrieved {len(result['documents'])} documents. "
+                f"Confidence: {label.replace('CLASSROOM_', '').replace('_', ' ').title()}. "
+                f"Top relevance score: {top_score:.2f}. Latency: {retrieval_ms}ms."
+            ),
+            data={"label": label, "top_score": top_score, "retrieval_ms": retrieval_ms},
+        )],
     })
 
 
@@ -149,7 +167,13 @@ async def hitl_node(
     # Only pause if classroom materials are genuinely insufficient (not just low confidence)
     # LOW_CONFIDENCE → generator handles with appropriate disclaimers, no HITL needed
     if retrieval_label != "CLASSROOM_INSUFFICIENT":
-        return Command(goto="distiller", update={})
+        return Command(goto="distiller", update={
+            "agent_thoughts": [build_thought(
+                node="hitl",
+                summary="Evaluating Source Confidence",
+                reasoning="Course materials are sufficient. Proceeding to distillation without student intervention.",
+            )],
+        })
     
     # ── Pause the graph and surface a structured choice to the student ──────────
     # interrupt() checkpoints the state to MongoDB, then raises an exception
@@ -170,10 +194,18 @@ async def hitl_node(
     
     # ── Graph resumes here with student_decision = the value sent by the frontend
     web_search_approved = (student_decision == "search_web")
+    decision_label = "approved web search" if web_search_approved else "chose Socratic-only mode"
     
     return Command(
         goto="distiller",
-        update={"tutor_web_search_approved": web_search_approved},
+        update={
+            "tutor_web_search_approved": web_search_approved,
+            "agent_thoughts": [build_thought(
+                node="hitl",
+                summary="Student Intervention Resolved",
+                reasoning=f"Student {decision_label}. Resuming pipeline.",
+            )],
+        },
     )
 
 @traceable(name="rag_distiller")
@@ -183,8 +215,15 @@ async def distiller_node(
     """Ranks and token-budgets the context window before generation."""
     docs = state.get("context_docs", [])
     distilled = sorted(docs, key=lambda d: d.get("metadata", {}).get("relevance_score", 0.0), reverse=True)
-    # truncate_context_docs is imported at the top of this module
-    return Command(goto="generator", update={"context_docs": truncate_context_docs(distilled)})
+    truncated = truncate_context_docs(distilled)
+    return Command(goto="generator", update={
+        "context_docs": truncated,
+        "agent_thoughts": [build_thought(
+            node="distiller",
+            summary="Preparing Context Window",
+            reasoning=f"Ranked {len(docs)} documents by relevance and budgeted to {len(truncated)} for generation.",
+        )],
+    })
 
 @traceable(name="tutor_generator")
 async def generator_node(
@@ -240,14 +279,15 @@ async def generator_node(
         res = res_raw
         
     # Normalize content to string (handles Gemma 4's multimodal/thinking list format)
-    raw_content = res.content
-    if isinstance(raw_content, list):
-        raw_content = "\n".join([
-            (part.get("text") or part.get("thinking") or str(part)) if isinstance(part, dict) else str(part)
-            for part in raw_content
-        ])
-    else:
-        raw_content = str(raw_content)
+    raw_content = normalize_content(res.content)
+    
+    # Extract <think> block reasoning for the "Show Thinking" UI
+    thinking_text = extract_thinking(raw_content)
+    generator_thought = build_thought(
+        node="generator",
+        summary="Drafting Socratic Response",
+        reasoning=thinking_text or "Applying Feynman scaffolding and analogy anchoring to draft the educational response.",
+    )
     
     if not res.tool_calls:
         logger.warning("Generator failed to call tools; falling back to Validator.")
@@ -256,7 +296,8 @@ async def generator_node(
             update={
                 "messages": [res],
                 "tutor_raw_responses": [raw_content],
-                "tutor_current_draft": raw_content
+                "tutor_current_draft": raw_content,
+                "agent_thoughts": [generator_thought],
             }
         )
         
@@ -272,7 +313,8 @@ async def generator_node(
         update={
             "messages": [res, ToolMessage(content="Analyzing draft...", tool_call_id=res.tool_calls[0]["id"])], 
             "tutor_current_draft": draft,
-            "tutor_raw_responses": [raw_content]
+            "tutor_raw_responses": [raw_content],
+            "agent_thoughts": [generator_thought],
         }
     )
 
@@ -322,8 +364,19 @@ async def validator_node(
     )
 
     res = await llm.ainvoke(prompt, config=config)
+    
+    # Extract validator's own reasoning
+    validator_thinking = extract_thinking(normalize_content(res.content))
+    
     if not res.tool_calls:
-        return Command(goto="formatter", update={"messages": [res]})
+        return Command(goto="formatter", update={
+            "messages": [res],
+            "agent_thoughts": [build_thought(
+                node="validator",
+                summary="Fact-Checking Draft",
+                reasoning=validator_thinking or f"Audited draft against sources. Revision {revisions}/2. No tool calls — forwarding to formatter.",
+            )],
+        })
 
     tc = res.tool_calls[0]
     
@@ -334,10 +387,17 @@ async def validator_node(
             output = await asyncio.to_thread(web_search_tool.invoke, tc["args"])
         else:
             output = await asyncio.to_thread(python_repl_tool.invoke, tc["args"])
-        return Command(goto="validator", update={"messages": [res, ToolMessage(content=output, tool_call_id=tc["id"])]})
+        return Command(goto="validator", update={
+            "messages": [res, ToolMessage(content=output, tool_call_id=tc["id"])],
+            "agent_thoughts": [build_thought(
+                node="validator",
+                summary=f"Using {tc['name'].replace('_', ' ').title()}",
+                reasoning=validator_thinking or f"Invoked {tc['name']} to verify a claim in the draft.",
+            )],
+        })
 
     if tc["name"] == "TransferToGenerator":
-        return SwarmLoop.handle_rejection(
+        rejection = SwarmLoop.handle_rejection(
             target_node="generator",
             current_revisions=revisions,
             tc_id=tc["id"],
@@ -345,11 +405,25 @@ async def validator_node(
             current_draft=state["tutor_current_draft"],
             state_keys={"revisions": "tutor_revisions", "rejected": "tutor_rejected_draft"}
         )
+        # Inject thought into the rejection Command's update
+        if isinstance(rejection, Command) and hasattr(rejection, 'update') and isinstance(rejection.update, dict):
+            rejection.update["agent_thoughts"] = [build_thought(
+                node="validator",
+                summary="Requesting Revision",
+                reasoning=validator_thinking or f"Found grounding issues in the draft. Sending back to generator for revision {revisions + 1}/2.",
+            )]
+        return rejection
 
     return Command(goto="formatter", update={
         "messages": [res, ToolMessage(content="Verified.", tool_call_id=tc["id"])], 
         "tutor_verified_draft": tc["args"].get("verified_answer", ""),
-        "dpo_pairs": dpo_update
+        "dpo_pairs": dpo_update,
+        "agent_thoughts": [build_thought(
+            node="validator",
+            summary="Draft Verified",
+            reasoning=validator_thinking or f"All grounding checks passed after {revisions} revision(s). Approved for formatting.",
+            data={"revisions": revisions},
+        )],
     })
 
 @traceable(name="tutor_formatter")
@@ -375,7 +449,16 @@ async def formatter_node(state: AgentState) -> dict:
                 snippet=snippet,
             ))
 
-    return {"response_text": draft, "citations": citations}
+    return {
+        "response_text": draft,
+        "citations": citations,
+        "agent_thoughts": [build_thought(
+            node="formatter",
+            summary="Formatting Response",
+            reasoning=f"Finalized response with {len(citations)} grounded citation(s).",
+            data={"citation_count": len(citations)},
+        )],
+    }
 
 # ── Subgraph Builder ─────────────────────────────────────────────────────────
 

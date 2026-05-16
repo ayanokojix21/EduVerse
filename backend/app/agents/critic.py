@@ -14,6 +14,7 @@ from langsmith import traceable
 from app.agents.state import AgentState
 from app.config import get_settings
 from app.utils.llm_pool import RoundRobinLLM
+from app.utils.thinking_utils import build_thought, extract_thinking, normalize_content
 from app.agents.prompts.critic import CRITIC_PROMPT
 from app.agents.schemas.critic import CriticOutput
 
@@ -52,7 +53,10 @@ async def critic_agent_node(state: AgentState, config: RunnableConfig) -> dict:
     try:
         res_raw = await llm.ainvoke(prompt_value.to_messages(), config=config)
         result: CriticOutput = res_raw["parsed"]
-        raw_text = res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"])
+        raw_text = normalize_content(
+            res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"])
+        )
+        thinking_text = extract_thinking(raw_text)
         
         severity = result.severity
         issues = result.issues or []
@@ -64,6 +68,7 @@ async def critic_agent_node(state: AgentState, config: RunnableConfig) -> dict:
         severity, issues, passed = "none", [], True
         required_facts = []
         raw_text = ""
+        thinking_text = ""
         review = {"severity": severity, "issues": issues, "passed": passed, "required_facts": required_facts}
 
     logger.info(
@@ -77,6 +82,8 @@ async def critic_agent_node(state: AgentState, config: RunnableConfig) -> dict:
         logger.warning(f"CRITIC_REJECTION: Initiating self-correction (Retry {retry_count + 1}/2)")
         goto = "orchestrator"
 
+    verdict = "Approved" if passed else f"Rejected (retry {retry_count + 1}/2)"
+
     return Command(
         goto=goto,
         update={
@@ -84,15 +91,15 @@ async def critic_agent_node(state: AgentState, config: RunnableConfig) -> dict:
             "critic_feedback": issues, 
             "retry_count": retry_count + (1 if not passed else 0),
             "safety_raw_responses": [raw_text],
-            "agent_thoughts": [
-                {
-                    "node": "critic_agent",
-                    "summary": (
-                        f"Quality Audit: {severity} | Pass: {passed} | "
-                        f"Issues: {len(issues)}"
-                    ),
-                    "data": review,
-                }
-            ],
+            "agent_thoughts": [build_thought(
+                node="critic_agent",
+                summary=f"Quality Audit — {verdict}",
+                reasoning=(
+                    thinking_text or
+                    f"Severity: {severity}. {len(issues)} issue(s) found. "
+                    f"{'Sending back for revision.' if not passed else 'All checks passed.'}"
+                ),
+                data=review,
+            )],
         }
     )

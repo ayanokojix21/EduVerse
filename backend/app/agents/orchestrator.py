@@ -16,6 +16,7 @@ from langsmith import traceable
 
 from app.agents.state import AgentState
 from app.utils.llm_pool import RoundRobinLLM
+from app.utils.thinking_utils import build_thought, extract_thinking, normalize_content
 from app.agents.prompts.orchestrator import ORCHESTRATOR_PROMPT
 from app.agents.schemas.orchestrator import OrchestratorOutput
 
@@ -89,6 +90,13 @@ async def orchestrator_node(
         result_raw = await llm.ainvoke(prompt_msgs, config=config)
         logger.info(f"Orchestrator LLM Result: {result_raw}")
         
+        # Extract thinking for the "Show Thinking" UI
+        raw_content = normalize_content(
+            result_raw["raw"].content if isinstance(result_raw, dict) and "raw" in result_raw 
+            else str(result_raw)
+        )
+        thinking_text = extract_thinking(raw_content)
+        
         result: OrchestratorOutput = result_raw["parsed"]
         task = result.task
         difficulty = result.difficulty
@@ -99,17 +107,19 @@ async def orchestrator_node(
         task = "rag"
         difficulty = "medium"
         topic_source = "course_material"
+        thinking_text = ""
         logger.info(f"Falling back to Default Routing -> Task: {task}")
 
     update_state = {
         "task": task,
         "difficulty": difficulty,
         "quiz_topic_source": topic_source,
-        "agent_thoughts": [{
-            "node": "orchestrator",
-            "summary": f"Detected intent: {task}. Routing to {task}_swarm.",
-            "data": {"task": task, "difficulty": difficulty}
-        }]
+        "agent_thoughts": [build_thought(
+            node="orchestrator",
+            summary=f"Routing to {task.replace('_', ' ').title()} Pipeline",
+            reasoning=thinking_text or f"Detected intent: {task}. Difficulty: {difficulty}. Routing to {task}_swarm.",
+            data={"task": task, "difficulty": difficulty},
+        )],
     }
 
     logger.info(f"====== ORCHESTRATOR NODE COMPLETED. GOTO: {task}_swarm ======")

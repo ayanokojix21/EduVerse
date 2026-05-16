@@ -14,7 +14,7 @@
 // - Optional image preview for multimodal messages
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { memo, useState } from "react";
+import { memo, useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
@@ -160,45 +160,169 @@ function AgentThoughtProcess({
   activeNodes?: string[];
   isStreaming?: boolean;
 }) {
-  if (!thoughts?.length && !activeNodes?.length) return null;
+  const [isOpen, setIsOpen] = useState(isStreaming ?? false);
+  const prevThoughtCount = useRef(thoughts?.length ?? 0);
+  const hasContent = (thoughts && thoughts.length > 0) || (activeNodes && activeNodes.length > 0);
+
+  // Auto-open when streaming starts or when new thoughts arrive
+  useEffect(() => {
+    const currentCount = thoughts?.length ?? 0;
+    if (isStreaming && currentCount > prevThoughtCount.current) {
+      setIsOpen(true);
+    }
+    prevThoughtCount.current = currentCount;
+  }, [isStreaming, thoughts?.length]);
+
+  if (!hasContent) return null;
 
   return (
-    <details
-      className="mb-4 text-[13px] text-[var(--color-text-dim)] border-l-2 border-[var(--color-border)] pl-3"
-      open={isStreaming}
-    >
-      <summary className="cursor-pointer mb-2 font-medium hover:text-[var(--color-text-muted)] transition-colors">
-        Agent Workspace
-      </summary>
-      <div className="flex flex-col gap-3 mt-2 mb-2">
-        {thoughts?.map((t, i) => (
-          <div key={i} className="flex gap-3">
-            <div className="flex flex-col items-center mt-1">
-              <div className="w-2 h-2 rounded-full bg-[var(--color-success)]" />
-              {i < thoughts.length - 1 && (
-                <div className="w-px flex-1 bg-[var(--color-border)] min-h-[16px]" />
+    <div className="mb-4" style={{ fontFamily: "inherit" }}>
+      {/* ── Toggle Button ─────────────────────────────────────────── */}
+      <button
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="
+          flex items-center gap-2
+          px-0 py-1
+          text-[13px] font-medium
+          cursor-pointer
+          border-none bg-transparent
+          transition-colors duration-150
+        "
+        style={{
+          color: "var(--color-text-muted)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.color = "var(--color-text-main)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.color = "var(--color-text-muted)";
+        }}
+        aria-expanded={isOpen}
+        aria-label={isOpen ? "Hide thinking" : "Show thinking"}
+      >
+        {/* Sparkle icon */}
+        <span
+          className="flex items-center justify-center w-5 h-5 text-[12px]"
+          style={{
+            background: "linear-gradient(135deg, rgba(29,155,240,0.3) 0%, rgba(147,130,255,0.3) 100%)",
+            borderRadius: "6px",
+            lineHeight: 1,
+          }}
+        >
+          ✦
+        </span>
+
+        <span>{isOpen ? "Hide thinking" : "Show thinking"}</span>
+
+        {/* Chevron */}
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{
+            transition: "transform 0.2s ease",
+            transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+          }}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+
+        {/* Streaming indicator */}
+        {isStreaming && (
+          <span
+            className="w-1.5 h-1.5 rounded-full ml-1"
+            style={{
+              backgroundColor: "var(--color-accent, #1d9bf0)",
+              animation: "pulse-fast 0.8s ease-in-out infinite",
+            }}
+          />
+        )}
+      </button>
+
+      {/* ── Collapsible Content ────────────────────────────────────── */}
+      <div
+        style={{
+          maxHeight: isOpen ? "2000px" : "0px",
+          opacity: isOpen ? 1 : 0,
+          overflow: "hidden",
+          transition: "max-height 0.35s ease, opacity 0.25s ease",
+        }}
+      >
+        <div
+          className="mt-2 pl-3"
+          style={{
+            borderLeft: "2px solid rgba(147,130,255,0.25)",
+          }}
+        >
+          {/* Thought entries */}
+          {thoughts?.map((t, i) => (
+            <div
+              key={i}
+              className="mb-3"
+              style={{
+                animation: `fade-up 0.3s ease-out ${i * 0.05}s both`,
+              }}
+            >
+              {/* Bold summary header */}
+              <p
+                className="text-[13px] font-semibold mb-0.5"
+                style={{ color: "var(--color-text-main)" }}
+              >
+                {t.summary || t.node.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+              </p>
+
+              {/* Italic reasoning body */}
+              {t.reasoning && (
+                <p
+                  className="text-[13px] leading-relaxed"
+                  style={{
+                    color: "var(--color-text-dim)",
+                    fontStyle: "italic",
+                  }}
+                >
+                  {t.reasoning}
+                </p>
               )}
             </div>
-            <div className="pb-2 flex-1">
-              <span className="font-semibold text-[var(--color-text-main)] block mb-0.5">
-                {t.node.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+          ))}
+
+          {/* Active node indicator (pulsing) */}
+          {activeNodes && activeNodes.length > 0 && (
+            <div
+              className="flex items-center gap-2 mt-1 mb-2"
+              style={{
+                animation: "fade-up 0.3s ease-out both",
+              }}
+            >
+              <span
+                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                style={{
+                  backgroundColor: "var(--color-accent, #1d9bf0)",
+                  animation: "pulse-fast 0.8s ease-in-out infinite",
+                }}
+              />
+              <span
+                className="text-[13px]"
+                style={{
+                  color: "var(--color-text-dim)",
+                  fontStyle: "italic",
+                }}
+              >
+                {activeNodes
+                  .map((n) => n.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()))
+                  .join(", ")}
+                …
               </span>
-              <span className="leading-relaxed break-words">{t.reasoning}</span>
             </div>
-          </div>
-        ))}
-        {activeNodes && activeNodes.length > 0 && (
-          <div className="flex gap-3">
-            <div className="flex flex-col items-center mt-1">
-              <div className="w-2 h-2 rounded-full bg-[var(--color-warning)] animate-[pulse-fast_0.8s_ease-in-out_infinite]" />
-            </div>
-            <div className="pb-2 flex-1 italic text-[var(--color-text-dim)]">
-              Running: {activeNodes.map(n => n.replace(/_/g, ' ')).join(", ")}...
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </details>
+    </div>
   );
 }
 
