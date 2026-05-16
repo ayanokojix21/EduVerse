@@ -105,6 +105,9 @@ function connectSSE(
         case "error":
           callbacks.error?.(parsed as SSEEventMap["error"]);
           break;
+        case "hitl":
+          callbacks.hitl?.(parsed as SSEEventMap["hitl"]);
+          break;
         default:
           console.warn("[SSE] Unknown event type:", event);
       }

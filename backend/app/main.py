@@ -1,4 +1,5 @@
 import logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:\t  %(message)s")
 import os
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv

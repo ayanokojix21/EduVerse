@@ -5,6 +5,7 @@ from fastapi import Depends, HTTPException, status
 
 from app.db.chat_repository import ChatRepository, get_chat_repository
 from app.schemas.api import RenameSessionRequest
+from app.schemas.db import ChatSession
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ class SessionService:
     async def list_user_sessions(self, user_id: str, course_id: str) -> list[dict]:
         return await self.service.list_sessions(user_id=user_id, course_id=course_id)
 
-    async def get_session_detail(self, user_id: str, session_id: str) -> dict:
+    async def get_session_detail(self, user_id: str, session_id: str) -> ChatSession:
         session = await self.service.get_session(session_id=session_id, user_id=user_id)
         if not session:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")

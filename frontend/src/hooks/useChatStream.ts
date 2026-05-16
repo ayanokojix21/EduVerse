@@ -288,6 +288,8 @@ function buildCallbacks(dispatch: React.Dispatch<ChatAction>) {
       dispatch({ type: "SSE_DONE", payload: data }),
     error: (data: { message: string; code: string }) =>
       dispatch({ type: "SSE_ERROR", ...data }),
+    hitl: (data: { session_id: string; interrupt_data: any; trace_url: string }) =>
+      dispatch({ type: "HITL_PAUSE" }),
     onClose: () => dispatch({ type: "SSE_CLOSE" }),
     onRawError: (err: Error) =>
       dispatch({

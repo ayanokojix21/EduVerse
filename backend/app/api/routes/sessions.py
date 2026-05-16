@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from app.services.core.session_service import get_session_service, SessionService
 from app.schemas.api import RenameSessionRequest
+from app.schemas.db import ChatSession
 
 router = APIRouter()
 
@@ -22,7 +23,7 @@ async def get_session(
     session_id: str,
     request: Request,
     service: SessionService = Depends(get_session_service),
-) -> dict:
+) -> ChatSession:
     """Get a single session with its full message history."""
     return await service.get_session_detail(request.state.user_id, session_id)
 

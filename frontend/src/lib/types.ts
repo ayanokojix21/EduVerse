@@ -158,7 +158,8 @@ export type SSEEvent =
   | { event: "agent_thought";   data: AgentThought }
   | { event: "token";           data: { text: string } }
   | { event: "done";            data: DonePayload }
-  | { event: "error";           data: { message: string; code: string } };
+  | { event: "error";           data: { message: string; code: string } }
+  | { event: "hitl";            data: { session_id: string; interrupt_data: any; trace_url: string } };
 
 // Keyed map for discriminated union lookups
 export type SSEEventMap = {

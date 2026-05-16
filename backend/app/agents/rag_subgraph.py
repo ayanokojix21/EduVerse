@@ -238,6 +238,16 @@ async def generator_node(
         res = res_raw.get("raw", res_raw.get("parsed"))
     else:
         res = res_raw
+        
+    # Normalize content to string (handles Gemma 4's multimodal/thinking list format)
+    raw_content = res.content
+    if isinstance(raw_content, list):
+        raw_content = "\n".join([
+            (part.get("text") or part.get("thinking") or str(part)) if isinstance(part, dict) else str(part)
+            for part in raw_content
+        ])
+    else:
+        raw_content = str(raw_content)
     
     if not res.tool_calls:
         logger.warning("Generator failed to call tools; falling back to Validator.")
@@ -245,8 +255,8 @@ async def generator_node(
             goto="validator", 
             update={
                 "messages": [res],
-                "tutor_raw_responses": [res.content],
-                "tutor_current_draft": str(res.content)
+                "tutor_raw_responses": [raw_content],
+                "tutor_current_draft": raw_content
             }
         )
         
@@ -255,15 +265,7 @@ async def generator_node(
     
     if not draft:
         logger.warning("Generator tool-call missing draft_answer; using content fallback.")
-        draft = res.content
-
-    # Normalize content to string (handles Gemma 4's multimodal/thinking list format)
-    raw_content = res.content
-    if isinstance(raw_content, list):
-        raw_content = "\n".join([
-            part.get("text") or part.get("thinking") or str(part) 
-            for part in raw_content if isinstance(part, dict)
-        ])
+        draft = raw_content
 
     return Command(
         goto="validator", 

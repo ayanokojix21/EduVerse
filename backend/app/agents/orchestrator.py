@@ -53,6 +53,11 @@ async def orchestrator_node(
     feedback_list = state.get("critic_feedback", [])
     feedback_text = "\n".join([f"- {f}" for f in feedback_list]) if feedback_list else "No previous issues detected."
 
+    logger.info("====== ORCHESTRATOR NODE STARTED ======")
+    logger.info(f"Original Query: {state.get('original_query', '')}")
+    logger.info(f"Is Multimodal: {is_multi}")
+    logger.info(f"Critic Feedback: {feedback_text}")
+    
     try:
         prompt_value = await ORCHESTRATOR_PROMPT.ainvoke({
             "history": history, 
@@ -80,16 +85,21 @@ async def orchestrator_node(
             if isinstance(prompt_msgs[-1].content, str):
                 prompt_msgs[-1].content += reasoning_trigger
             
+        logger.info("Invoking Orchestrator LLM...")
         result_raw = await llm.ainvoke(prompt_msgs, config=config)
+        logger.info(f"Orchestrator LLM Result: {result_raw}")
+        
         result: OrchestratorOutput = result_raw["parsed"]
         task = result.task
         difficulty = result.difficulty
         topic_source = result.topic_source
+        logger.info(f"Parsed Routing Decision -> Task: {task}, Difficulty: {difficulty}, Source: {topic_source}")
     except Exception as exc:
         logger.exception("Orchestrator failed with a critical error: %s", exc)
         task = "rag"
         difficulty = "medium"
         topic_source = "course_material"
+        logger.info(f"Falling back to Default Routing -> Task: {task}")
 
     update_state = {
         "task": task,
@@ -101,6 +111,8 @@ async def orchestrator_node(
             "data": {"task": task, "difficulty": difficulty}
         }]
     }
+
+    logger.info(f"====== ORCHESTRATOR NODE COMPLETED. GOTO: {task}_swarm ======")
 
     return Command(
         goto=f"{task}_swarm",
