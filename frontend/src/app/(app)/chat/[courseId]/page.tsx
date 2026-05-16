@@ -193,6 +193,8 @@ export default function ChatPage() {
           status={chat.status}
           statusMessage={chat.statusMessage}
           streamingText={chat.streamingText}
+          agentThoughts={chat.agentThoughts}
+          activeNodes={chat.activeNodes}
           onFeedback={handleFeedback}
         />
 

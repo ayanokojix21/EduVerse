@@ -149,6 +149,59 @@ function UserBubble({ message }: { message: ChatMessage }) {
   );
 }
 
+// ─── Agent Thought Process ───────────────────────────────────────────────────
+
+function AgentThoughtProcess({
+  thoughts,
+  activeNodes,
+  isStreaming,
+}: {
+  thoughts?: import("@/lib/types").AgentThought[];
+  activeNodes?: string[];
+  isStreaming?: boolean;
+}) {
+  if (!thoughts?.length && !activeNodes?.length) return null;
+
+  return (
+    <details
+      className="mb-4 text-[13px] text-[var(--color-text-dim)] border-l-2 border-[var(--color-border)] pl-3"
+      open={isStreaming}
+    >
+      <summary className="cursor-pointer mb-2 font-medium hover:text-[var(--color-text-muted)] transition-colors">
+        Agent Workspace
+      </summary>
+      <div className="flex flex-col gap-3 mt-2 mb-2">
+        {thoughts?.map((t, i) => (
+          <div key={i} className="flex gap-3">
+            <div className="flex flex-col items-center mt-1">
+              <div className="w-2 h-2 rounded-full bg-[var(--color-success)]" />
+              {i < thoughts.length - 1 && (
+                <div className="w-px flex-1 bg-[var(--color-border)] min-h-[16px]" />
+              )}
+            </div>
+            <div className="pb-2 flex-1">
+              <span className="font-semibold text-[var(--color-text-main)] block mb-0.5">
+                {t.node.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+              </span>
+              <span className="leading-relaxed break-words">{t.reasoning}</span>
+            </div>
+          </div>
+        ))}
+        {activeNodes && activeNodes.length > 0 && (
+          <div className="flex gap-3">
+            <div className="flex flex-col items-center mt-1">
+              <div className="w-2 h-2 rounded-full bg-[var(--color-warning)] animate-[pulse-fast_0.8s_ease-in-out_infinite]" />
+            </div>
+            <div className="pb-2 flex-1 italic text-[var(--color-text-dim)]">
+              Running: {activeNodes.map(n => n.replace(/_/g, ' ')).join(", ")}...
+            </div>
+          </div>
+        )}
+      </div>
+    </details>
+  );
+}
+
 // ─── AI Bubble ───────────────────────────────────────────────────────────────
 
 function AIBubble({
@@ -163,7 +216,7 @@ function AIBubble({
   // Convert <think> tags to an HTML details accordion
   displayContent = displayContent.replace(
     /<think>/g, 
-    '<details className="mb-4 text-[13px] text-[var(--color-text-dim)] border-l-2 border-[var(--color-border)] pl-3" open><summary className="cursor-pointer mb-2 font-medium">Thought Process</summary>\n\n'
+    '<details className="mb-4 text-[13px] text-[var(--color-text-dim)] border-l-2 border-[var(--color-border)] pl-3" open><summary className="cursor-pointer mb-2 font-medium">Model Reasoning</summary>\n\n'
   );
   displayContent = displayContent.replace(
     /<\/think>/g, 
@@ -172,7 +225,7 @@ function AIBubble({
 
   return (
     <div className="flex justify-start animate-[fade-up_0.3s_ease-out_both] group/bubble">
-      <div className="max-w-[85%] md:max-w-[75%]">
+      <div className="max-w-[85%] md:max-w-[75%] min-w-[50%]">
         {/* Avatar + name */}
         <div className="flex items-center gap-2 mb-1.5">
           <div
@@ -206,6 +259,13 @@ function AIBubble({
             </span>
           )}
         </div>
+
+        {/* Thought Process */}
+        <AgentThoughtProcess 
+          thoughts={message.agent_thoughts} 
+          activeNodes={message.active_nodes} 
+          isStreaming={message.is_streaming} 
+        />
 
         {/* Content */}
         <div className="prose-eduverse">

@@ -11,7 +11,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useRef, memo } from "react";
-import type { ChatMessage } from "@/lib/types";
+import type { ChatMessage, AgentThought } from "@/lib/types";
 import type { StreamStatus } from "@/hooks/useChatStream";
 import { MessageBubble } from "./MessageBubble";
 
@@ -22,6 +22,8 @@ interface ChatStreamProps {
   status: StreamStatus;
   statusMessage: string | null;
   streamingText: string;
+  agentThoughts?: AgentThought[];
+  activeNodes?: string[];
   onFeedback?: (messageId: string, rating: "up" | "down") => void;
 }
 
@@ -137,6 +139,8 @@ export const ChatStream = memo(function ChatStream({
   status,
   statusMessage,
   streamingText,
+  agentThoughts,
+  activeNodes,
   onFeedback,
 }: ChatStreamProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -156,20 +160,22 @@ export const ChatStream = memo(function ChatStream({
         el.scrollIntoView({ behavior: "smooth", block: "end" });
       }
     }
-  }, [messages, streamingText]);
+  }, [messages, streamingText, agentThoughts]);
 
-  // Prepare messages — inject streaming text into the last assistant message
-  const displayMessages = messages.map((msg, i) => {
-    if (
-      i === messages.length - 1 &&
-      msg.role === "assistant" &&
-      msg.is_streaming &&
-      streamingText
-    ) {
-      return { ...msg, content: streamingText };
-    }
-    return msg;
-  });
+  // Prepare messages — inject a temporary assistant message if streaming or paused
+  const displayMessages = [...messages];
+  const isActive = status === "connecting" || status === "streaming" || status === "hitl_paused";
+  if (isActive) {
+    displayMessages.push({
+      id: "streaming-msg",
+      role: "assistant",
+      content: streamingText,
+      created_at: new Date().toISOString(),
+      is_streaming: status !== "hitl_paused",
+      agent_thoughts: agentThoughts,
+      active_nodes: activeNodes,
+    });
+  }
 
   const isEmpty = displayMessages.length === 0 && status === "idle";
 

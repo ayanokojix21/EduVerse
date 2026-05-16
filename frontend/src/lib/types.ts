@@ -174,6 +174,7 @@ export interface ChatMessage {
   citations?: Citation[];
   retrieval_label?: string;
   agent_thoughts?: AgentThought[];
+  active_nodes?: string[];
   mermaid_graph?: string;
   trace_url?: string;
   retrieval_ms?: number;

@@ -58,7 +58,11 @@ function clearTokenCookie() {
 function decodeJWT(token: string): DecodedJWT | null {
   try {
     const [, payload] = token.split(".");
-    const decoded = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    let base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    while (base64.length % 4) {
+      base64 += "=";
+    }
+    const decoded = atob(base64);
     return JSON.parse(decoded) as DecodedJWT;
   } catch {
     return null;
