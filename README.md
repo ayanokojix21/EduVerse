@@ -69,7 +69,7 @@ We use three Gemma 4 variants, matched to task complexity:
 └────────────────────────────────────────────────────────────┘
 ```
 
-All chains include a Gemini Flash fallback via `.with_fallbacks()` — if the Gemma 4 endpoint returns a 500, the system degrades gracefully rather than crashing.
+All chains include a Gemini 2.5 Flash fallback via `.with_fallbacks()` — if the Gemma 4 endpoint returns a 500, the system degrades gracefully rather than crashing.
 
 ## The DPO Self-Improvement Pipeline
 
