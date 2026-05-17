@@ -185,7 +185,7 @@ The `LLMFactory` maps agent roles to Gemma 4 variants at runtime:
 | Vision (multimodal) | 26B-A4B (MoE) | 4B | Image understanding |
 | DPO Teacher | Gemini 2.5 Pro | — | Background distillation only |
 
-Every chain has `.with_fallbacks([gemini_2_5_flash])` — if the Gemma 4 endpoint returns a 500, the system degrades to Gemini 2.5 Flash rather than crashing the student's session.
+Every chain has `.with_fallbacks(["gemini-2.5-flash"])` — if the Gemma 4 endpoint returns a 500, the system degrades to Gemini 2.5 Flash rather than crashing the student's session.
 
 ---
 
