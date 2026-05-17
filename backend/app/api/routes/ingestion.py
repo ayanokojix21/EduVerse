@@ -33,6 +33,16 @@ async def ingest_course(
 ) -> dict[str, str]:
     """Triggers the ingestion pipeline for a specific course/folder."""
     user_id = request.state.user_id
+
+    # ── Guard: reject if ingestion is already running ────────────────────
+    existing = await job_repo.get_job(user_id, payload.course_id)
+    if existing and existing.status in ("processing", "pending"):
+        return {
+            "status": "already_running",
+            "message": "Ingestion is already in progress for this course",
+            "course_id": payload.course_id,
+        }
+
     await job_repo.update_status(user_id, payload.course_id, "pending")
     
     background_tasks.add_task(
@@ -94,6 +104,16 @@ async def sync_course(
 ) -> dict:
     """Forces a full sync and re-index of a course."""
     user_id = request.state.user_id
+
+    # ── Guard: reject if ingestion is already running ────────────────────
+    existing = await job_repo.get_job(user_id, payload.course_id)
+    if existing and existing.status in ("processing", "pending"):
+        return {
+            "status": "already_running",
+            "message": "Sync is already in progress for this course",
+            "course_id": payload.course_id,
+        }
+
     await job_repo.update_status(user_id, payload.course_id, "pending")
     
     background_tasks.add_task(

@@ -83,9 +83,8 @@ class LLMFactory:
         settings = get_settings()
 
         if vision:
-            # Force high-capability model for multimodal reasoning
-            model_name = settings.gemma_heavy_reasoning_model
-            logger.info("Multimodal request: Routing to heavy reasoning model %s", model_name)
+            model_name = settings.gemma_fast_reasoning_model
+            logger.info("Multimodal request: Routing to fast reasoning model %s", model_name)
         elif role in ["orchestrator", "guardrails"]:
             model_name = settings.gemma_routing_model
         elif role in ["quiz", "critic"]:
