@@ -76,8 +76,13 @@ class VectorRepository:
                 text_key="content",
             )
 
-            rm_collection = sync_client[self.settings.mongo_db_name]["record_manager_cache"]
-            record_manager = EduVerseRecordManager(collection=rm_collection)
+            # Scope dedup per-tenant by giving each user+course its own RM collection.
+            # Without this, user A's indexed docs block user B's ingestion.
+            rm_ns = f"record_manager_cache_{user_id}_{course_id}".replace("@", "_at_").replace(".", "_")
+            rm_collection = sync_client[self.settings.mongo_db_name][rm_ns]
+            record_manager = EduVerseRecordManager(
+                collection=rm_collection,
+            )
 
             yield record_manager, vector_store, sync_client
         finally:

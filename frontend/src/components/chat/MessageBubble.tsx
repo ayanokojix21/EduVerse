@@ -332,7 +332,16 @@ function AIBubble({
   message: ChatMessage;
   onFeedback?: (messageId: string, rating: "up" | "down") => void;
 }) {
-  let displayContent = message.content;
+  // Defensively ensure content is a string (Gemma 4 can return a list of dicts)
+  const rawContent: unknown = message.content;
+  let displayContent: string =
+    typeof rawContent === "string"
+      ? rawContent
+      : Array.isArray(rawContent)
+      ? (rawContent as any[])
+          .map((p) => (typeof p === "string" ? p : p?.text || p?.thinking || ""))
+          .join("\n")
+      : String(rawContent ?? "");
   
   // Convert <think> tags to an HTML details accordion
   displayContent = displayContent.replace(

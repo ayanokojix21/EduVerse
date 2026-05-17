@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File,Form, BackgroundTasks
 
 from app.db.ingestion_repository import IngestionJobRepository, get_ingestion_job_repository
 from app.services.core.storage_service import get_storage_service, StorageService
@@ -167,7 +167,7 @@ async def list_ingested_files(
 @router.post("/upload")
 async def upload_local_file(
     request: Request,
-    course_id: str,
+    course_id: str = Form(...),
     file: UploadFile = File(...),
     ingestion_service: CourseIngestionService = Depends(get_course_ingestion_service),
 ):

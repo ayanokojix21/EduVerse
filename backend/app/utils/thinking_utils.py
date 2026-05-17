@@ -23,21 +23,36 @@ _THINK_PATTERN = re.compile(
 )
 
 
-def normalize_content(raw_content: Any) -> str:
+def normalize_content(raw_content: Any, include_thinking: bool = False) -> str:
     """Normalize Gemma 4's multimodal/thinking list format to a plain string.
     
     Gemma 4 models can return content as:
       - A plain string
       - A list of dicts with 'text', 'thinking', or other keys
     
-    This function handles both cases and returns a single string.
+    Args:
+        raw_content: The raw content from the LLM response.
+        include_thinking: If False (default), only 'text' parts are included
+                          in the output — thinking/reasoning is stripped.
+                          Set True when you need the full content for
+                          extract_thinking() or internal logging.
+    
+    Returns:
+        A single plain string.
     """
     if isinstance(raw_content, list):
-        return "\n".join(
-            (part.get("text") or part.get("thinking") or str(part))
-            if isinstance(part, dict) else str(part)
-            for part in raw_content
-        )
+        parts: list[str] = []
+        for part in raw_content:
+            if isinstance(part, dict):
+                part_type = part.get("type", "")
+                if part_type == "thinking" and not include_thinking:
+                    continue
+                text_val = part.get("text") or (part.get("thinking") if include_thinking else None)
+                if text_val:
+                    parts.append(str(text_val))
+            else:
+                parts.append(str(part))
+        return "\n".join(parts)
     return str(raw_content) if raw_content else ""
 
 
@@ -52,7 +67,19 @@ def extract_thinking(raw_content: Any) -> str:
         The concatenated text inside all <think> blocks, or an empty string
         if no thinking blocks are found.
     """
-    text = normalize_content(raw_content)
+    # For Gemma 4 list format: extract thinking parts directly
+    if isinstance(raw_content, list):
+        thinking_parts = []
+        for part in raw_content:
+            if isinstance(part, dict) and part.get("type") == "thinking":
+                val = part.get("thinking", "")
+                if val:
+                    thinking_parts.append(str(val).strip())
+        if thinking_parts:
+            return "\n".join(thinking_parts)
+    
+    # Fallback: regex extraction from string content
+    text = normalize_content(raw_content, include_thinking=True)
     matches = _THINK_PATTERN.findall(text)
     if not matches:
         return ""

@@ -47,7 +47,8 @@ class Guardrails:
         
         # Normalize raw content to string (handles Gemma 4 thinking lists)
         raw_text = normalize_content(
-            res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"])
+            res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"]),
+            include_thinking=True,
         )
         thinking_text = extract_thinking(raw_text)
 
@@ -64,7 +65,9 @@ class Guardrails:
             logger.warning(f"Native Safeguard Triggered: {res.reason}")
             refusal_llm = RoundRobinLLM.for_role("tutor", temperature=0.7, top_p=0.95, top_k=50)
             refusal_res = await refusal_llm.ainvoke(REFUSAL_PROMPT.format_messages(query=last_message))
-            refusal_msg = refusal_res.content if hasattr(refusal_res, "content") else str(refusal_res)
+            refusal_msg = normalize_content(
+                refusal_res.content if hasattr(refusal_res, "content") else str(refusal_res)
+            )
 
             return Command(goto=END, update={**update_state, "response_text": refusal_msg})
             
@@ -93,7 +96,8 @@ class Guardrails:
         
         # Normalize raw content to string (handles Gemma 4 thinking lists)
         raw_text = normalize_content(
-            res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"])
+            res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"]),
+            include_thinking=True,
         )
         thinking_text = extract_thinking(raw_text)
 
@@ -116,7 +120,9 @@ class Guardrails:
                 top_k=50
             )
             refusal_res = await refusal_llm.ainvoke(REFUSAL_PROMPT.format_messages(query=query))
-            refusal_msg = refusal_res.content if hasattr(refusal_res, "content") else str(refusal_res)
+            refusal_msg = normalize_content(
+                refusal_res.content if hasattr(refusal_res, "content") else str(refusal_res)
+            )
             
             return Command(goto=END, update={**update_state, "response_text": refusal_msg})
         
@@ -160,7 +166,9 @@ class Guardrails:
                 refusal_res = await refusal_llm.ainvoke(REFUSAL_PROMPT.format_messages(query=reason))
 
                 return {
-                    "response_text": refusal_res.content,
+                    "response_text": normalize_content(
+                        refusal_res.content if hasattr(refusal_res, "content") else str(refusal_res)
+                    ),
                     "agent_thoughts": [{
                         "node": "output_moderator",
                         "summary": f"Redacted: {reason}"

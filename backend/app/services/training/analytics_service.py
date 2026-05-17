@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.utils.thinking_utils import normalize_content
+
 from app.config import get_settings, Settings
 from app.db.chat_repository import ChatRepository
 from app.db.profile_repository import ProfileRepository
@@ -27,7 +29,10 @@ class AnalyticsService:
         Main entry point for asynchronous post-run updates.
         Triggers history persistence, RL audits, and profile updates.
         """
-        response = final_state.get("response_text", "")
+        raw_response = final_state.get("response_text", "")
+        # Gemma 4 may leave response_text as a list of dicts (thinking blocks).
+        # Normalize to a plain string for downstream consumers.
+        response = normalize_content(raw_response) if not isinstance(raw_response, str) else raw_response
         citations = final_state.get("citations", [])
         context_docs = final_state.get("context_docs", [])
         dpo_pairs = final_state.get("dpo_pairs", [])

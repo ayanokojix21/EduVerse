@@ -135,6 +135,14 @@ const NODE_LABELS: Record<string, string> = {
 
 type NodeState = "pending" | "active" | "done";
 
+interface LoopBackEdge {
+  fromNode: string;
+  toNode: string;
+  fromPipeIdx: number;
+  toPipeIdx: number;
+  label: string;
+}
+
 function LiveExecutionGraph({
   agentThoughts,
   activeNodes,
@@ -142,23 +150,71 @@ function LiveExecutionGraph({
   agentThoughts: AgentThought[];
   activeNodes: string[];
 }) {
-  // Determine each node's state
-  const nodeStates = useMemo(() => {
-    const completedNodes = new Set(agentThoughts.map((t) => t.node));
-    const activeSet = new Set(activeNodes);
+  // Build the ordered execution trace (only pipeline nodes)
+  const executionTrace = useMemo(
+    () => agentThoughts.map((t) => t.node).filter((n) => PIPELINE_NODES.includes(n)),
+    [agentThoughts],
+  );
 
+  // Detect loop-back edges from the execution trace
+  const loopBacks = useMemo(() => {
+    const edges: LoopBackEdge[] = [];
+    for (let i = 1; i < executionTrace.length; i++) {
+      const prevIdx = PIPELINE_NODES.indexOf(executionTrace[i - 1]);
+      const currIdx = PIPELINE_NODES.indexOf(executionTrace[i]);
+      if (currIdx >= 0 && prevIdx >= 0 && currIdx <= prevIdx) {
+        const sameCount = edges.filter(
+          (e) => e.fromNode === executionTrace[i - 1] && e.toNode === executionTrace[i],
+        ).length;
+        edges.push({
+          fromNode: executionTrace[i - 1],
+          toNode: executionTrace[i],
+          fromPipeIdx: prevIdx,
+          toPipeIdx: currIdx,
+          label: `Retry ${sameCount + 1}`,
+        });
+      }
+    }
+    return edges;
+  }, [executionTrace]);
+
+  // Count visits per node
+  const visitCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const n of executionTrace) {
+      counts[n] = (counts[n] || 0) + 1;
+    }
+    return counts;
+  }, [executionTrace]);
+
+  // Compute current-phase node states — resets downstream nodes on loop-back
+  // When the trace shows e.g. [..., validator, generator], processing "generator"
+  // clears generator and everything after it, so validator goes back to pending.
+  const nodeStates = useMemo(() => {
+    const currentPhaseCompleted = new Set<string>();
+    for (const nodeName of executionTrace) {
+      const nodeIdx = PIPELINE_NODES.indexOf(nodeName);
+      if (nodeIdx < 0) continue;
+      // Clear this node and everything downstream — they need to re-execute
+      for (let j = nodeIdx; j < PIPELINE_NODES.length; j++) {
+        currentPhaseCompleted.delete(PIPELINE_NODES[j]);
+      }
+      currentPhaseCompleted.add(nodeName);
+    }
+
+    const activeSet = new Set(activeNodes);
     const states: Record<string, NodeState> = {};
     for (const node of PIPELINE_NODES) {
       if (activeSet.has(node)) {
         states[node] = "active";
-      } else if (completedNodes.has(node)) {
+      } else if (currentPhaseCompleted.has(node)) {
         states[node] = "done";
       } else {
         states[node] = "pending";
       }
     }
     return states;
-  }, [agentThoughts, activeNodes]);
+  }, [executionTrace, activeNodes]);
 
   // Find the furthest progressed node index for edge coloring
   const furthestIndex = useMemo(() => {
@@ -172,10 +228,9 @@ function LiveExecutionGraph({
     return maxIdx;
   }, [nodeStates]);
 
-  // Filter to only show nodes that are relevant (appeared in thoughts or are active)
+  // Filter to only show nodes that are relevant
   const visibleNodes = useMemo(() => {
-    if (furthestIndex < 0) return PIPELINE_NODES.slice(0, 3); // Show first 3 by default
-    // Show from start to 1 past furthest (or end)
+    if (furthestIndex < 0) return PIPELINE_NODES.slice(0, 3);
     const endIdx = Math.min(furthestIndex + 2, PIPELINE_NODES.length);
     return PIPELINE_NODES.slice(0, endIdx);
   }, [furthestIndex]);
@@ -185,7 +240,9 @@ function LiveExecutionGraph({
   const gapY = 14;
   const paddingX = 20;
   const paddingY = 16;
-  const svgWidth = nodeWidth + paddingX * 2;
+  const hasLoopBacks = loopBacks.length > 0;
+  const loopBackMargin = hasLoopBacks ? 55 : 0;
+  const svgWidth = nodeWidth + paddingX * 2 + loopBackMargin;
   const svgHeight = visibleNodes.length * (nodeHeight + gapY) - gapY + paddingY * 2;
 
   const getNodeColor = (state: NodeState) => {
@@ -197,10 +254,14 @@ function LiveExecutionGraph({
   };
 
   const getEdgeColor = (fromIdx: number) => {
-    if (fromIdx < furthestIndex) return "#4ade80";      // completed path
-    if (fromIdx === furthestIndex) return "#1d9bf0";     // active edge
-    return "#2f3336";                                     // pending
+    if (fromIdx < furthestIndex) return "#4ade80";
+    if (fromIdx === furthestIndex) return "#1d9bf0";
+    return "#2f3336";
   };
+
+  // Helper: get the Y-center of a node by its visible index
+  const getNodeYCenter = (visibleIdx: number) =>
+    paddingY + visibleIdx * (nodeHeight + gapY) + nodeHeight / 2;
 
   return (
     <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] p-4">
@@ -208,7 +269,7 @@ function LiveExecutionGraph({
         Execution Graph
       </h4>
 
-      <div className="flex justify-center overflow-hidden">
+      <div className="flex justify-center overflow-visible">
         <svg
           width={svgWidth}
           height={svgHeight}
@@ -237,9 +298,13 @@ function LiveExecutionGraph({
             <marker id="arrow-done" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto">
               <polygon points="0 0, 10 3.5, 0 7" fill="#4ade80" />
             </marker>
+            {/* Loop-back arrow marker — amber */}
+            <marker id="arrow-loopback" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#f59e0b" />
+            </marker>
           </defs>
 
-          {/* Edges */}
+          {/* Forward edges */}
           {visibleNodes.map((node, i) => {
             if (i >= visibleNodes.length - 1) return null;
             const y1 = paddingY + i * (nodeHeight + gapY) + nodeHeight;
@@ -279,6 +344,64 @@ function LiveExecutionGraph({
             );
           })}
 
+          {/* Loop-back arrows — curved right-side paths */}
+          {loopBacks.map((lb, lbIdx) => {
+            const fromVisIdx = visibleNodes.indexOf(lb.fromNode);
+            const toVisIdx = visibleNodes.indexOf(lb.toNode);
+            if (fromVisIdx < 0 || toVisIdx < 0) return null;
+
+            const fromY = getNodeYCenter(fromVisIdx);
+            const toY = getNodeYCenter(toVisIdx);
+            const rightX = paddingX + nodeWidth;
+            const offset = 30 + lbIdx * 12; // stagger multiple loop-backs
+            const r = 8; // corner radius
+
+            // Path: right from source → up → left into target
+            const path = [
+              `M ${rightX} ${fromY}`,
+              `L ${rightX + offset - r} ${fromY}`,
+              `Q ${rightX + offset} ${fromY} ${rightX + offset} ${fromY - r}`,
+              `L ${rightX + offset} ${toY + r}`,
+              `Q ${rightX + offset} ${toY} ${rightX + offset - r} ${toY}`,
+              `L ${rightX} ${toY}`,
+            ].join(" ");
+
+            const labelX = rightX + offset + 5;
+            const labelY = (fromY + toY) / 2;
+
+            return (
+              <g key={`loopback-${lbIdx}`} style={{ animation: "fade-in 0.5s ease-out both" }}>
+                {/* Loop-back path */}
+                <path
+                  d={path}
+                  fill="none"
+                  stroke="#f59e0b"
+                  strokeWidth={1.5}
+                  strokeDasharray="5 3"
+                  markerEnd="url(#arrow-loopback)"
+                  style={{ transition: "opacity 0.4s ease" }}
+                />
+                {/* Animated pulse on loop-back */}
+                <circle r="2.5" fill="#f59e0b" opacity="0.7">
+                  <animateMotion dur="2s" repeatCount="indefinite" path={path} />
+                </circle>
+                {/* Label */}
+                <text
+                  x={labelX}
+                  y={labelY}
+                  fontSize="9"
+                  fill="#f59e0b"
+                  fontWeight={500}
+                  textAnchor="start"
+                  dominantBaseline="middle"
+                  style={{ opacity: 0.85 }}
+                >
+                  {lb.label}
+                </text>
+              </g>
+            );
+          })}
+
           {/* Nodes */}
           {visibleNodes.map((node, i) => {
             const x = paddingX;
@@ -287,6 +410,7 @@ function LiveExecutionGraph({
             const colors = getNodeColor(state);
             const label = NODE_LABELS[node] || node;
             const cornerRadius = 8;
+            const visits = visitCounts[node] ?? 0;
 
             return (
               <g
@@ -357,6 +481,31 @@ function LiveExecutionGraph({
                 >
                   {label}
                 </text>
+
+                {/* Visit count badge — shown for nodes that ran more than once */}
+                {visits > 1 && (
+                  <g>
+                    <circle
+                      cx={x + nodeWidth - 14}
+                      cy={y + nodeHeight / 2}
+                      r="9"
+                      fill="rgba(245, 158, 11, 0.12)"
+                      stroke="#f59e0b"
+                      strokeWidth="0.75"
+                    />
+                    <text
+                      x={x + nodeWidth - 14}
+                      y={y + nodeHeight / 2 + 0.5}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fontSize="8.5"
+                      fontWeight={600}
+                      fill="#f59e0b"
+                    >
+                      ×{visits}
+                    </text>
+                  </g>
+                )}
               </g>
             );
           })}
