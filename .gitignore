@@ -11,9 +11,22 @@ record_manager_cache.db-*
 scripts/
 tests/
 package-lock.json
+node_modules/
 
 # ── Machine Learning Artifacts ──
 tmp_weights/
 output/
 *.gguf
 *.jsonl
+local_weights/
+
+# ── IDE ──
+.vscode/
+.idea/
+
+# ── Next.js ──
+.next/
+
+# ── OS ──
+.DS_Store
+Thumbs.db

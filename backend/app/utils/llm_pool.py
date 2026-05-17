@@ -83,9 +83,8 @@ class LLMFactory:
         settings = get_settings()
 
         if vision:
-            # Force high-capability model for multimodal reasoning
-            model_name = settings.gemma_heavy_reasoning_model
-            logger.info("Multimodal request: Routing to heavy reasoning model %s", model_name)
+            model_name = settings.gemma_fast_reasoning_model
+            logger.info("Multimodal request: Routing to fast reasoning model %s", model_name)
         elif role in ["orchestrator", "guardrails"]:
             model_name = settings.gemma_routing_model
         elif role in ["quiz", "critic"]:
@@ -103,7 +102,7 @@ class LLMFactory:
         )
 
         # ── Fallback to stable Gemini models if Gemma 500s ────────────────────
-        fallback_model = "gemini-1.5-flash" if role not in ["orchestrator", "guardrails", "quiz", "critic"] or vision else "gemini-flash-latest"
+        fallback_model = "gemini-2.5-flash"
         fallback_llm = ChatGoogleGenerativeAI(
             model=fallback_model,
             google_api_key=settings.google_api_key,

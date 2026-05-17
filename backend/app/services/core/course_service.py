@@ -41,32 +41,50 @@ class CourseService:
         google_raw = []
         if not is_guest:
             cache_coll = self.db[self.settings.mongo_cached_courses_collection]
-            try:
-                credentials = await self.token_service.get_user_credentials(user_id)
-                from googleapiclient.discovery import build
-                google_raw = await anyio.to_thread.run_sync(ClassroomService.list_courses, credentials)
+            cached = await cache_coll.find_one({"user_id": user_id})
 
-                async def enrich(c):
-                    c["source"] = "google_classroom"
-                    def get_count():
-                        try:
-                            local_service = build("classroom", "v1", credentials=credentials, cache_discovery=False)
-                            res = local_service.courses().courseWork().list(courseId=c["id"]).execute()
-                            return len(res.get("courseWork", []))
-                        except Exception:
-                            return 0
-                    c["assignment_count"] = await anyio.to_thread.run_sync(get_count)
+            cache_is_fresh = False
+            if cached and cached.get("courses"):
+                updated_at = cached.get("updated_at")
+                if updated_at is not None:
+                    # MongoDB may store naive datetimes — normalize to UTC
+                    if updated_at.tzinfo is None:
+                        updated_at = updated_at.replace(tzinfo=timezone.utc)
+                    age = datetime.now(timezone.utc) - updated_at
+                    cache_is_fresh = age.total_seconds() < 300  # 5 minutes
 
-                await asyncio.gather(*(enrich(c) for c in google_raw))
-                await cache_coll.update_one(
-                    {"user_id": user_id},
-                    {"$set": {"user_id": user_id, "courses": google_raw, "updated_at": datetime.now(timezone.utc)}},
-                    upsert=True,
-                )
-            except Exception as exc:
-                logger.warning("Course cache fallback for %s: %s", user_id, exc)
-                cached = await cache_coll.find_one({"user_id": user_id})
-                google_raw = cached.get("courses", []) if cached else []
+            if cache_is_fresh:
+                google_raw = cached["courses"]
+            else:
+                # Cache is stale or empty — refresh from Google in background
+                try:
+                    credentials = await self.token_service.get_user_credentials(user_id)
+                    google_raw = await anyio.to_thread.run_sync(ClassroomService.list_courses, credentials)
+
+                    # Enrich with assignment counts (batched, not N+1)
+                    async def enrich(c):
+                        c["source"] = "google_classroom"
+                        def get_count():
+                            try:
+                                from googleapiclient.discovery import build
+                                local_service = build("classroom", "v1", credentials=credentials, cache_discovery=False)
+                                res = local_service.courses().courseWork().list(courseId=c["id"]).execute()
+                                return len(res.get("courseWork", []))
+                            except Exception:
+                                return 0
+                        c["assignment_count"] = await anyio.to_thread.run_sync(get_count)
+
+                    await asyncio.gather(*(enrich(c) for c in google_raw))
+                    await cache_coll.update_one(
+                        {"user_id": user_id},
+                        {"$set": {"user_id": user_id, "courses": google_raw, "updated_at": datetime.now(timezone.utc)}},
+                        upsert=True,
+                    )
+                except Exception as exc:
+                    logger.warning("Course fetch fallback to cache for %s: %s", user_id, exc)
+                    # Fall back to whatever we have in cache, even if stale
+                    if cached and cached.get("courses"):
+                        google_raw = cached["courses"]
 
         all_ids = [c.get("course_id") or c.get("id") for c in local_raw + google_raw]
         ingested = await self.db[self.settings.mongo_parent_chunks_collection].distinct(

@@ -91,6 +91,10 @@ export default function CourseDetailPage() {
   const [showMenu, setShowMenu] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollStartRef = useRef<number>(Date.now());
+
+  // Max duration to poll before giving up (30 minutes)
+  const MAX_POLL_DURATION_MS = 30 * 60 * 1000;
 
   // ── Load course ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -127,6 +131,14 @@ export default function CourseDetailPage() {
 
   // ── Poll ingestion status ────────────────────────────────────────────────
   const pollIngestion = useCallback(async () => {
+    // Safety: stop polling after MAX_POLL_DURATION_MS
+    if (Date.now() - pollStartRef.current > MAX_POLL_DURATION_MS) {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+      setIngestionStatus("failed");
+      setIngestionError("Polling timed out. Refresh the page to check status.");
+      return;
+    }
+
     try {
       const data = await ingestionApi.status(courseId);
       setIngestionStatus(data.status);
@@ -140,6 +152,7 @@ export default function CourseDetailPage() {
   }, [courseId, fetchFiles]);
 
   useEffect(() => {
+    pollStartRef.current = Date.now();
     pollIngestion();
     pollRef.current = setInterval(pollIngestion, 3000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };

@@ -29,6 +29,12 @@ async def global_lifespan(app: FastAPI):
     
     async with mongo_lifespan(app):
         try:
+            from app.db.mongodb import MONGO_DB_STATE_KEY
+            db = getattr(app.state, MONGO_DB_STATE_KEY)
+            from app.db.ingestion_repository import IngestionJobRepository
+            job_repo = IngestionJobRepository(db=db)
+            await job_repo.reset_stale_jobs()
+
             from app.agents.graph import compile_graph
             from langgraph.checkpoint.mongodb import MongoDBSaver
             

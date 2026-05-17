@@ -76,12 +76,26 @@ class CourseIngestionService:
                 settings=self.settings,
             )
 
+            # ── Heartbeat: document loading complete ─────────────────────────
+            await self.job_service.heartbeat(user_id, course_id)
+            logger.info(
+                "Course %s: loaded %d documents. Chunking…",
+                course_id, len(documents),
+            )
+
             parent_chunks, child_chunks = chunk_documents(
                 documents=documents,
                 user_id=user_id,
                 parent_chunk_size=self.settings.parent_chunk_size,
                 child_chunk_size=self.settings.child_chunk_size,
                 chunk_overlap=self.settings.chunk_overlap,
+            )
+
+            # ── Heartbeat: chunking complete ─────────────────────────────────
+            await self.job_service.heartbeat(user_id, course_id)
+            logger.info(
+                "Course %s: %d parent / %d child chunks. Embedding…",
+                course_id, len(parent_chunks), len(child_chunks),
             )
 
             indexing_stats = await embed_and_store(
