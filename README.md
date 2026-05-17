@@ -188,12 +188,12 @@ EduVerse/
 
 ## Acknowledgments
 
-- **Google** — Gemma 4 models and Google AI Studio
-- **Kaggle** — Hosting the competition and providing GPU compute for training
-- **LangGraph** — Multi-agent orchestration framework
-- **MongoDB** — Atlas Vector Search and hybrid retrieval infrastructure
-- **Cohere** — Rerank v3.5 for retrieval quality
-- **Nomic** — Embedding model
+- **Google** - Gemma 4 models and Google AI Studio
+- **Kaggle** - Hosting the competition and providing GPU compute for training
+- **LangGraph** - Multi-agent orchestration framework
+- **MongoDB** - Atlas Vector Search and hybrid retrieval infrastructure
+- **Cohere** - Rerank v3.5 for retrieval quality
+- **Nomic** - Embedding model
 
 ## License
 
