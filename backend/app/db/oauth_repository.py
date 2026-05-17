@@ -164,11 +164,11 @@ class OAuthTokenRepository:
         """Returns a summary of the user's connection status."""
         raw = await self.collection.find_one({"user_id": user_id})
         if not raw:
-            return {"is_connected": False, "needs_reauth": False}
+            return {"google_connected": False, "needs_reauth": False}
         
         record = OAuthTokenRecord(**raw)
         return {
-            "is_connected": True,
+            "google_connected": True,
             "email": record.email,
             "needs_reauth": record.needs_reauth,
             "reauth_reason": record.needs_reauth_reason,
