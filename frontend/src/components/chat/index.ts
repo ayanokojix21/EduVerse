@@ -9,6 +9,10 @@ export { MessageBubble } from "./MessageBubble";
 export { ChatStream } from "./ChatStream";
 export { ChatInput } from "./ChatInput";
 
+// Rendering
+export { ContentRenderer } from "./ContentRenderer";
+export { MathMarkdown } from "./MathMarkdown";
+
 // Advanced
 export { HITLInterrupt } from "./HITLInterrupt";
 export { SessionSidebar } from "./SessionSidebar";

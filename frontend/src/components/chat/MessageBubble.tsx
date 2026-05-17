@@ -15,9 +15,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { memo, useState, useEffect, useRef } from "react";
-import ReactMarkdown from "react-markdown";
-import rehypeRaw from "rehype-raw";
-import remarkGfm from "remark-gfm";
+import { ContentRenderer } from "./ContentRenderer";
 
 import type { ChatMessage, Citation } from "@/lib/types";
 import { StreamingCursor } from "./StreamingCursor";
@@ -335,16 +333,7 @@ function AIBubble({
   message: ChatMessage;
   onFeedback?: (messageId: string, rating: "up" | "down") => void;
 }) {
-  // Defensively ensure content is a string (Gemma 4 can return a list of dicts)
-  const rawContent: unknown = message.content;
-  let displayContent: string =
-    typeof rawContent === "string"
-      ? rawContent
-      : Array.isArray(rawContent)
-      ? (rawContent as any[])
-          .map((p) => (typeof p === "string" ? p : p?.text || p?.thinking || ""))
-          .join("\n")
-      : String(rawContent ?? "");
+  let displayContent: string = message.content;
   
   // Convert <think> tags to an HTML details accordion
   displayContent = displayContent.replace(
@@ -355,6 +344,15 @@ function AIBubble({
     /<\/think>/g, 
     '\n\n</details>\n\n'
   );
+
+  // Strip SSML [pause] artifacts often emitted by Gemini
+  displayContent = displayContent.replace(/\[pause\]/gi, '');
+
+  // Convert [Source 1, 2] or [Source 1] into Markdown links: [1](citation:1) [2](citation:2)
+  displayContent = displayContent.replace(/\[Source\s+([0-9,\s]+)\]/gi, (match, nums) => {
+    const ids = nums.split(',').map((n: string) => n.trim());
+    return ids.map((id: string) => `[${id}](citation:${id})`).join(' ');
+  });
 
   return (
     <div className="flex justify-start animate-[fade-up_0.3s_ease-out_both] group/bubble">
@@ -402,12 +400,11 @@ function AIBubble({
 
         {/* Content */}
         <div className="prose-eduverse">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeRaw]}
-          >
-            {displayContent}
-          </ReactMarkdown>
+          <ContentRenderer 
+            content={displayContent} 
+            isStreaming={message.is_streaming} 
+            citations={message.citations}
+          />
 
           {/* Streaming cursor */}
           {message.is_streaming && <StreamingCursor />}
