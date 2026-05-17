@@ -79,6 +79,7 @@ type ChatAction =
   | { type: "SSE_CLOSE" }
   | { type: "HITL_PAUSE" }
   | { type: "RESET" }
+  | { type: "STOP" }
   | { type: "SET_FEEDBACK"; messageId: string; rating: "up" | "down" | null };
 
 // ─── Initial State ────────────────────────────────────────────────────────────
@@ -243,6 +244,37 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "RESET":
       return { ...initialState };
 
+    case "STOP": {
+      // Commit whatever has streamed so far as a finalized message
+      if (state.streamingText.trim()) {
+        const stoppedMessage: ChatMessage = {
+          id: `msg_stopped_${Date.now()}`,
+          role: "assistant",
+          content: state.streamingText,
+          agent_thoughts: state.agentThoughts.length > 0 ? state.agentThoughts : undefined,
+          created_at: new Date().toISOString(),
+          feedback: null,
+        };
+        return {
+          ...state,
+          status: "done",
+          messages: [...state.messages, stoppedMessage],
+          streamingText: "",
+          activeNodes: [],
+          activeTools: [],
+          statusMessage: null,
+        };
+      }
+      return {
+        ...state,
+        status: "done",
+        streamingText: "",
+        activeNodes: [],
+        activeTools: [],
+        statusMessage: null,
+      };
+    }
+
     case "SET_FEEDBACK":
       return {
         ...state,
@@ -388,11 +420,19 @@ export function useChatStream(courseId: string) {
     [state.sessionId]
   );
 
-  // ── Abort ─────────────────────────────────────────────────────────────────
+  // ── Abort (silent — no state change) ─────────────────────────────────────
 
   const abort = useCallback(() => {
     connectionRef.current?.abort();
     connectionRef.current = null;
+  }, []);
+
+  // ── Stop generation (user-facing — commits partial response) ──────────────
+
+  const stopGeneration = useCallback(() => {
+    connectionRef.current?.abort();
+    connectionRef.current = null;
+    dispatch({ type: "STOP" });
   }, []);
 
   // ── Reset (new chat) ─────────────────────────────────────────────────────
@@ -410,6 +450,7 @@ export function useChatStream(courseId: string) {
     loadSession,
     submitFeedback,
     abort,
+    stopGeneration,
     reset,
   };
 }

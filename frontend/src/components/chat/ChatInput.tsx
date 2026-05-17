@@ -24,7 +24,9 @@ import {
 
 interface ChatInputProps {
   onSubmit: (text: string, imageData?: string, imageMimetype?: string) => void;
+  onStop?: () => void;
   disabled?: boolean;
+  isStreaming?: boolean;
   placeholder?: string;
 }
 
@@ -38,7 +40,9 @@ const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gi
 
 export function ChatInput({
   onSubmit,
+  onStop,
   disabled = false,
+  isStreaming = false,
   placeholder = "Ask about your course…",
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -247,29 +251,54 @@ export function ChatInput({
             id="chat-input-textarea"
           />
 
-          {/* Submit button */}
-          <button
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            className={`
-              flex-shrink-0
-              w-8 h-8
-              flex items-center justify-center
-              rounded-full
-              transition-all duration-200
-              mb-0.5
-              ${
-                canSubmit
-                  ? "bg-[var(--color-primary)] text-[var(--color-bg)] hover:bg-[var(--color-primary-hover)] cursor-pointer"
-                  : "bg-[rgba(239,243,244,0.08)] text-[var(--color-text-dim)] cursor-not-allowed"
-              }
-            `}
-            aria-label="Send message"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-            </svg>
-          </button>
+          {/* Submit / Stop button */}
+          {isStreaming ? (
+            <button
+              onClick={onStop}
+              className="
+                flex-shrink-0
+                w-8 h-8
+                flex items-center justify-center
+                rounded-full
+                bg-[var(--color-danger-dim)]
+                text-[var(--color-danger)]
+                hover:bg-[rgba(244,33,46,0.2)]
+                transition-all duration-200
+                mb-0.5
+                cursor-pointer
+                animate-[fade-in_0.15s_ease-out]
+              "
+              aria-label="Stop generating"
+              title="Stop generating"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="6" width="12" height="12" rx="2" />
+              </svg>
+            </button>
+          ) : (
+            <button
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              className={`
+                flex-shrink-0
+                w-8 h-8
+                flex items-center justify-center
+                rounded-full
+                transition-all duration-200
+                mb-0.5
+                ${
+                  canSubmit
+                    ? "bg-[var(--color-primary)] text-[var(--color-bg)] hover:bg-[var(--color-primary-hover)] cursor-pointer"
+                    : "bg-[rgba(239,243,244,0.08)] text-[var(--color-text-dim)] cursor-not-allowed"
+                }
+              `}
+              aria-label="Send message"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* Character counter */}

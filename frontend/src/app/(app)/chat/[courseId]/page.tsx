@@ -72,6 +72,10 @@ export default function ChatPage() {
     [chat.resumeHITL]
   );
 
+  const handleStop = useCallback(() => {
+    chat.stopGeneration();
+  }, [chat.stopGeneration]);
+
   const isInputDisabled =
     chat.status === "connecting" ||
     chat.status === "streaming" ||
@@ -208,7 +212,9 @@ export default function ChatPage() {
         {/* Chat input */}
         <ChatInput
           onSubmit={handleSubmit}
+          onStop={handleStop}
           disabled={isInputDisabled}
+          isStreaming={chat.status === "connecting" || chat.status === "streaming"}
           placeholder={
             chat.status === "hitl_paused"
               ? "Make a decision above to continue…"
