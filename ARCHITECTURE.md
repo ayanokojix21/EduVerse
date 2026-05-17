@@ -13,7 +13,7 @@ EduVerse is a single LangGraph `StateGraph` compiled at server startup. Every st
 ```mermaid
 graph TD
     START((Start)) --> IM["Input Moderator<br/><i>Gemma 4 26B MoE</i>"]
-    IM -->|UNSAFE| END1[/"⛔ Refusal"/]
+    IM -->|UNSAFE| END1[/"Refusal"/]
     IM -->|SAFE| IG["Integrity Guard<br/><i>Gemma 4 26B MoE</i>"]
     IG -->|CHEATING| END2[/"🎓 Socratic Redirect"/]
     IG -->|LEARNING| ORCH["Orchestrator<br/><i>Gemma 4 26B MoE</i>"]
@@ -33,9 +33,9 @@ graph TD
 
 ### Why This Shape
 
-The triple-entry security (`Input Mod → Integrity Guard → Orchestrator`) exists because a single moderator can't catch everything. Input Mod handles raw safety (PII, NSFW, injection). Integrity Guard handles *pedagogical* safety — detecting when a student is asking the AI to just do their homework. These are different classification tasks and need separate prompts.
+The triple-entry security (`Input Mod → Integrity Guard → Orchestrator`) exists because a single moderator can't catch everything. Input Mod handles raw safety (PII, NSFW, injection). Integrity Guard handles *pedagogical* safety - detecting when a student is asking the AI to just do their homework. These are different classification tasks and need separate prompts.
 
-The Critic → Orchestrator loop enables **end-to-end self-correction**. If the final output is bad, we don't just patch it — the entire pipeline re-runs with the critic's feedback injected into the state. This is more expensive but produces genuinely better output than trying to fix a bad draft.
+The Critic → Orchestrator loop enables **end-to-end self-correction**. If the final output is bad, we don't just patch it - the entire pipeline re-runs with the critic's feedback injected into the state. This is more expensive but produces genuinely better output than trying to fix a bad draft.
 
 ---
 
@@ -55,7 +55,7 @@ graph LR
     V --> F["Formatter"]
 ```
 
-**Planner** rewrites the student's raw question into an optimized search query. Uses structured output (`PlannerOutput` schema) to extract the rewritten query. This matters because students ask messy questions — "idk how the thing in ch3 works" needs to become "mechanism of action chapter 3 enzyme kinetics" before retrieval.
+**Planner** rewrites the student's raw question into an optimised search query. Uses structured output (`PlannerOutput` schema) to extract the rewritten query. This matters because students ask messy questions - "idk how the thing in ch3 works" needs to become "mechanism of action chapter 3 enzyme kinetics" before retrieval.
 
 **Executor** runs hybrid retrieval:
 1. MongoDB Atlas Vector Search (Nomic embeddings, 768d) for semantic similarity
@@ -64,23 +64,23 @@ graph LR
 4. Cohere Rerank v3.5 re-scores the top candidates
 
 The executor then labels the retrieval confidence:
-- `CLASSROOM_GROUNDED` — strong match (score ≥ grounding threshold)
-- `CLASSROOM_LOW_CONFIDENCE` — decent match, proceed with caveats
-- `CLASSROOM_INSUFFICIENT` — not enough relevant material found
+- `CLASSROOM_GROUNDED` - strong match (score ≥ grounding threshold)
+- `CLASSROOM_LOW_CONFIDENCE` - decent match, proceed with caveats
+- `CLASSROOM_INSUFFICIENT` - not enough relevant material found
 
 **HITL Gate** fires only on `CLASSROOM_INSUFFICIENT`. It calls LangGraph's `interrupt()`, which checkpoints the entire graph state to MongoDB and pauses execution. The frontend shows the student a choice: "Should I search the web, or work with what's in your course materials?" The graph resumes when the student responds via `POST /chat/stream/resume`.
 
-This is a deliberate design choice. We don't silently fall back to web search — the student stays in control of what sources they trust.
+This is a deliberate design choice. We don't silently fall back to web search - the student stays in control of what sources they trust.
 
-**Distiller** sorts retrieved documents by relevance score and enforces a token budget. No LLM call here — just ranking and truncation.
+**Distiller** sorts retrieved documents by relevance score and enforces a token budget. No LLM call here - just ranking and truncation.
 
 **Generator** produces the actual pedagogical response using Gemma 4 31B Dense. The prompt injects a reasoning trigger: `Begin your response with <think> to plan the Socratic scaffolding`. The `<think>` trace is extracted post-generation and stored in `agent_thoughts` for the X-Ray panel. The generator calls `TransferToValidator` when done, passing its draft.
 
 For multimodal inputs (uploaded images), the generator receives both text and base64-encoded image data in a single prompt.
 
 **Validator** adversarially fact-checks the draft against the source documents. It has access to two tools:
-- `web_search_tool` (SerperDev) — for verifying claims against external sources
-- `python_repl_tool` (E2B sandbox) — for checking math and code
+- `web_search_tool` (SerperDev) - for verifying claims against external sources
+- `python_repl_tool` (E2B sandbox) - for checking math and code
 
 If the validator finds grounding issues, it calls `TransferToGenerator` and the draft goes back for revision (max 2 rounds). If clean, it calls `TransferToFormatter`.
 
@@ -121,7 +121,7 @@ class QuizQuestion(BaseModel):
     distractor_reasoning: str  # Why each wrong answer is pedagogically useful
 ```
 
-Each drafter uses Gemma 4 26B MoE — the MoE architecture is critical here because we're running 3 concurrent inference calls. With only 4B active parameters per forward pass, the latency stays manageable.
+Each drafter uses Gemma 4 26B MoE - the MoE architecture is critical here because we're running 3 concurrent inference calls. With only 4B active parameters per forward pass, the latency stays manageable.
 
 **Reviewer** consolidates all three MCQs and quality-gates them. Has access to web_search and python_repl tools. If the questions are too easy, factually wrong, or don't cover the right Bloom's levels, it calls `TransferToDrafter` and the entire batch is regenerated. DPO pairs are captured on every rejection.
 
@@ -139,7 +139,7 @@ graph LR
     MENT --> FMT["Formatter"]
 ```
 
-**Diagnostician** takes the student's quiz responses and performs per-question RCA. It uses an agentic tool-calling loop — it can execute Python code to verify mathematical work and search the web to fact-check contemporary claims. For each incorrect answer, it classifies the root cause: `Calculation Error`, `Conceptual Gap`, `Reading Misinterpretation`, or `Correct`.
+**Diagnostician** takes the student's quiz responses and performs per-question RCA. It uses an agentic tool-calling loop - it can execute Python code to verify mathematical work and search the web to fact-check contemporary claims. For each incorrect answer, it classifies the root cause: `Calculation Error`, `Conceptual Gap`, `Reading Misinterpretation`, or `Correct`.
 
 Uses Gemma 4 31B Dense because root-cause analysis requires deeper reasoning than classification.
 
@@ -185,7 +185,7 @@ The `LLMFactory` maps agent roles to Gemma 4 variants at runtime:
 | Vision (multimodal) | 26B-A4B (MoE) | 4B | Image understanding |
 | DPO Teacher | Gemini 2.5 Pro | — | Background distillation only |
 
-Every chain has `.with_fallbacks([gemini_flash])` — if the Gemma 4 endpoint returns a 500, the system degrades to Gemini Flash rather than crashing the student's session.
+Every chain has `.with_fallbacks([gemini_flash])` - if the Gemma 4 endpoint returns a 500, the system degrades to Gemini Flash rather than crashing the student's session.
 
 ---
 
@@ -254,15 +254,15 @@ File: `backend/app/services/training/training_orchestrator.py`
 
 Five-step pipeline, runs as a background task:
 
-1. **Shadow Auditor catchup** — Polls unaudited trajectories from MongoDB, sends each to Gemini 2.5 Pro with a role-specific teacher prompt. The teacher produces a gold-standard response and critique. This adds higher-quality "chosen" examples to the DPO dataset.
+1. **Shadow Auditor catchup** - Polls unaudited trajectories from MongoDB, sends each to Gemini 2.5 Pro with a role-specific teacher prompt. The teacher produces a gold-standard response and critique. This adds higher-quality "chosen" examples to the DPO dataset.
 
-2. **Export** — Pulls all DPO pairs from MongoDB. Filters for agents with ≥150 pairs. Agents below threshold are skipped.
+2. **Export** - Pulls all DPO pairs from MongoDB. Filters for agents with ≥150 pairs. Agents below threshold are skipped.
 
-3. **Kaggle push** — Generates `kernel-metadata.json`, serializes the DPO dataset to JSONL, pushes to Kaggle as a private kernel with GPU enabled.
+3. **Kaggle push** - Generates `kernel-metadata.json`, serializes the DPO dataset to JSONL, pushes to Kaggle as a private kernel with GPU enabled.
 
-4. **Poll** — Waits for Kaggle kernel completion (60s polling interval).
+4. **Poll** - Waits for Kaggle kernel completion (60s polling interval).
 
-5. **Evaluate & promote** — Downloads fine-tuned weights. Runs pairwise evaluation via `EvalService` (Gemini 2.5 Pro as judge, scoring on Grounding, Clarity, Tone, and Hallucination on 1-10 scales). If improvement exceeds 15% → registers in model registry → uploads GGUF to HuggingFace.
+5. **Evaluate & promote** - Downloads fine-tuned weights. Runs pairwise evaluation via `EvalService` (Gemini 2.5 Pro as judge, scoring on Grounding, Clarity, Tone, and Hallucination on 1-10 scales). If improvement exceeds 15% → registers in model registry → uploads GGUF to HuggingFace.
 
 Target: fine-tuning **Gemma 4 E4B** via DPO + LoRA per agent role (`tutor`, `quiz`, `feedback`).
 
