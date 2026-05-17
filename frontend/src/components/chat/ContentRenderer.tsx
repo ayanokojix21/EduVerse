@@ -7,6 +7,8 @@
 //   1. parseContent(raw) → ContentBlock[]
 //   2. Render each block with the appropriate component:
 //      - "markdown" → <MathMarkdown />
+//      - "mermaid"  → <MermaidBlock />
+//      - "chart"    → <ChartBlock />
 //      - "error"    → <pre> fallback with error message
 //
 // This replaces the direct <ReactMarkdown> call in MessageBubble.
@@ -16,6 +18,8 @@
 import { memo, useMemo } from "react";
 import { parseContent, type ContentBlock } from "@/lib/contentParser";
 import { MathMarkdown } from "./MathMarkdown";
+import { MermaidBlock } from "./MermaidBlock";
+import { ChartBlock } from "./ChartBlock";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -66,6 +70,12 @@ function renderBlock(block: ContentBlock, index: number) {
   switch (block.type) {
     case "markdown":
       return <MathMarkdown key={`md-${index}`} content={block.content} />;
+
+    case "mermaid":
+      return <MermaidBlock key={`mermaid-${index}`} code={block.content} />;
+
+    case "chart":
+      return <ChartBlock key={`chart-${index}`} code={block.content} />;
 
     case "error":
       return (

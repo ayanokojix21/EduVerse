@@ -230,4 +230,145 @@
     background: rgba(239, 243, 244, 0.08);
     border-color: rgba(255, 255, 255, 0.12);
   }
+
+  /* ── Mermaid Diagram Containers ────────────────────────────────────────── */
+
+  .mermaid-container {
+    margin: 1rem 0;
+    padding: 1.25rem;
+    background: rgba(22, 24, 28, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mermaid-svg-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60px;
+  }
+
+  .mermaid-svg-wrapper svg {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .mermaid-loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--color-text-dim);
+    padding: 0.5rem 0;
+  }
+
+  .mermaid-loading-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    animation: pulse-fast 0.8s ease-in-out infinite;
+  }
+
+  .mermaid-error {
+    border-color: rgba(255, 212, 0, 0.2);
+  }
+
+  .mermaid-error-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--color-warning);
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255, 212, 0, 0.1);
+  }
+
+  .mermaid-error-code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-text-dim);
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* ── Chart.js Containers ───────────────────────────────────────────────── */
+
+  .chart-container {
+    margin: 1rem 0;
+    padding: 1.25rem;
+    background: rgba(22, 24, 28, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    position: relative;
+    max-width: 100%;
+  }
+
+  .chart-container canvas {
+    max-width: 100%;
+    max-height: 400px;
+  }
+
+  .chart-error {
+    border-color: rgba(255, 212, 0, 0.2);
+  }
+
+  .chart-error-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--color-warning);
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255, 212, 0, 0.1);
+  }
+
+  .chart-error-code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-text-dim);
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* ── Separator (replaces [pause]/[break] markers) ──────────────────────── */
+
+  .prose-eduverse hr {
+    border: none;
+    height: 1px;
+    margin: 1.5rem auto;
+    max-width: 120px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.12) 30%,
+      rgba(29, 155, 240, 0.25) 50%,
+      rgba(255, 255, 255, 0.12) 70%,
+      transparent 100%
+    );
+  }
+
+  /* ── Mermaid overrides inside prose ─────────────────────────────────────── */
+
+  .prose-eduverse .mermaid-container {
+    max-width: none;
+  }
+
+  .prose-eduverse .chart-container {
+    max-width: none;
+  }
 }

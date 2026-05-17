@@ -12,6 +12,8 @@ export { ChatInput } from "./ChatInput";
 // Rendering
 export { ContentRenderer } from "./ContentRenderer";
 export { MathMarkdown } from "./MathMarkdown";
+export { MermaidBlock } from "./MermaidBlock";
+export { ChartBlock } from "./ChartBlock";
 
 // Advanced
 export { HITLInterrupt } from "./HITLInterrupt";
