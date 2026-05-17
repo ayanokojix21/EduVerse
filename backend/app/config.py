@@ -58,8 +58,8 @@ class Settings(BaseSettings):
     e2b_api_key: str = Field(default="", alias="E2B_API_KEY")
 
     # ── Chunking ─────────────────────────────────────────────────────────────
-    parent_chunk_size: int = 4000
-    child_chunk_size: int = 1000
+    parent_chunk_size: int = 2000
+    child_chunk_size: int = 500
     chunk_overlap: int = 200
     # Max pages analyzed by vision model per document (prevents API cost explosion)
     max_vision_images_per_doc: int = 10
