@@ -1,8 +1,6 @@
 <p align="center">
   <h1 align="center">EduVerse</h1>
   <p align="center">
-    The AI tutor that refuses to give you the answer.
-    <br />
     Multi-Agent System built on Gemma 4 · Socratic by design · Self-improving through DPO
   </p>
   <p align="center">
@@ -16,23 +14,23 @@
 
 260 million students are enrolled in higher education worldwide. Most use AI tools that do one thing: spit out answers. The student copies, submits, learns nothing. The tool enables academic dishonesty at scale.
 
-Meanwhile, every professor uploads PDFs, lecture slides, and assignments to Google Classroom — and none of it gets connected to the AI. Students ask ChatGPT about photosynthesis and get a generic Wikipedia response when they should be getting an explanation grounded in *what their professor actually taught*.
+Meanwhile, every professor uploads PDFs, lecture slides, and assignments to Google Classroom - and none of it gets connected to the AI. Students ask ChatGPT about photosynthesis and get a generic Wikipedia response when they should be getting an explanation grounded in *what their professor actually taught*.
 
 EduVerse was built to fix both problems.
 
 ## What It Does
 
-EduVerse syncs with a student's Google Classroom, ingests their actual course materials, and uses a **multi-agent system of 15+ specialized Gemma 4 nodes** to teach through questions, analogies, and conceptual scaffolding — never direct answers.
+EduVerse syncs with a student's Google Classroom, ingests their actual course materials, and uses a **multi-agent system of 15+ specialized Gemma 4 nodes** to teach through questions, analogies, and conceptual scaffolding - never direct answers.
 
 Three agent swarms handle distinct educational workflows:
 
-**🎓 RAG Tutor** — Socratic explanations grounded in course materials. The system retrieves relevant docs, builds a chain-of-thought reasoning trace, then drafts an explanation that guides the student to the answer through questions and analogies. An adversarial validator fact-checks every claim against the source documents. If it finds hallucinations, it sends the draft back for revision — automatically.
+**RAG Tutor** - Socratic explanations grounded in course materials. The system retrieves relevant docs, builds a chain-of-thought reasoning trace, then drafts an explanation that guides the student to the answer through questions and analogies. An adversarial validator fact-checks every claim against the source documents. If it finds hallucinations, it sends the draft back for revision - automatically.
 
-**📝 Quiz Engine** — Parallel MCQ generation mapped to Bloom's taxonomy. Three drafter workers run simultaneously via LangGraph's `Send()` API, each producing a question with intentionally designed distractors. A reviewer quality-gates the set and can reject + regenerate the entire batch.
+**Quiz Engine** - Parallel MCQ generation mapped to Bloom's taxonomy. Three drafter workers run simultaneously via LangGraph's `Send()` API, each producing a question with intentionally designed distractors. A reviewer quality-gates the set and can reject + regenerate the entire batch.
 
-**📊 Feedback Analyst** — Root-cause analysis of student answers. A diagnostician agent uses code execution and web search tools to verify student work, then a mentor agent scores the feedback through a growth-mindset lens. If the feedback is too harsh, it loops back for revision.
+**Feedback Analyst** - Root-cause analysis of student answers. A diagnostician agent uses code execution and web search tools to verify student work, then a mentor agent scores the feedback through a growth-mindset lens. If the feedback is too harsh, it loops back for revision.
 
-Every swarm feeds into a **Critic Agent** that performs a final quality audit. If the critic rejects the output, the entire graph re-runs from the orchestrator — up to 2 self-correction cycles. A triple-layer guardrail system (input moderator → integrity guard → output shield) ensures no direct answers, no PII leaks, and no prompt injection.
+Every swarm feeds into a **Critic Agent** that performs a final quality audit. If the critic rejects the output, the entire graph re-runs from the orchestrator - up to 2 self-correction cycles. A triple-layer guardrail system (input moderator -> integrity guard -> output shield) ensures no direct answers, no PII leaks, and no prompt injection.
 
 The entire reasoning process is transparent. Every agent's `<think>` trace is extracted and rendered in an **X-Ray panel** in the UI, so the student can see exactly how the AI reached its response.
 
@@ -43,10 +41,10 @@ We didn't just swap in Gemma 4 as a drop-in replacement. The architecture was de
 | Capability | How We Use It | Where |
 |-----------|--------------|-------|
 | **Native `<think>` CoT** | Every pedagogical agent triggers explicit reasoning with `<think>` tokens. We extract these traces for the X-Ray transparency panel. | Generator, Diagnostician, all Guardrails |
-| **Structured Output** | Every agent uses `with_structured_output()` for typed schemas — `PlannerOutput`, `QuizQuestion`, `CriticOutput`, `SafetyOutput`, etc. No regex parsing. | All 15+ nodes |
+| **Structured Output** | Every agent uses `with_structured_output()` for typed schemas - `PlannerOutput`, `QuizQuestion`, `CriticOutput`, `SafetyOutput`, etc. No regex parsing. | All 15+ nodes |
 | **Multimodal Vision** | Students can upload photos of diagrams, handwritten problems, or textbook pages. The generator processes image+text natively. | RAG Generator, Quiz Drafters, Diagnostician |
 | **Function Calling** | Validator and Reviewer agents autonomously call web_search and python_repl tools to fact-check claims and verify math. | Validator, Reviewer, Diagnostician |
-| **MoE Efficiency** | The 26B-A4B model activates only 4B params per token — perfect for parallel execution across 3+ concurrent drafters without blowing the latency budget. | Quiz Drafters, Critics, Guardrails |
+| **MoE Efficiency** | The 26B-A4B model activates only 4B params per token - perfect for parallel execution across 3+ concurrent drafters without blowing the latency budget. | Quiz Drafters, Critics, Guardrails |
 
 ### Model Routing
 
@@ -54,15 +52,15 @@ We use three Gemma 4 variants, matched to task complexity:
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│  Gemma 4 26B-A4B-IT (MoE)     — 4B active / 26B total    │
+│  Gemma 4 26B-A4B-IT (MoE)     - 4B active / 26B total    │
 │  Used for: Routing, guardrails, validators, quiz drafters │
 │  Why: Fast. 4B active params = near-edge latency.         │
 ├────────────────────────────────────────────────────────────┤
-│  Gemma 4 31B-IT (Dense)       — Full 31B parameters       │
+│  Gemma 4 31B-IT (Dense)       - Full 31B parameters       │
 │  Used for: RAG generation, feedback root-cause analysis   │
 │  Why: Maximum reasoning depth for pedagogical tasks.      │
 ├────────────────────────────────────────────────────────────┤
-│  Gemini 2.5 Pro (Teacher)     — Background only           │
+│  Gemini 2.5 Pro (Teacher)     - Background only           │
 │  Used for: DPO distillation, evaluation judging           │
 │  Why: Gold-standard for offline training data. Never on   │
 │       the live student path.                              │
@@ -79,12 +77,12 @@ Every time a validator rejects a draft and the generator revises it, the system 
 
 ```
 Student asks a question
-  → Agent drafts response
-  → Validator finds a grounding issue
-  → Rejected draft saved as "rejected" ←──── DPO pair
-  → Agent revises
-  → Validator approves
-  → Approved draft saved as "chosen"  ←──── DPO pair
+  -> Agent drafts response
+  -> Validator finds a grounding issue
+  -> Rejected draft saved as "rejected" ←──── DPO pair
+  -> Agent revises
+  -> Validator approves
+  -> Approved draft saved as "chosen"  ←──── DPO pair
                     ↓
         MongoDB (dpo_pairs collection)
                     ↓
@@ -92,9 +90,9 @@ Student asks a question
      responses via Gemini 2.5 Pro (background)
                     ↓
      Training Orchestrator exports to Kaggle
-     → DPO fine-tuning on T4 GPU
-     → Pairwise Teacher-as-Judge evaluation
-     → Auto-promote to HuggingFace if improved 15%+
+     -> DPO fine-tuning on T4 GPU
+     -> Pairwise Teacher-as-Judge evaluation
+     -> Auto-promote to HuggingFace if improved 15%+
 ```
 
 The end goal: once enough DPO pairs accumulate per agent role, the system fine-tunes **Gemma 4 E4B** (a model small enough for consumer hardware) using distilled knowledge from the larger cloud models. Every student interaction makes the future local model better.
@@ -190,15 +188,15 @@ EduVerse/
 
 ## Acknowledgments
 
-- **Google** — Gemma 4 models and Google AI Studio
-- **Kaggle** — Hosting the competition and providing GPU compute for training
-- **LangGraph** — Multi-agent orchestration framework
-- **MongoDB** — Atlas Vector Search and hybrid retrieval infrastructure
-- **Cohere** — Rerank v3.5 for retrieval quality
-- **Nomic** — Embedding model
+- **Google** - Gemma 4 models and Google AI Studio
+- **Kaggle** - Hosting the competition and providing GPU compute for training
+- **LangGraph** - Multi-agent orchestration framework
+- **MongoDB** - Atlas Vector Search and hybrid retrieval infrastructure
+- **Cohere** - Rerank v3.5 for retrieval quality
+- **Nomic** - Embedding model
 
 ## License
 
 CC-BY 4.0. See [LICENSE](./LICENSE).
 
-Built for the [Gemma 4 Good Hackathon](https://www.kaggle.com/competitions/gemma-4-good-hackathon) — Future of Education Track.
+Built for the [Gemma 4 Good Hackathon](https://www.kaggle.com/competitions/gemma-4-good-hackathon) - Future of Education Track.
