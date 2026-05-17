@@ -15,11 +15,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { memo, useState, useEffect, useRef } from "react";
-import ReactMarkdown from "react-markdown";
-import rehypeRaw from "rehype-raw";
-import remarkGfm from "remark-gfm";
-
 import type { ChatMessage, Citation } from "@/lib/types";
+import { ContentRenderer } from "./ContentRenderer";
 import { StreamingCursor } from "./StreamingCursor";
 import { CitationPill } from "./CitationPill";
 
@@ -393,12 +390,7 @@ function AIBubble({
 
         {/* Content */}
         <div className="prose-eduverse">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeRaw]}
-          >
-            {displayContent}
-          </ReactMarkdown>
+          <ContentRenderer content={displayContent} isStreaming={message.is_streaming} />
 
           {/* Streaming cursor */}
           {message.is_streaming && <StreamingCursor />}

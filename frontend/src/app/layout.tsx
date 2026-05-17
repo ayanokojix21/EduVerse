@@ -57,6 +57,12 @@ export default function RootLayout({
         {/* Preconnect to Google Fonts CDN */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* KaTeX CSS for math rendering */}
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css"
+          crossOrigin="anonymous"
+        />
       </head>
       <body className="bg-black text-[#E7E9EA] antialiased min-h-dvh">
         <AuthProvider>{children}</AuthProvider>
