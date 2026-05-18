@@ -42,6 +42,7 @@ import type {
 } from "@/lib/types";
 import { SourceBadge, IngestionDot } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { SelectiveIngestModal } from "@/components/courses/SelectiveIngestModal";
 
 type Tab = "files" | "assignments" | "sessions";
 
@@ -90,6 +91,7 @@ export default function CourseDetailPage() {
   // UI
   const [showMenu, setShowMenu] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showSelectiveModal, setShowSelectiveModal] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollStartRef = useRef<number>(Date.now());
 
@@ -216,8 +218,24 @@ export default function CourseDetailPage() {
   };
 
   const handleIndex = async () => {
-    try { setIsIndexing(true); await ingestionApi.trigger(courseId); pollRef.current = setInterval(pollIngestion, 3000); }
-    catch { console.error("Index failed"); } finally { setIsIndexing(false); }
+    // Classroom courses get the file picker; local courses ingest everything directly
+    if (course?.source === "classroom" || course?.source === "google_classroom") {
+      setShowSelectiveModal(true);
+    } else {
+      try { setIsIndexing(true); await ingestionApi.trigger(courseId); pollRef.current = setInterval(pollIngestion, 3000); }
+      catch { console.error("Index failed"); } finally { setIsIndexing(false); }
+    }
+  };
+
+  const handleSelectiveIngest = async (selectedItemIds: string[]) => {
+    try {
+      setIsIndexing(true);
+      await ingestionApi.trigger(courseId, selectedItemIds);
+      pollStartRef.current = Date.now();
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(pollIngestion, 3000);
+    } catch { console.error("Selective ingest failed"); }
+    finally { setIsIndexing(false); }
   };
 
   const handleSync = async () => {
@@ -255,9 +273,12 @@ export default function CourseDetailPage() {
   }
 
   const isProcessing = ingestionStatus === "processing" || ingestionStatus === "pending";
+  // Backend returns "google_classroom", old code used "classroom" — handle both
+  const isClassroom = course.source === "classroom" || course.source === "google_classroom";
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
+    <>
     <div className="max-w-[900px] mx-auto px-6 py-8 space-y-6 animate-[fade-up_0.3s_ease-out_both]">
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">
@@ -323,9 +344,9 @@ export default function CourseDetailPage() {
         {/* Action buttons */}
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="ghost" size="sm" onClick={handleIndex} loading={isIndexing} leftIcon={<Zap size={13} />}>
-            Index Files
+            {isClassroom ? "Select & Index" : "Index Files"}
           </Button>
-          {course.source === "classroom" && (
+          {isClassroom && (
             <Button variant="ghost" size="sm" onClick={handleSync} loading={isSyncing} className="text-[#1d9bf0] border-[#1d9bf0]/20 hover:bg-[#1d9bf0]/10" leftIcon={<RefreshCw size={13} />}>
               Sync Classroom
             </Button>
@@ -454,6 +475,17 @@ export default function CourseDetailPage() {
         )}
       </div>
     </div>
+
+      {/* ── Selective Ingest Modal ──────────────────────────────────────── */}
+      {isClassroom && (
+        <SelectiveIngestModal
+          courseId={courseId}
+          isOpen={showSelectiveModal}
+          onClose={() => setShowSelectiveModal(false)}
+          onStartIngestion={handleSelectiveIngest}
+        />
+      )}
+    </>
   );
 }
 
@@ -483,7 +515,7 @@ function CourseworkSection({ course, coursework, loading }: { course: UnifiedCou
     return (
       <div className="text-center py-10">
         <FileText size={32} className="mx-auto mb-3 text-[var(--color-text-dim)] opacity-50" />
-        <p className="text-[13px] text-[var(--color-text-dim)]">{course.source === "classroom" ? "No coursework found" : "Coursework is only available for Classroom courses"}</p>
+        <p className="text-[13px] text-[var(--color-text-dim)]">{(course.source === "classroom" || course.source === "google_classroom") ? "No coursework found" : "Coursework is only available for Classroom courses"}</p>
       </div>
     );
   }

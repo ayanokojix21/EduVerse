@@ -41,6 +41,9 @@ function connectSSE(
 ): SSEConnection {
   const controller = new AbortController();
   const token = getToken();
+  // Track whether the stream ended intentionally (done / abort)
+  // so we can prevent fetchEventSource from auto-retrying.
+  let streamFinished = false;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -56,6 +59,7 @@ function connectSSE(
 
     async onopen(response) {
       if (!response.ok) {
+        streamFinished = true;
         throw new Error(`SSE connection failed: ${response.status}`);
       }
       callbacks.onOpen?.();
@@ -100,12 +104,18 @@ function connectSSE(
           callbacks.token?.(parsed as SSEEventMap["token"]);
           break;
         case "done":
+          // Mark finished BEFORE calling the callback so that if onclose
+          // fires synchronously after this, it won't retry.
+          streamFinished = true;
           callbacks.done?.(parsed as SSEEventMap["done"]);
           break;
         case "error":
+          streamFinished = true;
           callbacks.error?.(parsed as SSEEventMap["error"]);
           break;
         case "hitl":
+          // HITL pauses the stream — mark finished to block retry.
+          streamFinished = true;
           callbacks.hitl?.(parsed as SSEEventMap["hitl"]);
           break;
         default:
@@ -115,17 +125,28 @@ function connectSSE(
 
     onclose() {
       callbacks.onClose?.();
+      // fetchEventSource retries when onclose is reached without a
+      // preceding error. Throw to prevent that — the backend
+      // intentionally closes the stream after 'done'.
+      if (!streamFinished) {
+        // Unexpected close — still don't retry, just surface as an error.
+        callbacks.onRawError?.(new Error("SSE stream closed unexpectedly"));
+      }
+      throw new Error("SSE stream ended — no retry");
     },
 
     onerror(err) {
+      if (controller.signal.aborted) {
+        // User-initiated abort — do not call error callback or retry.
+        throw err;
+      }
       callbacks.onRawError?.(err instanceof Error ? err : new Error(String(err)));
-      // Returning undefined means fetchEventSource will retry.
-      // Throw to prevent retry:
+      // Throw to prevent fetchEventSource from retrying automatically.
       throw err;
     },
   });
 
-  return { abort: () => controller.abort() };
+  return { abort: () => { streamFinished = true; controller.abort(); } };
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────

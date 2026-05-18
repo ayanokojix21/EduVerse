@@ -50,6 +50,7 @@ async def ingest_course(
         user_id=user_id,
         course_id=payload.course_id,
         force_refresh=payload.force_refresh,
+        selected_item_ids=payload.selected_item_ids,
     )
     
     return {
@@ -171,6 +172,49 @@ async def list_ingested_files(
 ) -> list[IngestedFile]:
     """Lists all documents currently indexed for a course."""
     return await ingestion_service.list_ingested_files(request.state.user_id, course_id)
+
+
+@router.get("/{course_id}/coursework-files")
+async def list_classroom_files(
+    course_id: str,
+    request: Request,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    """Lists all available Google Classroom items for selective ingestion.
+    
+    Returns a flat list with item_id so the frontend can present a picker
+    before triggering selective ingestion.
+    """
+    from app.db.oauth_repository import OAuthTokenRepository
+    from app.services.auth.classroom_service import ClassroomService
+    from anyio import to_thread
+
+    user_id = request.state.user_id
+    settings = get_settings()
+    oauth_repo = OAuthTokenRepository(db, settings)
+
+    try:
+        credentials = await oauth_repo.get_user_credentials(user_id)
+        if not credentials:
+            raise HTTPException(status_code=401, detail="Google Classroom not authorized.")
+
+        items = await to_thread.run_sync(ClassroomService.list_coursework, credentials, course_id)
+
+        return [
+            {
+                "item_id": item["id"],
+                "title": item.get("title", "Untitled"),
+                "type": item.get("type", "assignment"),
+                "alternateLink": item.get("alternateLink", ""),
+                "creationTime": item.get("creationTime", ""),
+                "attachment_count": len(item.get("materials", [])),
+            }
+            for item in items
+        ]
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.post("/upload")

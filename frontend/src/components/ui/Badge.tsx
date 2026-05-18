@@ -100,10 +100,11 @@ export function IngestionDot({ status }: { status: "none" | "pending" | "process
   );
 }
 
-export function SourceBadge({ source }: { source: "classroom" | "local" }) {
+export function SourceBadge({ source }: { source: "classroom" | "google_classroom" | "local" }) {
+  const isClassroom = source === "classroom" || source === "google_classroom";
   return (
-    <Badge variant={source === "classroom" ? "classroom" : "local"}>
-      {source === "classroom" ? "Google Classroom" : "Local"}
+    <Badge variant={isClassroom ? "classroom" : "local"}>
+      {isClassroom ? "Google Classroom" : "Local"}
     </Badge>
   );
 }

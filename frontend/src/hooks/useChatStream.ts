@@ -302,6 +302,13 @@ function buildCallbacks(dispatch: React.Dispatch<ChatAction>) {
 export function useChatStream(courseId: string) {
   const [state, dispatch] = useReducer(chatReducer, initialState);
   const connectionRef = useRef<SSEConnection | null>(null);
+  // Keep sessionId in a ref so callbacks don't need it in their dep arrays.
+  // This prevents sendMessage/resumeHITL from being recreated on every SSE event.
+  const sessionIdRef = useRef<string | null>(null);
+  if (state.sessionId !== sessionIdRef.current) {
+    sessionIdRef.current = state.sessionId;
+  }
+
 
   // ── Send a new message ────────────────────────────────────────────────────
 
@@ -322,7 +329,7 @@ export function useChatStream(courseId: string) {
       const request: ChatRequest = {
         message: text,
         course_id: courseId,
-        session_id: state.sessionId ?? undefined,
+        session_id: sessionIdRef.current ?? undefined,
         image_data: imageData,
         image_mimetype: imageMimetype,
       };
@@ -330,18 +337,18 @@ export function useChatStream(courseId: string) {
       connectionRef.current?.abort();
       connectionRef.current = startChatStream(request, buildCallbacks(dispatch));
     },
-    [courseId, state.sessionId]
+    [courseId]  // sessionId read from ref — stable
   );
 
   // ── Resume HITL ───────────────────────────────────────────────────────────
 
   const resumeHITL = useCallback(
     (decision: "search_web" | "socratic_only") => {
-      if (!state.sessionId) return;
+      if (!sessionIdRef.current) return;
       dispatch({ type: "CONNECT" });
 
       const request: HITLResumeRequest = {
-        session_id: state.sessionId,
+        session_id: sessionIdRef.current,
         decision,
       };
 
@@ -351,7 +358,7 @@ export function useChatStream(courseId: string) {
         buildCallbacks(dispatch)
       );
     },
-    [state.sessionId]
+    []  // sessionId read from ref — stable
   );
 
   // ── Load session history ──────────────────────────────────────────────────
@@ -373,10 +380,10 @@ export function useChatStream(courseId: string) {
 
   const submitFeedback = useCallback(
     async (messageId: string, rating: "up" | "down", comment?: string) => {
-      if (!state.sessionId) return;
+      if (!sessionIdRef.current) return;
       dispatch({ type: "SET_FEEDBACK", messageId, rating });
       try {
-        await feedbackApi.submit(state.sessionId, messageId, {
+        await feedbackApi.submit(sessionIdRef.current, messageId, {
           rating,
           comment,
         });
@@ -385,7 +392,7 @@ export function useChatStream(courseId: string) {
         dispatch({ type: "SET_FEEDBACK", messageId, rating: null });
       }
     },
-    [state.sessionId]
+    []  // sessionId read from ref — stable
   );
 
   // ── Abort ─────────────────────────────────────────────────────────────────

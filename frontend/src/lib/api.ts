@@ -159,6 +159,7 @@ import type {
   Coursework,
   IngestedFile,
   IngestionStatus,
+  ClassroomItem,
   ChatSession,
   SessionDetail,
   FeedbackRequest,
@@ -199,14 +200,19 @@ export const coursesApi = {
 
 // Ingestion
 export const ingestionApi = {
-  trigger: (courseId: string) =>
-    apiPost("/api/v1/ingestion/", { course_id: courseId }),
+  trigger: (courseId: string, selectedItemIds?: string[]) =>
+    apiPost("/api/v1/ingestion/", {
+      course_id: courseId,
+      ...(selectedItemIds ? { selected_item_ids: selectedItemIds } : {}),
+    }),
   sync: (courseId: string) =>
     apiPost("/api/v1/ingestion/sync", { course_id: courseId }),
   status: (courseId: string) =>
     apiGet<IngestionStatus>(`/api/v1/ingestion/status/${courseId}`),
   files: (courseId: string) =>
     apiGet<IngestedFile[]>(`/api/v1/ingestion/${courseId}/files`),
+  courseworkFiles: (courseId: string) =>
+    apiGet<ClassroomItem[]>(`/api/v1/ingestion/${courseId}/coursework-files`),
   upload: (formData: FormData) =>
     apiUpload("/api/v1/ingestion/upload", formData),
   deleteIndex: (courseId: string) =>
