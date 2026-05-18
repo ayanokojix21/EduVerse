@@ -80,15 +80,23 @@ async def diagnostician_node(
     res_raw = await llm.ainvoke(final_prompt, config=config)
     res = res_raw
     
+    # Normalize content to string (handles Gemma 4 thinking/multimodal list format)
+    raw_content = res.content
+    if isinstance(raw_content, list):
+        raw_content = "\n".join([
+            part.get("text") or part.get("thinking") or str(part) 
+            for part in raw_content if isinstance(part, dict)
+        ])
+
     if not res.tool_calls:
         logger.warning("Diagnostician failed to call tools; falling back to Mentor.")
         return Command(
             goto="mentor", 
             update={
                 "messages": [res],
-                "feedback_raw_responses": [res.content],
+                "feedback_raw_responses": [raw_content],
                 "current_feedback_draft": {
-                    "root_cause": str(res.content), 
+                    "root_cause": str(raw_content), 
                     "knowledge_gap": "Automated analysis (tool-call fallback)"
                 }
             }
@@ -111,14 +119,6 @@ async def diagnostician_node(
         )
 
     draft = tc["args"]
-    
-    # Normalize content to string (handles Gemma 4 thinking/multimodal list format)
-    raw_content = res.content
-    if isinstance(raw_content, list):
-        raw_content = "\n".join([
-            part.get("text") or part.get("thinking") or str(part) 
-            for part in raw_content if isinstance(part, dict)
-        ])
 
     return Command(
         goto="mentor", 

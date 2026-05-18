@@ -153,6 +153,14 @@ class Guardrails:
         try:
             res_raw = await llm.ainvoke(prompt_msgs)
             res: OutputShieldOutput = res_raw["parsed"]
+            
+            # Extract reasoning to show in the UI
+            raw_text = normalize_content(
+                res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"]),
+                include_thinking=True,
+            )
+            thinking_text = extract_thinking(raw_text)
+
             if res.decision == "REDACTED":
                 logger.warning(f"Output Shield Triggered: {res.reason}")
                 reason = res.reason or "Academic Integrity violation detected."
@@ -169,11 +177,21 @@ class Guardrails:
                     "response_text": normalize_content(
                         refusal_res.content if hasattr(refusal_res, "content") else str(refusal_res)
                     ),
-                    "agent_thoughts": [{
-                        "node": "output_moderator",
-                        "summary": f"Redacted: {reason}"
-                    }]
+                    "agent_thoughts": [build_thought(
+                        node="output_moderator",
+                        summary=f"Redacted: {reason}",
+                        reasoning=thinking_text or f"Decision: {res.decision}. {reason}"
+                    )]
                 }
+            
+            # Return success thought so it lights up and appears in the graph
+            return {
+                "agent_thoughts": [build_thought(
+                    node="output_moderator",
+                    summary="Scanning Output Safety",
+                    reasoning=thinking_text or f"Decision: {res.decision}. Output is safe and complies with academic integrity."
+                )]
+            }
         except Exception as exc:
             logger.error(f"Output moderator failed: {exc}")
         
