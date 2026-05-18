@@ -348,10 +348,11 @@ function AIBubble({
   // Strip SSML [pause] artifacts often emitted by Gemini
   displayContent = displayContent.replace(/\[pause\]/gi, '');
 
-  // Convert [Source 1, 2] or [Source 1] into Markdown links: [1](citation:1) [2](citation:2)
-  displayContent = displayContent.replace(/\[Source\s+([0-9,\s]+)\]/gi, (match, nums) => {
-    const ids = nums.split(',').map((n: string) => n.trim());
-    return ids.map((id: string) => `[${id}](citation:${id})`).join(' ');
+  // Convert [Doc 1, Doc 2] or [Source 1] into Markdown links: [1](#citation-1) [2](#citation-2)
+  displayContent = displayContent.replace(/\[((?:Doc|Source)[^\]]+)\]/gi, (match, inner) => {
+    const ids = inner.match(/\d+/g);
+    if (!ids) return match;
+    return ids.map((id: string) => `[${id}](#citation-${id})`).join(' ');
   });
 
   return (

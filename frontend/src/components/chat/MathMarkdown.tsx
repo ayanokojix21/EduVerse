@@ -34,8 +34,8 @@ export const MathMarkdown = memo(function MathMarkdown({
       rehypePlugins={[rehypeRaw, rehypeKatex]}
       components={{
         a: ({ node, ...props }) => {
-          if (props.href?.startsWith("citation:")) {
-            const id = parseInt(props.href.replace("citation:", ""), 10);
+          if (props.href?.startsWith("#citation-")) {
+            const id = parseInt(props.href.replace("#citation-", ""), 10);
             const citation = citations?.find((c) => c.source_index === id);
             if (citation) {
               return <CitationPill citation={citation} />;

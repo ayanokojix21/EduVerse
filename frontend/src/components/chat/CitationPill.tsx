@@ -55,7 +55,12 @@ export function CitationPill({ citation }: CitationPillProps) {
         if (!res.ok) throw new Error("Failed to load PDF");
         
         const blob = await res.blob();
-        const objectUrl = URL.createObjectURL(blob);
+        let objectUrl = URL.createObjectURL(blob);
+        
+        // Append page number if available (works in most native browser PDF viewers)
+        if (citation.page_number) {
+          objectUrl += `#page=${citation.page_number}`;
+        }
         
         if (newWindow) {
           newWindow.location.href = objectUrl;
@@ -71,7 +76,7 @@ export function CitationPill({ citation }: CitationPillProps) {
   };
 
   return (
-    <span className="relative inline-block">
+    <sup className="relative inline-block align-super -top-[0.2em] mx-[1px]">
       <button
         ref={pillRef}
         onClick={handleClick}
@@ -79,17 +84,16 @@ export function CitationPill({ citation }: CitationPillProps) {
         onMouseLeave={handleMouseLeave}
         className="
           inline-flex items-center justify-center
-          min-w-[1.375rem] h-[1.125rem]
-          px-[5px] mx-[1px]
-          rounded-[3px]
-          bg-[rgba(239,243,244,0.08)]
-          text-[11px] font-medium leading-none
-          text-[var(--color-text-muted)]
-          hover:bg-[rgba(239,243,244,0.15)]
-          hover:text-[var(--color-text-main)]
-          transition-colors duration-150
+          min-w-[1.25rem] h-[1.125rem]
+          px-[4px]
+          rounded-[4px]
+          bg-[rgba(29,155,240,0.15)]
+          text-[10px] font-bold leading-none
+          text-[var(--color-accent)]
+          hover:bg-[var(--color-accent)]
+          hover:text-white
+          transition-all duration-150
           cursor-pointer
-          align-[1px]
         "
         aria-label={`Citation ${citation.source_index}: ${citation.title}`}
       >
@@ -98,7 +102,7 @@ export function CitationPill({ citation }: CitationPillProps) {
 
       {/* Tooltip */}
       {showTooltip && (
-        <div
+        <span
           ref={tooltipRef}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
@@ -110,21 +114,23 @@ export function CitationPill({ citation }: CitationPillProps) {
             shadow-[0_4px_24px_rgba(0,0,0,0.5)]
             p-3
             animate-[fade-in_0.15s_ease-out]
+            block
+            text-left
           "
           role="tooltip"
         >
           {/* Title */}
-          <p className="text-[13px] font-semibold text-[var(--color-text-main)] mb-1.5 line-clamp-2">
+          <span className="block text-[13px] font-semibold text-[var(--color-text-main)] mb-1.5 line-clamp-2">
             {citation.title}
-          </p>
+          </span>
 
           {/* Snippet */}
-          <p className="text-[12px] text-[var(--color-text-muted)] leading-[1.5] line-clamp-3">
+          <span className="block text-[12px] text-[var(--color-text-muted)] leading-[1.5] line-clamp-3">
             {citation.snippet}
-          </p>
+          </span>
 
           {/* Meta row */}
-          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-[var(--color-border)]">
+          <span className="flex items-center gap-2 mt-2 pt-2 border-t border-[var(--color-border)]">
             <span className="text-[11px] text-[var(--color-text-dim)]">
               {citation.content_type}
             </span>
@@ -133,12 +139,12 @@ export function CitationPill({ citation }: CitationPillProps) {
                 p.{citation.page_number}
               </span>
             )}
-          </div>
+          </span>
 
           {/* Arrow */}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-[var(--color-border)]" />
-        </div>
+          <span className="block absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-[var(--color-border)]" />
+        </span>
       )}
-    </span>
+    </sup>
   );
 }
