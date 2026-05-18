@@ -85,7 +85,8 @@ async def diagnostician_node(
     raw_content = normalize_content(res.content, include_thinking=True)
 
     if not res.tool_calls:
-        logger.warning("Diagnostician failed to call tools; attempting raw JSON extraction.")
+        logger.warning(f"Diagnostician failed to call tools; raw output was: {raw_content}")
+        logger.warning("Attempting raw JSON extraction.")
         draft = None
         from app.utils.thinking_utils import extract_robust_json
         data = extract_robust_json(raw_content)

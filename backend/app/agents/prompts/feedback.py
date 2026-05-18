@@ -22,12 +22,13 @@ DIAGNOSTICIAN_SYSTEM = (
     "### STUDENT RESPONSES\n"
     "<responses>\n"
     "{q}\n"
-    "</responses>\n\n"
+    "</responses>\n"
+    "(If the <responses> list is empty, look for the student's answers in the most recent chat messages below.)\n\n"
     "### INSTRUCTIONAL CONSTRAINTS\n"
     "1. **Thinking Protocol**: Use 'Think step-by-step' tags to perform a step-by-step RCA before calling any tool.\n"
     "2. **Cross-Referencing**: Compare student errors against the correct definitions in the SOURCE MATERIAL.\n"
     "3. **Classification**: Identify if the error is a 'Calculation Error', 'Conceptual Gap', or 'Reading Misinterpretation'.\n"
-    "4. **Routing**: Call `TransferToMentor` with the structured RCA."
+    "4. **Routing (CRITICAL)**: You are a backend grader, NOT a teacher. DO NOT talk to the student. DO NOT output conversational text. You MUST call the `TransferToMentor` tool with your structured RCA."
 )
 
 DIAGNOSTICIAN_PROMPT = ChatPromptTemplate.from_messages([
