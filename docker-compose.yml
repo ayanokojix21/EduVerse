@@ -25,7 +25,6 @@ services:
       - mongodb
     volumes:
       - ./backend/data:/app/data
-      - ./training:/app/training
     restart: on-failure
 
   # ── RL Server: Shadow Auditing ───────────────────────────────────────────────

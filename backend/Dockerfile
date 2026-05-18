@@ -28,5 +28,5 @@ RUN mkdir -p data/uploads
 # Expose FastAPI port
 EXPOSE 8000
 
-# Start the application using uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start the application using uvicorn with dynamic port binding for Render
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
