@@ -19,6 +19,7 @@ from app.config import get_settings
 from app.utils.llm_pool import RoundRobinLLM
 from app.retrieval.retriever import get_retrieval_chain
 from app.utils.agent_tools import python_repl_tool, web_search_tool
+from app.utils.thinking_utils import filter_old_thoughts
 from app.agents.prompts.quiz import DRAFTER_PROMPT, REVIEWER_PROMPT
 from app.agents.schemas.quiz import (
     QuizQuestion, 
@@ -98,11 +99,12 @@ async def drafter_worker_node(state: QuestionDrafterState, config: RunnableConfi
     context_lines = [f"[{i+1}] {d.get('metadata', {}).get('title', 'Doc')}: {d.get('content', '')}" for i, d in enumerate(state.get("context_docs", []))]
     context_text = "\n\n".join(context_lines)
     
+    filtered_messages = filter_old_thoughts(state["messages"], keep_recent=3)
     prompt = DRAFTER_PROMPT.format_messages(
         c=context_text,
         d=state["difficulty"], 
         s=state["source_type"], 
-        m=state["messages"][-50:]
+        m=filtered_messages[-50:]
     )
     
     # Reasoning Trigger & Multimodal Vision Injection for Gemma 4
@@ -179,7 +181,8 @@ async def reviewer_node(
         top_p=0.95, 
         top_k=64
     ).bind_tools([TransferToDrafter, FinalizeQuiz, web_search_tool, python_repl_tool])
-    prompt = REVIEWER_PROMPT.format_messages(m=state["messages"][-50:])
+    filtered_messages = filter_old_thoughts(state["messages"], keep_recent=3)
+    prompt = REVIEWER_PROMPT.format_messages(m=filtered_messages[-50:])
     
     res = await llm.ainvoke(prompt, config=config)
     if not res.tool_calls:

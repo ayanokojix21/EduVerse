@@ -120,3 +120,40 @@ def build_thought(
     if data:
         thought["data"] = data
     return thought
+
+def filter_old_thoughts(messages: list[Any], keep_recent: int = 3) -> list[Any]:
+    """Strips <think>...</think> from all assistant messages except the most recent `keep_recent` ones."""
+    from langchain_core.messages import AIMessage
+    
+    assistant_indices = [
+        i for i, msg in enumerate(messages) 
+        if (isinstance(msg, dict) and msg.get("role") == "assistant") or isinstance(msg, AIMessage)
+    ]
+    
+    if len(assistant_indices) <= keep_recent:
+        return messages
+        
+    old_indices = set(assistant_indices[:-keep_recent])
+    
+    # Create a shallow copy of the list so we don't mutate the original state array references directly if we can avoid it
+    # Wait, we do want to mutate the content of the message copies.
+    import copy
+    new_messages = []
+    
+    for i, msg in enumerate(messages):
+        if i in old_indices:
+            if isinstance(msg, dict):
+                new_msg = copy.copy(msg)
+                content = str(new_msg.get("content", ""))
+                new_msg["content"] = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
+                new_messages.append(new_msg)
+            elif isinstance(msg, AIMessage) and isinstance(msg.content, str):
+                new_msg = copy.copy(msg)
+                new_msg.content = re.sub(r'<think>.*?</think>', '', new_msg.content, flags=re.DOTALL).strip()
+                new_messages.append(new_msg)
+            else:
+                new_messages.append(msg)
+        else:
+            new_messages.append(msg)
+            
+    return new_messages

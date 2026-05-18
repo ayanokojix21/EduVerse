@@ -16,7 +16,7 @@ from langsmith import traceable
 
 from app.agents.state import AgentState
 from app.utils.llm_pool import RoundRobinLLM
-from app.utils.thinking_utils import build_thought, extract_thinking, normalize_content
+from app.utils.thinking_utils import build_thought, extract_thinking, normalize_content, filter_old_thoughts
 from app.agents.prompts.orchestrator import ORCHESTRATOR_PROMPT
 from app.agents.schemas.orchestrator import OrchestratorOutput
 
@@ -42,8 +42,10 @@ async def orchestrator_node(
     )
     original = state["original_query"]
     
+    
+    filtered_messages = filter_old_thoughts(state["messages"], keep_recent=3)
     history = trim_messages(
-        state["messages"],
+        filtered_messages,
         strategy="last",
         token_counter=len,
         max_tokens=10000,

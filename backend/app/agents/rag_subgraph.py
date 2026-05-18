@@ -21,7 +21,7 @@ from app.retrieval.retriever import get_retrieval_chain
 from app.utils.llm_pool import RoundRobinLLM
 from app.utils.prompt_helpers import build_context_text
 from app.utils.token_utils import truncate_context_docs
-from app.utils.thinking_utils import build_thought, extract_thinking, normalize_content
+from app.utils.thinking_utils import build_thought, extract_thinking, normalize_content, filter_old_thoughts
 from app.agents.schemas.rag import (
     PlannerOutput,
     TransferToValidator,
@@ -242,7 +242,8 @@ async def generator_node(
     
     context = build_context_text(state["context_docs"])
     label = state.get("retrieval_label", "CLASSROOM_GROUNDED")
-    prompt = GENERATOR_PROMPT.format_messages(c=context, m=state["messages"][-50:], l=label)
+    filtered_messages = filter_old_thoughts(state["messages"], keep_recent=3)
+    prompt = GENERATOR_PROMPT.format_messages(c=context, m=filtered_messages[-50:], l=label)
     
     reasoning_trigger = (
         "\n\n### REASONING INSTRUCTION\n"
@@ -357,10 +358,11 @@ async def validator_node(
         TransferToGenerator, TransferToFormatter, web_search_tool, python_repl_tool
     ])
     
+    filtered_messages = filter_old_thoughts(state["messages"], keep_recent=3)
     prompt = VALIDATOR_PROMPT.format_messages(
         c=build_context_text(state["context_docs"]), 
         d=state["tutor_current_draft"], 
-        m=state["messages"][-50:]
+        m=filtered_messages[-50:]
     )
 
     res = await llm.ainvoke(prompt, config=config)
