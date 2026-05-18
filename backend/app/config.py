@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     app_host: str = "127.0.0.1"
     app_port: int = 8000
     app_debug: bool = True
-    frontend_origin: str = "http://localhost:3000"
+    frontend_origin: str = Field(default="http://localhost:3000", alias="FRONTEND_ORIGIN")
 
     # ── MongoDB Atlas ─────────────────────────────────────────────────────────
     mongo_uri: str = "mongodb://localhost:27017"
@@ -88,8 +88,8 @@ class Settings(BaseSettings):
     # ── Google OAuth ──────────────────────────────────────────────────────────
     google_client_id: str = ""
     google_client_secret: str = ""
-    google_redirect_url: str = "http://localhost:8765/"
-    google_redirect_uri: str = "http://localhost:8000/api/v1/auth/callback/google"
+    google_redirect_url: str = Field(default="", alias="GOOGLE_REDIRECT_URL")
+    google_redirect_uri: str = Field(default="", alias="GOOGLE_REDIRECT_URI")
 
     # ── Cloud Teacher (DPO Distillation ONLY) ─────────────────────────────────
     google_api_key: str = ""
