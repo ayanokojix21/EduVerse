@@ -84,14 +84,22 @@ class IngestionJobRepository:
             upsert=True
         )
 
-    async def reset_stale_jobs(self) -> int:
+    async def reset_stale_jobs(self, grace_period_seconds: int = 30) -> int:
         """
-        Called once on server startup. Marks ALL processing/pending jobs as
-        failed, because the worker threads that were running them no longer
-        exist after a restart.
+        Called once on server startup. Marks processing/pending jobs as
+        failed ONLY if they haven't been touched recently (grace period).
+
+        The grace period prevents false-failures during hot-reload in dev:
+        uvicorn --reload restarts the server on every file save, which
+        previously killed all in-progress jobs immediately.
         """
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=grace_period_seconds)
         result = await self.db[self.collection_name].update_many(
-            {"status": {"$in": ["processing", "pending"]}},
+            {
+                "status": {"$in": ["processing", "pending"]},
+                # Only kill jobs that haven't sent a heartbeat recently
+                "last_updated": {"$lt": cutoff},
+            },
             {"$set": {
                 "status": "failed",
                 "error": "Server restarted during ingestion. Please retry.",
@@ -100,8 +108,8 @@ class IngestionJobRepository:
         )
         if result.modified_count:
             logger.info(
-                "Startup cleanup: reset %d stale ingestion job(s).",
-                result.modified_count,
+                "Startup cleanup: reset %d stale ingestion job(s) (older than %ds).",
+                result.modified_count, grace_period_seconds,
             )
         return result.modified_count
 
