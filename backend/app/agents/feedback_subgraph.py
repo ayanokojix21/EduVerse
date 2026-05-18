@@ -145,7 +145,7 @@ async def mentor_node(
     
     dpo_update = SwarmLoop.extract_dpo_pairs(
         agent_name="feedback_mentor",
-        original_query=state["original_query"],
+        original_query=str(state.get("quiz_responses", [])),
         chosen_content=raw_chosen,
         rejected_content=raw_rejected,
         revision_count=revisions
