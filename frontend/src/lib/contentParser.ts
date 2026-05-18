@@ -2,17 +2,24 @@
 // contentParser — Segments Gemini's mixed-content output into typed blocks.
 //
 // Handles:
+<<<<<<< HEAD
 //   - Markdown (with inline/block LaTeX via $ and $$)
 //   - Mermaid diagram fenced code blocks (```mermaid)
 //   - Chart.js JSON fenced code blocks (```chart)
 //   - [pause]/[break]/[silence] marker cleanup
 //   - Streaming-safe partial content
+=======
+//   - Markdown (with inline/block LaTeX)
+//   - Streaming-safe partial content
+//   (Graph support temporarily removed)
+>>>>>>> 36a4f06 (feat: integrate KaTeX math rendering, add content parser for citations, and secure PDF proxy document loading)
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type ContentBlock =
   | { type: "markdown"; content: string }
+<<<<<<< HEAD
   | { type: "mermaid"; content: string }
   | { type: "chart"; content: string }
   | { type: "error"; raw: string; error: string };
@@ -42,18 +49,28 @@ function cleanMarkers(text: string): string {
  */
 const FENCED_BLOCK_RE = /```(mermaid|chart)\s*\n([\s\S]*?)```/g;
 
+=======
+  | { type: "error"; raw: string; error: string };
+
+>>>>>>> 36a4f06 (feat: integrate KaTeX math rendering, add content parser for citations, and secure PDF proxy document loading)
 // ─── Parser ──────────────────────────────────────────────────────────────────
 
 /**
  * Parse Gemini response content into an ordered array of typed blocks.
  *
+<<<<<<< HEAD
  * 1. Clean up stage-direction markers ([pause], etc.)
  * 2. Extract ```mermaid and ```chart fenced code blocks
  * 3. Everything else is treated as markdown (with LaTeX preserved for KaTeX)
+=======
+ * Currently, everything is treated as markdown, but the architecture
+ * supports adding specialized block parsers later.
+>>>>>>> 36a4f06 (feat: integrate KaTeX math rendering, add content parser for citations, and secure PDF proxy document loading)
  */
 export function parseContent(raw: string): ContentBlock[] {
   if (!raw || raw.trim() === "") return [];
 
+<<<<<<< HEAD
   const cleaned = cleanMarkers(raw);
   const blocks: ContentBlock[] = [];
   let lastIndex = 0;
@@ -91,4 +108,8 @@ export function parseContent(raw: string): ContentBlock[] {
   }
 
   return blocks;
+=======
+  // For now, treat everything as markdown
+  return [{ type: "markdown", content: raw }];
+>>>>>>> 36a4f06 (feat: integrate KaTeX math rendering, add content parser for citations, and secure PDF proxy document loading)
 }

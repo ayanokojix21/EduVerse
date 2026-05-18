@@ -230,6 +230,7 @@
     background: rgba(239, 243, 244, 0.08);
     border-color: rgba(255, 255, 255, 0.12);
   }
+<<<<<<< HEAD
 
   /* ── Mermaid Diagram Containers ────────────────────────────────────────── */
 
@@ -371,4 +372,6 @@
   .prose-eduverse .chart-container {
     max-width: none;
   }
+=======
+>>>>>>> 36a4f06 (feat: integrate KaTeX math rendering, add content parser for citations, and secure PDF proxy document loading)
 }

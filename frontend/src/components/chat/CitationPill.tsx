@@ -7,6 +7,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { Citation } from "@/lib/types";
+import { useAuth } from "@/lib/auth-context";
 
 interface CitationPillProps {
   citation: Citation;
@@ -17,6 +18,7 @@ export function CitationPill({ citation }: CitationPillProps) {
   const tooltipRef = useRef<HTMLDivElement>(null);
   const pillRef = useRef<HTMLButtonElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const { token } = useAuth();
 
   const handleMouseEnter = useCallback(() => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -34,11 +36,35 @@ export function CitationPill({ citation }: CitationPillProps) {
     };
   }, []);
 
-  const handleClick = () => {
-    // Prefer direct PDF link via proxy, fall back to Classroom link
+  const handleClick = async () => {
     if (citation.file_url) {
-      const proxyUrl = `/api/v1/proxy/pdf?url=${encodeURIComponent(citation.file_url)}`;
-      window.open(proxyUrl, "_blank", "noopener");
+      // 1. Open a new window immediately to avoid popup blockers
+      const newWindow = window.open('', '_blank');
+      if (newWindow) {
+        newWindow.document.write('<div style="font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh;">Loading secure document...</div>');
+      }
+      
+      try {
+        const proxyUrl = `/api/v1/proxy/pdf?url=${encodeURIComponent(citation.file_url)}`;
+        const res = await fetch(proxyUrl, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        
+        if (!res.ok) throw new Error("Failed to load PDF");
+        
+        const blob = await res.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        
+        if (newWindow) {
+          newWindow.location.href = objectUrl;
+        }
+      } catch (err) {
+        if (newWindow) {
+          newWindow.document.write('<div style="font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; color: red;">Failed to load secure document.</div>');
+        }
+      }
     } else if (citation.alternate_link) {
       window.open(citation.alternate_link, "_blank", "noopener");
     }

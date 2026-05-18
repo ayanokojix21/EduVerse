@@ -1,6 +1,7 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────────────
+<<<<<<< HEAD
 // MathMarkdown — Markdown renderer with KaTeX math and custom code blocks.
 //
 // Supports:
@@ -10,6 +11,10 @@
 //   - Mermaid fenced code blocks (delegated to MermaidBlock)
 //   - Chart JSON fenced code blocks (delegated to ChartBlock)
 //   - Raw HTML passthrough
+=======
+// MathMarkdown — Fallback markdown renderer.
+// KaTeX and Plotly have been removed to prevent Next.js Turbopack OOM crashes.
+>>>>>>> 36a4f06 (feat: integrate KaTeX math rendering, add content parser for citations, and secure PDF proxy document loading)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { memo } from "react";
@@ -18,15 +23,22 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeRaw from "rehype-raw";
 import rehypeKatex from "rehype-katex";
+<<<<<<< HEAD
 import "katex/dist/katex.min.css";
 
 import { MermaidBlock } from "./MermaidBlock";
 import { ChartBlock } from "./ChartBlock";
+=======
+
+import type { Citation } from "@/lib/types";
+import { CitationPill } from "./CitationPill";
+>>>>>>> 36a4f06 (feat: integrate KaTeX math rendering, add content parser for citations, and secure PDF proxy document loading)
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
 interface MathMarkdownProps {
   content: string;
+<<<<<<< HEAD
 }
 
 // ─── Custom Code Block Renderer ──────────────────────────────────────────────
@@ -69,19 +81,44 @@ function CodeBlock({
       {children}
     </code>
   );
+=======
+  citations?: Citation[];
+>>>>>>> 36a4f06 (feat: integrate KaTeX math rendering, add content parser for citations, and secure PDF proxy document loading)
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export const MathMarkdown = memo(function MathMarkdown({
   content,
+<<<<<<< HEAD
+=======
+  citations,
+>>>>>>> 36a4f06 (feat: integrate KaTeX math rendering, add content parser for citations, and secure PDF proxy document loading)
 }: MathMarkdownProps) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm, remarkMath]}
       rehypePlugins={[rehypeRaw, rehypeKatex]}
       components={{
+<<<<<<< HEAD
         code: CodeBlock,
+=======
+        a: ({ node, ...props }) => {
+          if (props.href?.startsWith("citation:")) {
+            const id = parseInt(props.href.replace("citation:", ""), 10);
+            const citation = citations?.find((c) => c.source_index === id);
+            if (citation) {
+              return <CitationPill citation={citation} />;
+            }
+            return <sup className="text-accent">[{id}]</sup>;
+          }
+          return (
+            <a {...props} target="_blank" rel="noopener noreferrer">
+              {props.children}
+            </a>
+          );
+        },
+>>>>>>> 36a4f06 (feat: integrate KaTeX math rendering, add content parser for citations, and secure PDF proxy document loading)
       }}
     >
       {content}

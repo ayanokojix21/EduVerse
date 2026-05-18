@@ -7,8 +7,11 @@
 //   1. parseContent(raw) → ContentBlock[]
 //   2. Render each block with the appropriate component:
 //      - "markdown" → <MathMarkdown />
+<<<<<<< HEAD
 //      - "mermaid"  → <MermaidBlock />
 //      - "chart"    → <ChartBlock />
+=======
+>>>>>>> 36a4f06 (feat: integrate KaTeX math rendering, add content parser for citations, and secure PDF proxy document loading)
 //      - "error"    → <pre> fallback with error message
 //
 // This replaces the direct <ReactMarkdown> call in MessageBubble.
@@ -17,15 +20,24 @@
 
 import { memo, useMemo } from "react";
 import { parseContent, type ContentBlock } from "@/lib/contentParser";
+<<<<<<< HEAD
 import { MathMarkdown } from "./MathMarkdown";
 import { MermaidBlock } from "./MermaidBlock";
 import { ChartBlock } from "./ChartBlock";
+=======
+import type { Citation } from "@/lib/types";
+import { MathMarkdown } from "./MathMarkdown";
+>>>>>>> 36a4f06 (feat: integrate KaTeX math rendering, add content parser for citations, and secure PDF proxy document loading)
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
 interface ContentRendererProps {
   content: string;
   isStreaming?: boolean;
+<<<<<<< HEAD
+=======
+  citations?: Citation[];
+>>>>>>> 36a4f06 (feat: integrate KaTeX math rendering, add content parser for citations, and secure PDF proxy document loading)
 }
 
 // ─── Error Block Fallback ────────────────────────────────────────────────────
@@ -66,6 +78,7 @@ function ErrorBlock({ raw, error }: { raw: string; error: string }) {
 
 // ─── Block Renderer ──────────────────────────────────────────────────────────
 
+<<<<<<< HEAD
 function renderBlock(block: ContentBlock, index: number) {
   switch (block.type) {
     case "markdown":
@@ -76,6 +89,12 @@ function renderBlock(block: ContentBlock, index: number) {
 
     case "chart":
       return <ChartBlock key={`chart-${index}`} code={block.content} />;
+=======
+function renderBlock(block: ContentBlock, index: number, citations?: Citation[]) {
+  switch (block.type) {
+    case "markdown":
+      return <MathMarkdown key={`md-${index}`} content={block.content} citations={citations} />;
+>>>>>>> 36a4f06 (feat: integrate KaTeX math rendering, add content parser for citations, and secure PDF proxy document loading)
 
     case "error":
       return (
@@ -95,6 +114,10 @@ function renderBlock(block: ContentBlock, index: number) {
 
 export const ContentRenderer = memo(function ContentRenderer({
   content,
+<<<<<<< HEAD
+=======
+  citations,
+>>>>>>> 36a4f06 (feat: integrate KaTeX math rendering, add content parser for citations, and secure PDF proxy document loading)
 }: ContentRendererProps) {
   // During streaming, re-parse on every token. The parser is fast (<1ms).
   // After streaming completes, the parsed result is memoized.
@@ -104,8 +127,15 @@ export const ContentRenderer = memo(function ContentRenderer({
 
   // Single markdown block — render directly without wrapper
   if (blocks.length === 1 && blocks[0].type === "markdown") {
+<<<<<<< HEAD
     return <MathMarkdown content={blocks[0].content} />;
   }
 
   return <>{blocks.map(renderBlock)}</>;
+=======
+    return <MathMarkdown content={blocks[0].content} citations={citations} />;
+  }
+
+  return <>{blocks.map((b, i) => renderBlock(b, i, citations))}</>;
+>>>>>>> 36a4f06 (feat: integrate KaTeX math rendering, add content parser for citations, and secure PDF proxy document loading)
 });
