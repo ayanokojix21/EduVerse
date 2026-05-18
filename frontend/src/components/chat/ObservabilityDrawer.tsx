@@ -7,7 +7,6 @@
 // 1. Retrieval Confidence — color-coded badge + score
 // 2. Live Execution Graph — SVG pipeline with animated node/edge states
 // 3. Critic Review — quality assessment (severity, issues, pedagogy)
-// 4. LangSmith Trace — deep link to the full trace
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useMemo } from "react";
@@ -23,7 +22,6 @@ interface ObservabilityDrawerProps {
   retrievalLabel: string | null;
   retrievalMs: number | null;
   mermaidGraph: string | null;
-  traceUrl: string | null;
   critic: Record<string, unknown> | null;
   activeNodes: string[];
 }
@@ -661,7 +659,6 @@ export function ObservabilityDrawer({
   retrievalLabel,
   retrievalMs,
   mermaidGraph,
-  traceUrl,
   critic,
   activeNodes,
 }: ObservabilityDrawerProps) {
@@ -672,8 +669,7 @@ export function ObservabilityDrawer({
     agentThoughts.length > 0 ||
     activeNodes.length > 0 ||
     mermaidGraph ||
-    critic ||
-    traceUrl;
+    critic;
 
   return (
     <Drawer
@@ -708,33 +704,6 @@ export function ObservabilityDrawer({
               <CriticReview critic={critic} />
             )}
 
-            {/* Trace Link */}
-            {traceUrl && (
-              <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] p-4">
-                <h4 className="text-[12px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
-                  Full Trace
-                </h4>
-                <a
-                  href={traceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="
-                    inline-flex items-center gap-1.5
-                    text-[13px] text-[var(--color-text-main)]
-                    hover:text-[var(--color-primary)]
-                    underline underline-offset-2
-                    transition-colors duration-150
-                  "
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                    <polyline points="15 3 21 3 21 9" />
-                    <line x1="10" y1="14" x2="21" y2="3" />
-                  </svg>
-                  Open in LangSmith
-                </a>
-              </div>
-            )}
           </>
         )}
       </div>

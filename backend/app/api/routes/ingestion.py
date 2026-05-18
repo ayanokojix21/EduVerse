@@ -87,9 +87,18 @@ async def get_ingest_status(
     # Merge job status with live stats
     response = job.model_dump() if hasattr(job, "model_dump") else dict(job)
     response["current_file_count"] = file_count
-    
+
     if file_count == 0 and response.get("status") == "completed":
         response["status"] = "none"
+
+    startup_restart_error = "Server restarted during ingestion"
+    if (
+        file_count == 0
+        and response.get("status") == "failed"
+        and startup_restart_error in (response.get("error") or "")
+    ):
+        response["status"] = "none"
+        response["error"] = None
         
     return response
 

@@ -137,7 +137,7 @@ function UserBubble({ message }: { message: ChatMessage }) {
 
         {/* Timestamp */}
         <p className="text-[11px] text-[var(--color-text-dim)] mt-1 text-right pr-1">
-          {new Date(message.created_at).toLocaleTimeString([], {
+          {new Date(message.created_at || message.timestamp || Date.now()).toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
           })}

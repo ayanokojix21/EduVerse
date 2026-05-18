@@ -182,7 +182,8 @@ export interface ChatMessage {
   retrieval_ms?: number;
   image_data?: string;
   image_mimetype?: string;
-  created_at: string;
+  created_at?: string; // used by local state
+  timestamp?: string;  // used by backend history
   is_streaming?: boolean;
   feedback?: "up" | "down" | null;
 }
