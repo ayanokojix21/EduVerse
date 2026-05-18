@@ -227,7 +227,6 @@ export default function ChatPage() {
             retrievalLabel={chat.retrievalLabel}
             retrievalMs={chat.retrievalMs}
             mermaidGraph={chat.mermaidGraph}
-            traceUrl={chat.traceUrl}
             critic={chat.critic}
             activeNodes={chat.activeNodes}
           />
