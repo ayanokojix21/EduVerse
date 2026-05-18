@@ -56,6 +56,10 @@ class WipeDataResponse(BaseModel):
 class IngestRequest(BaseModel):
     course_id: str = Field(min_length=1)
     force_refresh: bool = False
+    selected_item_ids: list[str] | None = Field(
+        default=None,
+        description="Optional list of Classroom item IDs to ingest selectively. If None, all items are ingested."
+    )
 
 
 class IngestedFile(BaseModel):

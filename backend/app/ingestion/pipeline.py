@@ -53,8 +53,12 @@ class CourseIngestionService:
         user_id: str,
         course_id: str,
         force_refresh: bool = False,
+        selected_item_ids: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Background worker: syncs documents from Google Classroom and indexes them."""
+        """Background worker: syncs documents from Google Classroom and indexes them.
+        
+        If selected_item_ids is provided, only those specific Classroom items are ingested.
+        """
         await self.job_service.update_status(user_id, course_id, "processing")
 
         if user_id.startswith("guest_"):
@@ -74,6 +78,7 @@ class CourseIngestionService:
                 course_id=course_id,
                 credentials=credentials,
                 settings=self.settings,
+                selected_item_ids=selected_item_ids,
             )
 
             # ── Heartbeat: document loading complete ─────────────────────────

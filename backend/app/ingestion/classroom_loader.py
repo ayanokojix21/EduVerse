@@ -169,15 +169,23 @@ async def load_course_documents(
     course_id: str,
     credentials: Credentials,
     settings: Settings | None = None,
+    selected_item_ids: list[str] | None = None,
 ) -> list[Document]:
     resolved_settings = settings or get_settings()
-    return await anyio.to_thread.run_sync(
+    docs = await anyio.to_thread.run_sync(
         _load_documents_sync,
         user_id,
         course_id,
         credentials,
         resolved_settings,
     )
+    if selected_item_ids is not None:
+        allowed = set(selected_item_ids)
+        docs = [
+            d for d in docs
+            if d.metadata.get("item_id") in allowed
+        ]
+    return docs
 
 
-__all__ = ["ClassroomLoadError", "load_course_documents"]
+__all__ = ["ClassroomLoadError", "load_course_documents", "MarkdownPyMuPDFParser"]

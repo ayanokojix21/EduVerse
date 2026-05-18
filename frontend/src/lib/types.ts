@@ -41,7 +41,7 @@ export interface DecodedJWT {
 export interface UnifiedCourse {
   id: string;
   name: string;
-  source: "classroom" | "local";
+  source: "classroom" | "google_classroom" | "local";
   description?: string;
   is_ingested: boolean;
   assignment_count: number;
@@ -96,6 +96,16 @@ export interface IngestionStatus {
 
 export interface IngestionRequest {
   course_id: string;
+  selected_item_ids?: string[];
+}
+
+export interface ClassroomItem {
+  item_id: string;
+  title: string;
+  type: "assignment" | "material" | "announcement";
+  alternateLink: string;
+  creationTime: string;
+  attachment_count: number;
 }
 
 export interface UploadFileRequest {
