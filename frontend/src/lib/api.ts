@@ -230,7 +230,11 @@ export const sessionsApi = {
 // Feedback
 export const feedbackApi = {
   submit: (sessionId: string, messageId: string, body: FeedbackRequest) =>
-    apiPost(`/api/v1/chat/${sessionId}/messages/${messageId}/feedback`, body),
+    apiPost(`/api/v1/chat/${sessionId}/messages/${messageId}/feedback`, {
+      // Backend expects `is_positive: bool`, not `rating: "up"|"down"`
+      is_positive: body.rating === "up",
+      comment: body.comment ?? null,
+    }),
 };
 
 // Cache
