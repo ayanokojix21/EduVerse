@@ -17,6 +17,7 @@ from app.agents.swarm_engine import SwarmLoop          # top-level import
 from app.utils.llm_pool import RoundRobinLLM
 from app.utils.agent_tools import python_repl_tool, web_search_tool
 from app.agents.prompts.feedback import DIAGNOSTICIAN_PROMPT, MENTOR_PROMPT
+from app.utils.thinking_utils import normalize_content
 from app.agents.schemas.feedback import (
     QuestionFeedback,
     FeedbackScoring,
@@ -81,24 +82,42 @@ async def diagnostician_node(
     res = res_raw
     
     # Normalize content to string (handles Gemma 4 thinking/multimodal list format)
-    raw_content = res.content
-    if isinstance(raw_content, list):
-        raw_content = "\n".join([
-            part.get("text") or part.get("thinking") or str(part) 
-            for part in raw_content if isinstance(part, dict)
-        ])
+    raw_content = normalize_content(res.content, include_thinking=True)
 
     if not res.tool_calls:
-        logger.warning("Diagnostician failed to call tools; falling back to Mentor.")
+        logger.warning("Diagnostician failed to call tools; attempting raw JSON extraction.")
+        draft = None
+        from app.utils.thinking_utils import extract_robust_json
+        data = extract_robust_json(raw_content)
+        
+        if data:
+            try:
+                # Check if it returned the schema directly or wrapped in "draft"
+                if "draft" in data and isinstance(data["draft"], dict):
+                    draft = data["draft"]
+                else:
+                    draft = data
+            except Exception as e:
+                logger.warning(f"Diagnostician JSON extraction failed: {e}")
+                
+        if not draft:
+            logger.warning("Diagnostician JSON extraction failed completely; falling back to safe defaults.")
+            draft = {
+                "question_text": "Parsing Error",
+                "is_correct": False,
+                "user_answer": "N/A",
+                "correct_answer": "N/A",
+                "explanation": "The model provided an analysis but failed to format it correctly.",
+                "root_cause": "Calculation Error",
+                "improvement_tip": "Review the raw reasoning provided."
+            }
+
         return Command(
             goto="mentor", 
             update={
                 "messages": [res],
                 "feedback_raw_responses": [raw_content],
-                "current_feedback_draft": {
-                    "root_cause": str(raw_content), 
-                    "knowledge_gap": "Automated analysis (tool-call fallback)"
-                }
+                "current_feedback_draft": draft
             }
         )
 

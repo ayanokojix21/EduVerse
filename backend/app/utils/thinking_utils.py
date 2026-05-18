@@ -120,3 +120,46 @@ def build_thought(
     if data:
         thought["data"] = data
     return thought
+
+def extract_robust_json(raw_text: Any) -> dict | None:
+    """
+    Safely extract and parse JSON from a raw LLM string.
+    Handles markdown blocks and non-strict JSON (like single quotes).
+    """
+    import json
+    import ast
+    from langchain_core.utils.json import parse_json_markdown
+    
+    # Normalize list-based contents from Gemma 4 to a plain string
+    # We include thinking just in case the model placed the JSON inside the block.
+    normalized_text = normalize_content(raw_text, include_thinking=True)
+    
+    try:
+        # First try Langchain's built in markdown JSON parser
+        parsed = parse_json_markdown(normalized_text)
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception:
+        pass
+    
+    # Find all non-greedy {...} blocks
+    matches = re.finditer(r"(\{.*?\})", normalized_text, re.DOTALL)
+    
+    for match in matches:
+        json_str = match.group(1)
+        
+        try:
+            return json.loads(json_str)
+        except json.JSONDecodeError:
+            pass
+            
+        try:
+            # Fix booleans and nulls for python ast
+            python_str = json_str.replace("true", "True").replace("false", "False").replace("null", "None")
+            parsed = ast.literal_eval(python_str)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+            
+    return None

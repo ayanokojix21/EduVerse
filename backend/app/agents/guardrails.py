@@ -43,7 +43,7 @@ class Guardrails:
             prompt_msgs[-1].content += "\n\n### REASONING INSTRUCTION\nThink step-by-step to analyze query safety."
 
         res_raw = await llm.ainvoke(prompt_msgs)
-        res: SafetyOutput = res_raw["parsed"]
+        res: SafetyOutput | None = res_raw.get("parsed")
         
         # Normalize raw content to string (handles Gemma 4 thinking lists)
         raw_text = normalize_content(
@@ -51,6 +51,26 @@ class Guardrails:
             include_thinking=True,
         )
         thinking_text = extract_thinking(raw_text)
+
+        if not res:
+            logger.warning("Input moderator failed to parse structured output natively. Attempting robust extraction.")
+            from app.utils.thinking_utils import extract_robust_json
+            data = extract_robust_json(raw_text)
+            if data:
+                try:
+                    res = SafetyOutput(**data)
+                except Exception as e:
+                    logger.warning(f"Input moderator robust parsing failed: {e}")
+
+        if not res:
+            logger.warning("Input moderator extraction failed completely; failing OPEN (safe).")
+            return Command(
+                goto="integrity_guard", 
+                update={
+                    "safety_raw_responses": [raw_text],
+                    "agent_thoughts": [build_thought("input_moderator", "Scanning Input Safety", "Decision: SAFE. (Parsing fallback)")]
+                }
+            )
 
         update_state = {
             "safety_raw_responses": [raw_text],
@@ -92,7 +112,7 @@ class Guardrails:
             prompt_msgs[-1].content += "\n\n### REASONING INSTRUCTION\nThink step-by-step to analyze student intent."
 
         res_raw = await llm.ainvoke(prompt_msgs)
-        res: IntegrityOutput = res_raw["parsed"]
+        res: IntegrityOutput | None = res_raw.get("parsed")
         
         # Normalize raw content to string (handles Gemma 4 thinking lists)
         raw_text = normalize_content(
@@ -100,6 +120,26 @@ class Guardrails:
             include_thinking=True,
         )
         thinking_text = extract_thinking(raw_text)
+        
+        if not res:
+            logger.warning("Integrity guard failed to parse structured output natively. Attempting robust extraction.")
+            from app.utils.thinking_utils import extract_robust_json
+            data = extract_robust_json(raw_text)
+            if data:
+                try:
+                    res = IntegrityOutput(**data)
+                except Exception as e:
+                    logger.warning(f"Integrity guard robust parsing failed: {e}")
+
+        if not res:
+            logger.warning("Integrity guard extraction failed completely; failing OPEN (safe).")
+            return Command(
+                goto="orchestrator", 
+                update={
+                    "safety_raw_responses": [raw_text],
+                    "agent_thoughts": [build_thought("integrity_guard", "Checking Academic Integrity", "Decision: Allowed. (Parsing fallback)")]
+                }
+            )
 
         update_state = {
             "safety_raw_responses": [raw_text],
@@ -152,7 +192,7 @@ class Guardrails:
 
         try:
             res_raw = await llm.ainvoke(prompt_msgs)
-            res: OutputShieldOutput = res_raw["parsed"]
+            res: OutputShieldOutput | None = res_raw.get("parsed")
             
             # Extract reasoning to show in the UI
             raw_text = normalize_content(
@@ -160,6 +200,22 @@ class Guardrails:
                 include_thinking=True,
             )
             thinking_text = extract_thinking(raw_text)
+            
+            if not res:
+                logger.warning("Output shield failed to parse structured output natively. Attempting robust extraction.")
+                from app.utils.thinking_utils import extract_robust_json
+                data = extract_robust_json(raw_text)
+                if data:
+                    try:
+                        res = OutputShieldOutput(**data)
+                    except Exception as e:
+                        logger.warning(f"Output shield robust parsing failed: {e}")
+
+            if not res:
+                logger.warning("Output shield extraction failed completely; failing OPEN (safe).")
+                return {
+                    "agent_thoughts": [build_thought("output_moderator", "Output Safety Verified", "Decision: OK. (Parsing fallback)")]
+                }
 
             if res.decision == "REDACTED":
                 logger.warning(f"Output Shield Triggered: {res.reason}")

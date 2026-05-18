@@ -50,6 +50,26 @@ async def _background_critic_audit(response_text: str, context_docs: list[dict])
         res_raw = await llm.ainvoke(prompt_value.to_messages())
         result: CriticOutput = res_raw["parsed"]
 
+        if result is None:
+            logger.warning("Critic [BACKGROUND AUDIT]: Failed to parse structured output natively. Attempting robust extraction.")
+            raw_text = res_raw.get("raw").content if isinstance(res_raw, dict) and hasattr(res_raw.get("raw"), "content") else getattr(res_raw, "content", str(res_raw))
+            from app.utils.thinking_utils import extract_robust_json
+            
+            data = extract_robust_json(raw_text)
+            if data:
+                try:
+                    if "passed" in data and isinstance(data["passed"], str):
+                        data["passed"] = data["passed"].lower() == "true"
+                    if "is_socratic" in data and isinstance(data["is_socratic"], str):
+                        data["is_socratic"] = data["is_socratic"].lower() == "true"
+                    result = CriticOutput(**data)
+                except Exception as e:
+                    logger.warning(f"Critic fallback parsing failed: {e}")
+            
+            if result is None:
+                logger.warning("Critic [BACKGROUND AUDIT]: Fallback parsing failed entirely.")
+                return
+
         logger.info(
             "Critic [BACKGROUND AUDIT]: severity=%s | pass=%s | issues=%d",
             result.severity,

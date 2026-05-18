@@ -20,6 +20,7 @@ from app.utils.llm_pool import RoundRobinLLM
 from app.retrieval.retriever import get_retrieval_chain
 from app.utils.agent_tools import python_repl_tool, web_search_tool
 from app.agents.prompts.quiz import DRAFTER_PROMPT, REVIEWER_PROMPT
+from app.utils.thinking_utils import normalize_content
 from app.agents.schemas.quiz import (
     QuizQuestion, 
     TransferToDrafter, 
@@ -81,7 +82,8 @@ async def distributor_node(
             "source_type": state.get("quiz_topic_source", "material"),
             "index": i,
             "image_data": state.get("image_data"),
-            "image_mimetype": state.get("image_mimetype")
+            "image_mimetype": state.get("image_mimetype"),
+            "is_multimodal": state.get("is_multimodal", False)
         }) for i in range(n)
     ])
 
@@ -126,16 +128,21 @@ async def drafter_worker_node(state: QuestionDrafterState, config: RunnableConfi
             prompt[-1].content += reasoning_instr
     
     res_raw = await llm.ainvoke(prompt, config=config)
-    res: QuizQuestion = res_raw["parsed"]
-    dump = res.model_dump() if hasattr(res, "model_dump") else res
+    res: QuizQuestion | None = res_raw.get("parsed")
     
-    # Normalize raw content to string for DPO extraction (handles Gemma 4 thinking lists)
-    raw_res = res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"])
-    if isinstance(raw_res, list):
-        raw_res = "\n".join([
-            part.get("text") or part.get("thinking") or str(part) 
-            for part in raw_res if isinstance(part, dict)
-        ])
+    # Normalize raw content to string for DPO extraction
+    raw_res = normalize_content(
+        res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"]),
+        include_thinking=True
+    )
+    
+    if not res:
+        logger.warning(f"Drafter worker failed to return structured schema for index {state.get('index')}")
+        return {
+            "quiz_raw_responses": [raw_res]
+        }
+        
+    dump = res.model_dump() if hasattr(res, "model_dump") else res
 
     return {
         "quiz_current_draft": [dump],

@@ -117,6 +117,7 @@ class QuizInputState(TypedDict, total=False):
     quiz_topic_source:  str
     image_data:         str | None
     image_mimetype:     str | None
+    is_multimodal:      bool
 
 class QuizOutputState(TypedDict, total=False):
     """
@@ -149,6 +150,7 @@ class QuestionDrafterState(TypedDict):
     index: int
     image_data: str | None
     image_mimetype: str | None
+    is_multimodal: bool
 
 # Required: `from __future__ import annotations` defers Literal type evaluation.
 # model_rebuild() forces Pydantic v2 to load them at import time.

@@ -140,10 +140,28 @@ function connectSSE(
         // User-initiated abort — do not call error callback or retry.
         throw err;
       }
+      
+      // If this is our intentional error thrown from onclose() to prevent retries,
+      // do NOT surface it to the UI as an actual error.
+      if (err instanceof Error && err.message === "SSE stream ended — no retry") {
+        throw err;
+      }
+      
       callbacks.onRawError?.(err instanceof Error ? err : new Error(String(err)));
       // Throw to prevent fetchEventSource from retrying automatically.
       throw err;
     },
+  }).catch((err) => {
+    // We intentionally throw this error to stop fetchEventSource from auto-retrying.
+    // We must catch it here to prevent an Unhandled Promise Rejection.
+    if (err instanceof Error && err.message === "SSE stream ended — no retry") {
+      return;
+    }
+    // If it's a user abort, ignore.
+    if (err.name === "AbortError") {
+      return;
+    }
+    console.error("[SSE] fetchEventSource threw an error:", err);
   });
 
   return { abort: () => { streamFinished = true; controller.abort(); } };

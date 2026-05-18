@@ -238,7 +238,12 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
       };
 
     case "HITL_PAUSE":
-      return { ...state, status: "hitl_paused" };
+      return { 
+        ...state, 
+        status: "hitl_paused",
+        activeNodes: [],
+        statusMessage: null 
+      };
 
     case "RESET":
       return { ...initialState };

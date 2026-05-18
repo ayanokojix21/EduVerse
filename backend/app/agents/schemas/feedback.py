@@ -149,9 +149,14 @@ class FinalizeFeedback(BaseModel):
 class FeedbackInputState(TypedDict, total=False):
     """Input boundary for the Feedback Swarm."""
     messages: Annotated[list[AnyMessage], add_messages]
+    original_query: str
+    difficulty: str
     quiz_responses: list[dict]
     user_id: str
     course_id: str
+    image_data: str | None
+    image_mimetype: str | None
+    is_multimodal: bool
 
 class FeedbackOutputState(TypedDict, total=False):
     """

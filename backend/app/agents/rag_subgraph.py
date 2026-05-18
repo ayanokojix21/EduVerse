@@ -62,9 +62,10 @@ async def planner_node(
             rewritten = res_raw["parsed"].search_query
         else:
             # Fallback for Gemma models which return raw text instead of structured tools
-            raw_text = res_raw.get("raw").content if isinstance(res_raw, dict) else res_raw.content
-            if isinstance(raw_text, list):
-                raw_text = "\n".join([str(part.get("text") or part.get("thinking") or part) for part in raw_text if isinstance(part, dict)])
+            raw_val = res_raw.get("raw") if isinstance(res_raw, dict) else res_raw
+            raw_content = raw_val.content if hasattr(raw_val, "content") else str(raw_val)
+            raw_text = normalize_content(raw_content, include_thinking=False)
+            
             import json
             import re
             json_match = re.search(r"\{.*\}", str(raw_text), re.DOTALL)

@@ -91,6 +91,9 @@ class RAGInputState(TypedDict, total=False):
     user_id: str
     course_id: str
     quiz_topic_source: str
+    image_data: str | None
+    image_mimetype: str | None
+    is_multimodal: bool
 
 class RAGOutputState(TypedDict, total=False):
     """

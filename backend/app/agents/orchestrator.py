@@ -98,10 +98,28 @@ async def orchestrator_node(
         )
         thinking_text = extract_thinking(raw_content)
         
-        result: OrchestratorOutput = result_raw["parsed"]
-        task = result.task
-        difficulty = result.difficulty
-        topic_source = result.topic_source
+        result: OrchestratorOutput | None = result_raw.get("parsed")
+        
+        if result is None:
+            logger.warning("Orchestrator failed to parse structured output natively. Attempting robust extraction.")
+            from app.utils.thinking_utils import extract_robust_json
+            data = extract_robust_json(raw_content)
+            if data:
+                try:
+                    result = OrchestratorOutput(**data)
+                except Exception as e:
+                    logger.warning(f"Orchestrator robust parsing failed: {e}")
+                    
+        if result is None:
+            logger.warning("Orchestrator extraction failed completely. Falling back to default routing.")
+            task = "rag"
+            difficulty = "medium"
+            topic_source = "course_material"
+        else:
+            task = result.task
+            difficulty = result.difficulty
+            topic_source = result.topic_source
+            
         logger.info(f"Parsed Routing Decision -> Task: {task}, Difficulty: {difficulty}, Source: {topic_source}")
     except Exception as exc:
         logger.exception("Orchestrator failed with a critical error: %s", exc)
