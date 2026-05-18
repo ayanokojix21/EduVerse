@@ -70,6 +70,8 @@ def train(
     max_steps: int,
     beta: float,
 ):
+    from unsloth import PatchDPOTrainer
+    PatchDPOTrainer()
     from unsloth import FastLanguageModel
     from trl import DPOConfig, DPOTrainer
 
@@ -102,8 +104,31 @@ def train(
             random_state=42,
         )
 
-        dataset = Dataset.from_list(raw_data[agent])
-        split_dataset = dataset.train_test_split(test_size=0.1, seed=42)
+        from unsloth.chat_templates import get_chat_template
+        tokenizer = get_chat_template(tokenizer, chat_template="gemma")
+
+        # Format dataset with standard Gemma chat template
+        def format_dpo_pair(example):
+            prompt_msgs = [{"role": "user", "content": example["prompt"]}]
+            prompt_formatted = tokenizer.apply_chat_template(prompt_msgs, tokenize=False, add_generation_prompt=True)
+            
+            full_chosen = tokenizer.apply_chat_template([
+                {"role": "user", "content": example["prompt"]},
+                {"role": "assistant", "content": example["chosen"]}
+            ], tokenize=False)
+            full_rejected = tokenizer.apply_chat_template([
+                {"role": "user", "content": example["prompt"]},
+                {"role": "assistant", "content": example["rejected"]}
+            ], tokenize=False)
+            
+            example["prompt"] = prompt_formatted
+            example["chosen"] = full_chosen[len(prompt_formatted):]
+            example["rejected"] = full_rejected[len(prompt_formatted):]
+            return example
+
+        raw_dataset = Dataset.from_list(raw_data[agent])
+        formatted_dataset = raw_dataset.map(format_dpo_pair)
+        split_dataset = formatted_dataset.train_test_split(test_size=0.1, seed=42)
         
         training_args = DPOConfig(
             output_dir=f"{output_dir}/{agent}",
