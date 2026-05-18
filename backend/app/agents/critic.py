@@ -1,106 +1,88 @@
 """
-Node 7 — Critic Agent (Quality Gate)
-Validates the Synthesizer's output against the retrieved source documents.
+Node 7 — Critic Agent (Background Quality Logger)
+Fires the LLM audit as a background task and immediately passes through.
+Never retries or blocks the response pipeline.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 
-from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 from langsmith import traceable
 
 from app.agents.state import AgentState
-from app.config import get_settings
 from app.utils.llm_pool import RoundRobinLLM
-from app.utils.thinking_utils import build_thought, extract_thinking, normalize_content
+from app.utils.thinking_utils import build_thought
 from app.agents.prompts.critic import CRITIC_PROMPT
 from app.agents.schemas.critic import CriticOutput
 
 logger = logging.getLogger(__name__)
 
 
+# ── Background Audit Task ────────────────────────────────────────────────────
+
+async def _background_critic_audit(response_text: str, context_docs: list[dict]) -> None:
+    """Fire-and-forget LLM quality audit. Logs results but never blocks the pipeline."""
+    try:
+        llm = RoundRobinLLM.for_role(
+            "critic",
+            temperature=0.0,
+            top_p=0.1,
+            top_k=1,
+            schema=CriticOutput,
+        )
+
+        source_lines = []
+        for i, doc in enumerate(context_docs, 1):
+            meta = doc.get("metadata", {})
+            title = meta.get("title", "Unknown Source")
+            content = doc.get("content", "")
+            source_lines.append(f"[{i}] {title}:\n{content}")
+        source_preview = "\n\n".join(source_lines) if source_lines else "(No relevant sources retrieved)"
+
+        prompt_value = await CRITIC_PROMPT.ainvoke({
+            "response_text": response_text,
+            "source_preview": source_preview,
+        })
+
+        res_raw = await llm.ainvoke(prompt_value.to_messages())
+        result: CriticOutput = res_raw["parsed"]
+
+        logger.info(
+            "Critic [BACKGROUND AUDIT]: severity=%s | pass=%s | issues=%d",
+            result.severity,
+            result.passed,
+            len(result.issues or []),
+        )
+        if not result.passed:
+            logger.warning(
+                "Critic flagged issues (background only, no retry): %s",
+                result.issues,
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Background critic audit failed (non-blocking): %s", exc)
+
+
 # ── Node ─────────────────────────────────────────────────────────────────────
 
 @traceable(name="critic_agent")
-async def critic_agent_node(state: AgentState, config: RunnableConfig) -> dict:
-    """Quality-gate the Synthesizer's answer."""
-    settings = get_settings()
-    llm = RoundRobinLLM.for_role(
-        "critic", 
-        temperature=0.0, 
-        top_p=0.1, 
-        top_k=1, 
-        schema=CriticOutput
-    )
+async def critic_agent_node(state: AgentState, config: RunnableConfig) -> Command:
+    """Background quality logger — immediately passes through to output_moderator."""
     response_text = state.get("response_text", "")
     context_docs = state.get("context_docs", [])
 
-    source_lines = []
-    for i, doc in enumerate(context_docs, 1):
-        meta = doc.get("metadata", {})
-        title = meta.get("title", "Unknown Source")
-        content = doc.get("content", "")
-        source_lines.append(f"[{i}] {title}:\n{content}")
-    source_preview = "\n\n".join(source_lines) if source_lines else "(No relevant sources retrieved)"
-
-    prompt_value = await CRITIC_PROMPT.ainvoke({
-        "response_text": response_text,
-        "source_preview": source_preview
-    })
-
-    try:
-        res_raw = await llm.ainvoke(prompt_value.to_messages(), config=config)
-        result: CriticOutput = res_raw["parsed"]
-        raw_text = normalize_content(
-            res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"]),
-            include_thinking=True,
-        )
-        thinking_text = extract_thinking(raw_text)
-        
-        severity = result.severity
-        issues = result.issues or []
-        passed = result.passed
-        required_facts = result.required_facts or []
-        review = result.model_dump()
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("Critic LLM failed, defaulting to pass: %s", exc)
-        severity, issues, passed = "none", [], True
-        required_facts = []
-        raw_text = ""
-        thinking_text = ""
-        review = {"severity": severity, "issues": issues, "passed": passed, "required_facts": required_facts}
-
-    logger.info(
-        "Critic [AUDIT]: severity=%s | pass=%s | issues=%d",
-        severity, passed, len(issues)
-    )
-
-    retry_count = state.get("retry_count", 0)
-    goto = "output_moderator"
-    if not passed and retry_count < 2:
-        logger.warning(f"CRITIC_REJECTION: Initiating self-correction (Retry {retry_count + 1}/2)")
-        goto = "orchestrator"
-
-    verdict = "Approved" if passed else f"Rejected (retry {retry_count + 1}/2)"
+    # Fire the LLM audit in the background — does NOT block the response
+    asyncio.create_task(_background_critic_audit(response_text, context_docs))
 
     return Command(
-        goto=goto,
+        goto="output_moderator",
         update={
-            "critic_review": review,
-            "critic_feedback": issues, 
-            "retry_count": retry_count + (1 if not passed else 0),
-            "safety_raw_responses": [raw_text],
             "agent_thoughts": [build_thought(
                 node="critic_agent",
-                summary=f"Quality Audit — {verdict}",
-                reasoning=(
-                    thinking_text or
-                    f"Severity: {severity}. {len(issues)} issue(s) found. "
-                    f"{'Sending back for revision.' if not passed else 'All checks passed.'}"
-                ),
-                data=review,
+                summary="Quality Audit — Logged (Background)",
+                reasoning="Critic audit dispatched as background task. Response streamed immediately.",
             )],
-        }
+        },
     )

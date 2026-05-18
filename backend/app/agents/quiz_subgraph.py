@@ -164,7 +164,7 @@ async def reviewer_node(
         revision_count=revisions
     )
 
-    if revisions >= 2:
+    if revisions >= 1:
         return Command(
             goto="formatter", 
             update={
