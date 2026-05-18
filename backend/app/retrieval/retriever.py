@@ -72,12 +72,26 @@ def get_retrieval_chain(
         cached_payload = await cache.get_cached_context(user_id, course_id, query_vector)
 
         if cached_payload:
+            logger.info(
+                "Retrieval: CACHE HIT for query=%r (top_score=%.3f, %d docs)",
+                query[:60],
+                cached_payload.get("top_score", 0.0),
+                len(cached_payload.get("documents", [])),
+            )
             return cached_payload
+        
+        logger.info("Retrieval: cache miss for query=%r — running full pipeline.", query[:60])
 
         # ── 2. Cache Miss: Full Retrieval Path ────────────────────────────────
+        logger.info(
+            "Retrieval: query=%r | pre_filter=%s | top_k=%d",
+            query[:80], pre_filter, settings.retrieval_k
+        )
         docs = await hybrid_retriever.ainvoke(query)
+        logger.info("Hybrid search returned %d raw child chunks.", len(docs))
         
         if not docs:
+            logger.warning("Retrieval: 0 child chunks found — check Atlas Vector/BM25 indexes and pre_filter match.")
             return {
                 "documents": [],
                 "top_score": 0.0,
@@ -87,6 +101,11 @@ def get_retrieval_chain(
 
         try:
             reranked = await asyncio.to_thread(compressor.compress_documents, docs, query)
+            logger.info(
+                "Cohere rerank: %d → %d docs. Top score: %.3f",
+                len(docs), len(reranked),
+                max(d.metadata.get("relevance_score", 0.0) for d in reranked) if reranked else 0.0,
+            )
         except Exception as e:
             logger.warning(f"Cohere reranker failed: {e}. Falling back to un-reranked hybrid results.")
             for i, d in enumerate(docs[:settings.reranker_top_n]):

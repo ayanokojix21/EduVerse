@@ -116,6 +116,7 @@ function SessionItem({
   isActive,
   onSelect,
   onContextMenu,
+  onDelete,
   isRenaming,
   onRenameSubmit,
   onRenameCancel,
@@ -124,6 +125,7 @@ function SessionItem({
   isActive: boolean;
   onSelect: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
+  onDelete: () => void;
   isRenaming: boolean;
   onRenameSubmit: (newTitle: string) => void;
   onRenameCancel: () => void;
@@ -154,59 +156,97 @@ function SessionItem({
   const timeAgo = formatTimeAgo(session.updated_at ?? session.created_at);
 
   return (
-    <button
-      onClick={onSelect}
+    <div
       onContextMenu={onContextMenu}
       className={`
         w-full text-left px-3 py-2.5
         rounded-[var(--radius-lg)]
         transition-all duration-150
         group/session
+        flex items-center gap-1
+        cursor-pointer
         ${
           isActive
             ? "bg-[rgba(239,243,244,0.08)]"
             : "hover:bg-[rgba(239,243,244,0.04)]"
         }
       `}
+      onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelect(); }}
     >
-      {isRenaming ? (
-        <input
-          ref={inputRef}
-          value={renameValue}
-          onChange={(e) => setRenameValue(e.target.value)}
-          onKeyDown={handleRenameKeyDown}
-          onBlur={onRenameCancel}
-          className="
-            w-full bg-transparent
-            text-[13px] text-[var(--color-text-main)]
-            border-b border-[var(--color-border-focus)]
-            outline-none pb-0.5
-          "
-          maxLength={100}
-        />
-      ) : (
-        <>
-          <p
-            className={`
-              text-[13px] font-medium truncate
-              ${isActive ? "text-[var(--color-text-main)]" : "text-[var(--color-text-muted)]"}
-            `}
-          >
-            {session.title}
-          </p>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[11px] text-[var(--color-text-dim)]">
-              {timeAgo}
-            </span>
-            {session.message_count != null && (
+      {/* Content area */}
+      <div className="flex-1 min-w-0">
+        {isRenaming ? (
+          <input
+            ref={inputRef}
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={handleRenameKeyDown}
+            onBlur={onRenameCancel}
+            onClick={(e) => e.stopPropagation()}
+            className="
+              w-full bg-transparent
+              text-[13px] text-[var(--color-text-main)]
+              border-b border-[var(--color-border-focus)]
+              outline-none pb-0.5
+            "
+            maxLength={100}
+          />
+        ) : (
+          <>
+            <p
+              className={`
+                text-[13px] font-medium truncate
+                ${isActive ? "text-[var(--color-text-main)]" : "text-[var(--color-text-muted)]"}
+              `}
+            >
+              {session.title}
+            </p>
+            <div className="flex items-center gap-2 mt-0.5">
               <span className="text-[11px] text-[var(--color-text-dim)]">
-                · {session.message_count} msgs
+                {timeAgo}
               </span>
-            )}
-          </div>
-        </>
+              {session.message_count != null && (
+                <span className="text-[11px] text-[var(--color-text-dim)]">
+                  · {session.message_count} msgs
+                </span>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Delete button — visible on hover (desktop) and always visible on mobile */}
+      {!isRenaming && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="
+            flex-shrink-0
+            w-7 h-7 rounded-md
+            flex items-center justify-center
+            text-[var(--color-text-dim)]
+            hover:text-[var(--color-danger)] hover:bg-[var(--color-danger-dim)]
+            transition-all duration-150
+            opacity-0 group-hover/session:opacity-100
+            md:opacity-0 md:group-hover/session:opacity-100
+            max-md:opacity-70
+          "
+          aria-label={`Delete ${session.title}`}
+          title="Delete chat"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 6h18" />
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+          </svg>
+        </button>
       )}
-    </button>
+    </div>
   );
 }
 
@@ -313,6 +353,20 @@ export function SessionSidebar({
     }
   }, [contextMenu, closeContextMenu, activeSessionId, onNewChat]);
 
+  // ── Direct delete (from hover button) ──────────────────────────────────
+
+  const handleDeleteDirect = useCallback(async (sessionId: string) => {
+    try {
+      await sessionsApi.delete(sessionId);
+      setSessions((prev) => prev.filter((s) => s.session_id !== sessionId));
+      if (sessionId === activeSessionId) {
+        onNewChat();
+      }
+    } catch (err) {
+      console.error("Failed to delete session:", err);
+    }
+  }, [activeSessionId, onNewChat]);
+
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
@@ -371,6 +425,7 @@ export function SessionSidebar({
                 isActive={session.session_id === activeSessionId}
                 onSelect={() => onSelectSession(session.session_id)}
                 onContextMenu={(e) => handleContextMenu(session.session_id, e)}
+                onDelete={() => handleDeleteDirect(session.session_id)}
                 isRenaming={renamingId === session.session_id}
                 onRenameSubmit={(title) => handleRenameSubmit(session.session_id, title)}
                 onRenameCancel={() => setRenamingId(null)}

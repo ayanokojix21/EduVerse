@@ -54,7 +54,8 @@ async def critic_agent_node(state: AgentState, config: RunnableConfig) -> dict:
         res_raw = await llm.ainvoke(prompt_value.to_messages(), config=config)
         result: CriticOutput = res_raw["parsed"]
         raw_text = normalize_content(
-            res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"])
+            res_raw["raw"].content if hasattr(res_raw["raw"], "content") else str(res_raw["raw"]),
+            include_thinking=True,
         )
         thinking_text = extract_thinking(raw_text)
         

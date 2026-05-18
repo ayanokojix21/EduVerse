@@ -23,6 +23,17 @@ def calculate_rl_reward(review: Dict[str, Any], response_text: str) -> float:
       - Perfect: ~1.15 (all phases excellent + bonus)
       - Hallucination: -2.5 (hard fail, early return)
     """
+    # Gemma 4 may pass content as a list of dicts — normalize to string
+    if isinstance(response_text, list):
+        parts = []
+        for part in response_text:
+            if isinstance(part, dict):
+                parts.append(str(part.get("text") or part.get("thinking") or ""))
+            else:
+                parts.append(str(part))
+        response_text = "\n".join(parts)
+    elif not isinstance(response_text, str):
+        response_text = str(response_text)
     passed = review.get("passed", True)
     severity = review.get("severity", "none")
     length = len(response_text)

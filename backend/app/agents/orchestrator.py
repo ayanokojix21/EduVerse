@@ -93,7 +93,8 @@ async def orchestrator_node(
         # Extract thinking for the "Show Thinking" UI
         raw_content = normalize_content(
             result_raw["raw"].content if isinstance(result_raw, dict) and "raw" in result_raw 
-            else str(result_raw)
+            else str(result_raw),
+            include_thinking=True,
         )
         thinking_text = extract_thinking(raw_content)
         
