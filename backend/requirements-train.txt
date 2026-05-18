@@ -1,0 +1,14 @@
+# ── DPO Training & Offline Orchestration Requirements ─────────────────────────
+gymnasium>=1.1.0
+kaggle>=2.1
+huggingface_hub>=1.15
+datasets>=3.0.0
+trl>=0.12.0
+
+# ── ML & Fine-Tuning Libraries (Unsloth Stack) ───────────────────────────────
+torch
+transformers
+peft
+accelerate
+bitsandbytes
+unsloth

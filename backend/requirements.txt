@@ -62,10 +62,7 @@ pymupdf>=1.27
 pymupdf4llm>=1.27
 
 # ── Reinforcement Learning & Kaggle Orchestration ─────────────────────────────
-gymnasium>=1.1.0
 numpy>=2.4
-kaggle>=2.1
-huggingface_hub>=1.15
 
 # ── Utilities ──────────────────────────────────────────────────────────────────
 tiktoken>=0.12.0
